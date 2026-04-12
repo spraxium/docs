@@ -1,0 +1,97 @@
+---
+title: Environment
+description: |
+  Type-safe environment variable validation that catches missing or malformed configuration at startup.
+  Define a typed schema, validate it before boot, and get a fully typed object with no runtime surprises.
+order: 2
+category: Getting Started
+---
+
+## What the environment module does
+
+The *@spraxium/env* package replaces the common pattern of reading *process.env* directly and hoping the values are present at runtime. Instead of scattering environment access across your codebase, you define a single typed class that declares exactly which variables your bot needs, what type each one must be, and which ones are optional. When the bot starts, `EnvValidator.validate` reads the *.env* file, checks every field against those rules, and either returns a fully typed object or throws a clear error listing exactly what is wrong.
+
+The practical benefit is that configuration failures surface during startup, not after deployment when a user triggers the affected feature. A missing database URL or a malformed webhook endpoint becomes a startup error with a descriptive message rather than a cryptic runtime crash. This fail-fast behavior is especially valuable in production environments where debugging live issues costs significantly more time than catching problems during the boot sequence.
+
+## Define the schema
+
+Create a class in *src/app.env.ts* that extends `SpraxiumBaseEnv` to inherit the base fields every Spraxium bot needs. The base class already includes *TOKEN* and *NODE_ENV*, so you only need to add the fields specific to your application. Each field uses the `@Env()` decorator to bind it to a named environment variable, and you can stack validation decorators like `@IsString()` and `@IsUrl()` to enforce format rules automatically.
+
+```typescript filename="src/app.env.ts"
+import { Env, EnvSchema, IsOptional, IsString, IsUrl, SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv extends SpraxiumBaseEnv {
+  @Env('DATABASE_URL')
+  @IsString()
+  DATABASE_URL!: string;
+
+  @Env('DISCORD_WEB', { secret: false })
+  @IsString()
+  @IsUrl()
+  DISCORD_WEB!: string;
+
+  @Env('ANALYTICS_TRACKING_ID', { secret: false })
+  @IsString()
+  @IsOptional()
+  ANALYTICS_TRACKING_ID?: string;
+}
+```
+
+The *secret* flag controls whether the value appears in logs and diagnostic output, which is important for keeping sensitive credentials like tokens and API keys out of production log streams. Fields without `@IsOptional()` are required by default and will cause validation to fail if they are absent from the environment. This ensures that your bot never starts with incomplete configuration, catching problems before any module or provider is instantiated.
+
+## Validate before boot
+
+Call `EnvValidator.validate` as the first thing in *src/main.ts*, before creating the application instance or loading any modules. This ensures that every environment variable has been checked and typed before any framework code runs, giving you a fully typed object that you can pass around through dependency injection or use directly in bootstrap logic.
+
+```typescript filename="src/main.ts"
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+
+const env = EnvValidator.validate(AppEnv);
+```
+
+After this call, the *env* variable is a fully typed instance of *AppEnv* with all validations passed. You can pass *env.token* to `SpraxiumFactory.create`, use the database URL to initialize a connection, or inject the entire object through DI into any provider that needs configuration values. If any required field is missing or fails its validation rules, the process exits immediately with a clear error message before any module or provider is instantiated.
+
+## Available decorators
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Purpose</TableCell>
+      <TableCell header>Typical usage</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`@EnvSchema()`</TableCell>
+      <TableCell>Marks the class as an environment schema</TableCell>
+      <TableCell>Applied to the schema class itself</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@Env('NAME')`</TableCell>
+      <TableCell>Binds a field to a named environment variable</TableCell>
+      <TableCell>Applied to each property</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@IsString()`</TableCell>
+      <TableCell>Validates that the value is a text string</TableCell>
+      <TableCell>Tokens, IDs, URLs</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@IsUrl()`</TableCell>
+      <TableCell>Validates URL format</TableCell>
+      <TableCell>Webhook URLs, external service endpoints</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`@IsOptional()`</TableCell>
+      <TableCell>Allows the field to be absent from the environment</TableCell>
+      <TableCell>Feature flags, optional integrations</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Next step
+
+Continue with [Modules](/guide/first-command).

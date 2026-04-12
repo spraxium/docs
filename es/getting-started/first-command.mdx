@@ -1,0 +1,140 @@
+---
+title: Modulos
+description: |
+  Construye modulos de feature con fronteras claras, conectalos al modulo raiz y entiende como el contenedor de DI resuelve el grafo completo.
+  Aprende la estructura de carpetas recomendada, propiedades de modulo, modulos globales y las reglas que mantienen los modulos sostenibles.
+order: 3
+category: Getting Started
+---
+
+## Por que importan los modulos
+
+Spraxium escala a traves de modulos, y cada feature en tu bot pertenece a exactamente uno de ellos, ya sea para eventos, moderacion, comandos o integraciones externas. Cada modulo es responsable de declarar lo que provee, lo que importa de otros modulos y lo que expone de vuelta al resto de la aplicacion. Este modelo de fronteras explicitas significa que puedes crecer la base de codigo agregando nuevos modulos sin aumentar la complejidad de los existentes, porque cada modulo es autocontenido, testeable independientemente y facil de razonar de forma aislada.
+
+Sin esta estructura, el codigo tiende a acumularse en archivos compartidos, las dependencias se vuelven implicitas y agregar una nueva feature corre el riesgo de romper algo no relacionado en una parte completamente diferente de la base de codigo. Los modulos previenen eso forzandote a ser explicito sobre las relaciones desde el principio, dejando claro a primera vista de que depende cada parte del bot y que provee a los demas.
+
+## Arquitectura de modulo recomendada
+
+El layout estandar aisla cada feature detras de una frontera de modulo con su propia carpeta conteniendo como minimo un archivo de modulo y un archivo de service. Los modulos evolucionan independientemente unos de otros, y el contenedor de DI se encarga de toda la conexion entre ellos al arrancar sin ninguna configuracion manual ni funciones factory.
+
+<FolderStructure title="Arquitectura module-first">
+  <Folder name="src" open>
+    <File name="main.ts" comment="Bootstrap y binding del modulo raiz" />
+    <File name="app.module.ts" comment="Modulo central que compone features" />
+    <Folder name="modules" open>
+      <Folder name="nombre-modulo" open>
+        <File name="nombre-modulo.module.ts" comment="Frontera de feature y wiring del modulo" />
+        <File name="nombre-modulo.service.ts" comment="Logica de negocio y providers" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Declarar el modulo raiz
+
+El archivo de bootstrap *main.ts* es el punto de entrada donde validas el entorno, creas la instancia de la aplicacion, cargas el modulo raiz y comienzas a escuchar eventos de Discord. La llamada `app.useModule(AppModule)` es el punto de entrada de composicion, y desde ahi Spraxium carga todos los modulos importados recursivamente, resuelve providers a traves de inyeccion de dependencias y vincula cada listener registrado al client de Discord automaticamente.
+
+```typescript filename="src/main.ts"
+import { IntentPreset, Logger, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const logger = new Logger('Main');
+  const environment = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: environment.token });
+  app.useModule(AppModule);
+  app.intents(IntentPreset.Standard);
+
+  logger.info('Iniciando aplicacion...');
+  await app.listen();
+}
+
+main();
+```
+
+## Construir la raiz de composicion
+
+El modulo raiz *AppModule* compone features importando otros modulos pero nunca debe contener logica de feature directamente. Cuando quieras agregar un nuevo dominio al bot, creas un modulo de feature dedicado y lo importas aqui, manteniendo la raiz delgada y legible sin importar cuan grande o complejo se vuelva el bot con el tiempo.
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { AnalyticsModule } from '@spraxium/analytics';
+import { NombreModuloModule } from './modules/nombre-modulo/nombre-modulo.module';
+
+@Module({
+  imports: [AnalyticsModule, NombreModuloModule],
+})
+export class AppModule {}
+```
+
+## Referencia de propiedades del modulo
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Propiedad</TableCell>
+      <TableCell header>Proposito</TableCell>
+      <TableCell header>Uso tipico</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`imports`</TableCell>
+      <TableCell>Carga otros modulos antes del modulo actual</TableCell>
+      <TableCell>Componer modulos de feature en AppModule</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`providers`</TableCell>
+      <TableCell>Registra clases inyectables en DI</TableCell>
+      <TableCell>Services y clases internas de runtime</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`exports`</TableCell>
+      <TableCell>Expone providers al modulo padre o raiz</TableCell>
+      <TableCell>Compartir service entre fronteras de modulo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`listeners`</TableCell>
+      <TableCell>Registra clases listener para eventos de Discord</TableCell>
+      <TableCell>Handlers orientados a eventos como messageCreate</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`commands`</TableCell>
+      <TableCell>Registra clases de metadatos de comando</TableCell>
+      <TableCell>Clases de SlashCommand y PrefixCommand</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`handlers`</TableCell>
+      <TableCell>Registra clases de ejecucion para comandos</TableCell>
+      <TableCell>Clases de SlashCommandHandler y PrefixCommandHandler</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Modulos globales con @Global()
+
+Por defecto, los providers de un modulo solo estan disponibles para modulos que lo importan explicitamente, que es el comportamiento deseado para la mayoria de los modulos de feature porque mantiene las dependencias visibles y rastreables. Marcar un modulo con `@Global()` hace que sus exports esten disponibles en toda la aplicacion sin requerir imports explicitos, pero esto debe reservarse exclusivamente para preocupaciones transversales como logging, analytics o services de configuracion compartida que genuinamente necesitan ser accedidos desde todas las partes de la base de codigo.
+
+```typescript filename="src/modules/analytics/analytics.module.ts"
+import { Global, Module } from '@spraxium/common';
+import { AnalyticsService } from './analytics.service';
+
+@Global()
+@Module({
+  providers: [AnalyticsService],
+  exports: [AnalyticsService],
+})
+export class AnalyticsModule {}
+```
+
+Usa modulos globales con moderacion porque eluden las fronteras de encapsulamiento que hacen valioso al sistema de modulos en primer lugar. Los services especificos de feature siempre deben permanecer locales a su propio modulo con exports explicitos, y solo infraestructura verdaderamente universal debe ser global. Si te encuentras marcando mas de dos o tres modulos como globales, generalmente indica que las fronteras de modulo necesitan ser rediseñadas en lugar de eludidas.
+
+## Reglas para mantener modulos sostenibles
+
+Mantener modulos saludables a lo largo del tiempo requiere seguir unas cuantas directrices practicas que previenen que la complejidad crezca sigilosamente conforme el bot evoluciona. Manten una frontera de negocio por carpeta de modulo, y exporta solo lo que otros modulos deben consumir mientras mantienes todos los detalles de implementacion internos privados. Separa declaraciones de command y listener de los internals de service, y prefiere muchos modulos pequeños y enfocados compuestos por *AppModule* en lugar de unos pocos modulos grandes y compartidos que intentan hacer demasiado. A medida que el bot madura, es normal que un modulo existente se divida en dos mas enfocados cuando un unico dominio crece mas alla de su alcance original, y este tipo de division es una señal de crecimiento saludable en lugar de una carga de refactorizacion.
+
+## Siguiente paso
+
+Continua con [Providers y Ciclo de Vida](/guide/providers-and-lifecycle).

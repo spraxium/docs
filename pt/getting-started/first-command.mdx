@@ -1,0 +1,140 @@
+---
+title: Módulos
+description: |
+  Construa módulos de feature com fronteiras claras, conecte-os ao módulo raiz e entenda como o contêiner de DI resolve o grafo completo.
+  Aprenda a estrutura de pastas recomendada, propriedades de módulo, módulos globais e as regras que mantêm os módulos sustentáveis.
+order: 3
+category: Getting Started
+---
+
+## Por que módulos importam
+
+O Spraxium escala através de módulos, e cada feature do bot pertence a exatamente um deles, seja para eventos, moderação, comandos ou integrações externas. Cada módulo é responsável por declarar o que ele provê, o que importa de outros módulos e o que expõe de volta para o resto da aplicação. Esse modelo de fronteiras explícitas significa que você pode crescer a base de código adicionando novos módulos sem aumentar a complexidade dos existentes, porque cada módulo é autocontido, testável independentemente e fácil de entender de forma isolada.
+
+Sem essa estrutura, o código tende a se acumular em arquivos compartilhados, dependências ficam implícitas e adicionar uma nova feature arrisca quebrar algo não relacionado em uma parte completamente diferente da base de código. Módulos previnem isso forçando você a ser explícito sobre relacionamentos desde o início, deixando claro à primeira vista do que cada parte do bot depende e o que ela provê para os demais.
+
+## Arquitetura de módulo recomendada
+
+O layout padrão isola cada feature atrás de uma fronteira de módulo com sua própria pasta contendo no mínimo um arquivo de módulo e um arquivo de service. Módulos evoluem independentemente uns dos outros, e o contêiner de DI cuida de toda a conexão entre eles no boot sem nenhuma configuração manual ou funções factory.
+
+<FolderStructure title="Arquitetura module-first">
+  <Folder name="src" open>
+    <File name="main.ts" comment="Bootstrap e binding do módulo raiz" />
+    <File name="app.module.ts" comment="Módulo central que compõe features" />
+    <Folder name="modules" open>
+      <Folder name="nome-modulo" open>
+        <File name="nome-modulo.module.ts" comment="Fronteira de feature e wiring do módulo" />
+        <File name="nome-modulo.service.ts" comment="Lógica de negócio e providers" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Declarar o módulo raiz
+
+O arquivo de bootstrap *main.ts* é o ponto de entrada onde você valida o ambiente, cria a instância da aplicação, carrega o módulo raiz e começa a escutar eventos do Discord. A chamada `app.useModule(AppModule)` é o ponto de entrada de composição, e a partir daí o Spraxium carrega todos os módulos importados recursivamente, resolve providers via injeção de dependência e vincula cada listener registrado ao client do Discord automaticamente.
+
+```typescript filename="src/main.ts"
+import { IntentPreset, Logger, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const logger = new Logger('Main');
+  const environment = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: environment.token });
+  app.useModule(AppModule);
+  app.intents(IntentPreset.Standard);
+
+  logger.info('Iniciando aplicação...');
+  await app.listen();
+}
+
+main();
+```
+
+## Construir a raiz de composição
+
+O módulo raiz *AppModule* compõe features importando outros módulos mas nunca deve conter lógica de feature diretamente. Quando você quiser adicionar um novo domínio ao bot, crie um módulo de feature dedicado e importe-o aqui, mantendo a raiz enxuta e legível independente de quão grande ou complexo o bot se torne ao longo do tempo.
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { AnalyticsModule } from '@spraxium/analytics';
+import { NomeModuloModule } from './modules/nome-modulo/nome-modulo.module';
+
+@Module({
+  imports: [AnalyticsModule, NomeModuloModule],
+})
+export class AppModule {}
+```
+
+## Referência de propriedades do módulo
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Propriedade</TableCell>
+      <TableCell header>Propósito</TableCell>
+      <TableCell header>Uso típico</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`imports`</TableCell>
+      <TableCell>Carrega outros módulos antes do módulo atual</TableCell>
+      <TableCell>Compor módulos de feature no AppModule</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`providers`</TableCell>
+      <TableCell>Registra classes injetáveis no DI</TableCell>
+      <TableCell>Services e classes internas de runtime</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`exports`</TableCell>
+      <TableCell>Expõe providers para o módulo pai ou raiz</TableCell>
+      <TableCell>Compartilhar service entre fronteiras de módulo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`listeners`</TableCell>
+      <TableCell>Registra classes listener para eventos do Discord</TableCell>
+      <TableCell>Handlers orientados a eventos como messageCreate</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`commands`</TableCell>
+      <TableCell>Registra classes de metadados de comando</TableCell>
+      <TableCell>Classes de SlashCommand e PrefixCommand</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`handlers`</TableCell>
+      <TableCell>Registra classes de execução para comandos</TableCell>
+      <TableCell>Classes de SlashCommandHandler e PrefixCommandHandler</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Módulos globais com @Global()
+
+Por padrão, os providers de um módulo ficam disponíveis apenas para módulos que o importam explicitamente, que é o comportamento desejado para a maioria dos módulos de feature porque mantém as dependências visíveis e rastreáveis. Marcar um módulo com `@Global()` torna seus exports disponíveis em toda a aplicação sem exigir imports explícitos, mas isso deve ser reservado exclusivamente para preocupações transversais como logging, analytics ou services de configuração compartilhada que genuinamente precisam ser acessados de todas as partes da base de código.
+
+```typescript filename="src/modules/analytics/analytics.module.ts"
+import { Global, Module } from '@spraxium/common';
+import { AnalyticsService } from './analytics.service';
+
+@Global()
+@Module({
+  providers: [AnalyticsService],
+  exports: [AnalyticsService],
+})
+export class AnalyticsModule {}
+```
+
+Use módulos globais com moderação porque eles contornam as fronteiras de encapsulamento que tornam o sistema de módulos valioso em primeiro lugar. Services específicos de feature devem sempre permanecer locais ao seu próprio módulo com exports explícitos, e apenas infraestrutura verdadeiramente universal deve ser global. Se você perceber que está marcando mais de dois ou três módulos como globais, geralmente indica que as fronteiras dos módulos precisam ser redesenhadas em vez de contornadas.
+
+## Regras para manter módulos sustentáveis
+
+Manter módulos saudáveis ao longo do tempo exige seguir algumas diretrizes práticas que previnem a complexidade de crescer sorrateiramente conforme o bot evolui. Mantenha uma fronteira de negócio por pasta de módulo, e exporte apenas o que outros módulos devem consumir enquanto mantém todos os detalhes de implementação internos privados. Separe declarações de command e listener dos internals de service, e prefira muitos módulos pequenos e focados compostos pelo *AppModule* em vez de poucos módulos grandes e compartilhados que tentam fazer demais. Conforme o bot amadurece, é normal que um módulo existente se divida em dois mais focados quando um único domínio cresce além do seu escopo original, e esse tipo de divisão é sinal de crescimento saudável em vez de uma carga de refatoração.
+
+## Próximo passo
+
+Continue com [Providers e Ciclo de Vida](/guide/providers-and-lifecycle).

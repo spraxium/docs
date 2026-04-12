@@ -1,0 +1,119 @@
+---
+title: Providers y Ciclo de Vida
+description: |
+  Los providers son los services inyectables que contienen el comportamiento de runtime y la logica de negocio del bot.
+  Aprende el modelo de providers, inyeccion por constructor, los tres lifecycle hooks y como compartir providers entre modulos.
+order: 4
+category: Getting Started
+---
+
+## Que es un provider
+
+Un provider es cualquier clase decorada con `@Injectable()` y registrada en el array *providers* de un modulo. Los providers contienen el comportamiento de runtime del bot, incluyendo consultas de base de datos, logica de moderacion, cache, llamadas API y cualquier otra cosa que necesite ser compartida entre listeners u otros providers. El contenedor de DI crea una instancia de cada provider por modulo y conecta dependencias automaticamente a traves de parametros de constructor, asi que nunca necesitas gestionar creacion de objetos o grafos de dependencia manualmente.
+
+La regla clave es que nunca instancias providers tu mismo usando la palabra clave *new*. Declaras lo que una clase necesita como parametros de constructor, y el framework maneja la resolucion, instanciacion e inyeccion automaticamente. Esto mantiene los constructores enfocados en declaracion de dependencias en lugar de construccion de objetos o logica de startup, lo que hace que cada provider sea sencillo de testear con dependencias mock.
+
+```typescript filename="src/modules/metrics/metrics.service.ts"
+import { Injectable } from '@spraxium/common';
+
+@Injectable()
+export class MetricsService {
+  // la logica de negocio vive aqui
+}
+```
+
+```typescript filename="src/modules/metrics/metrics.module.ts"
+import { Module } from '@spraxium/common';
+import { MetricsService } from './metrics.service';
+
+@Module({
+  providers: [MetricsService],
+})
+export class MetricsModule {}
+```
+
+## Inyeccion por constructor
+
+Cuando un provider necesita otro, lo agregas como parametro de constructor y el framework se encarga del resto. Spraxium lee los metadatos de tipo de TypeScript al arrancar, resuelve el grafo de dependencias usando ordenamiento topologico e inyecta cada clase en el orden correcto para que las dependencias siempre esten listas antes que las clases que dependen de ellas. Si existe una dependencia circular en cualquier parte del grafo, el framework la detecta y reporta el problema claramente al iniciar antes de que cualquier logica del bot se ejecute, en lugar de causar fallas misteriosas en runtime.
+
+```typescript filename="src/modules/metrics/metrics.service.ts"
+import { Injectable } from '@spraxium/common';
+
+@Injectable()
+export class MetricsRepository {
+  async connect(): Promise<void> {}
+  async close(): Promise<void> {}
+}
+
+@Injectable()
+export class MetricsService {
+  constructor(private readonly repo: MetricsRepository) {}
+}
+```
+
+Evita operaciones pesadas de I/O en los constructores porque el unico rol del constructor es el cableado de dependencias, no logica de inicializacion. Tareas como conectar a una base de datos, calentar un cache o traer estado inicial de un servicio externo pertenecen a los lifecycle hooks donde la etapa de ejecucion es explicita y predecible. Esta separacion asegura que la fase de resolucion de DI permanezca rapida y deterministica, y que las fallas de inicializacion sean capturadas correctamente por el sistema de lifecycle en lugar de romper todo el proceso de boot.
+
+## Lifecycle hooks
+
+Spraxium expone tres interfaces de lifecycle que los providers pueden implementar para reaccionar a diferentes etapas del runtime de la aplicacion. Cada hook se ejecuta en un punto especifico de la secuencia de boot y shutdown, dando control preciso sobre cuando la logica de inicializacion y limpieza se ejecuta sin mezclar preocupaciones dentro de constructores o event handlers.
+
+<Steps>
+  <Step title="SpraxiumOnBoot">
+    Este hook se ejecuta despues de que el grafo de DI este completamente instanciado pero antes de que ocurra el login en Discord. Usalo para trabajo de startup que no requiere un client de Discord conectado, como conectar a una base de datos, validar configuracion externa o precalentar un cache con datos de una API.
+  </Step>
+  <Step title="SpraxiumOnReady">
+    Este hook se ejecuta despues de que el evento *ready* de Discord se dispare y el client este completamente conectado. Usalo para cualquier logica que dependa de un client de Discord activo, como obtener datos de guilds, sincronizar comandos de la aplicacion o iniciar actualizaciones programadas de presencia.
+  </Step>
+  <Step title="SpraxiumOnShutdown">
+    Este hook se ejecuta cuando el proceso recibe una senal SIGINT o SIGTERM. Usalo para tareas de limpieza como cerrar conexiones de base de datos, hacer flush de buffers de escritura y cancelar timers activos. Manten la logica de shutdown rapida e idempotente para que el proceso termine de forma limpia bajo presion de tiempo.
+  </Step>
+</Steps>
+
+```typescript filename="src/modules/metrics/metrics.service.ts"
+import { Injectable, type SpraxiumOnBoot, type SpraxiumOnReady, type SpraxiumOnShutdown } from '@spraxium/common';
+import type { Client } from 'discord.js';
+import { Logger } from '@spraxium/core';
+
+@Injectable()
+export class MetricsService implements SpraxiumOnBoot, SpraxiumOnReady, SpraxiumOnShutdown {
+  private readonly logger = new Logger(MetricsService.name);
+
+  async onBoot(): Promise<void> {
+    this.logger.info('Preparando recursos de metricas...');
+  }
+
+  async onReady(client: Client<true>): Promise<void> {
+    this.logger.info(`Bot listo en ${client.guilds.cache.size} guilds.`);
+  }
+
+  async onShutdown(): Promise<void> {
+    this.logger.info('Liberando recursos de metricas...');
+  }
+}
+```
+
+No necesitas implementar los tres hooks en cada provider. Implementa solo los que correspondan a las responsabilidades reales del provider, manteniendo cada clase enfocada en sus propias preocupaciones. Un service que solo necesita inicializacion al arrancar implementa unicamente `SpraxiumOnBoot`, un service que solo necesita limpieza implementa unicamente `SpraxiumOnShutdown`, y solo debes implementar `SpraxiumOnReady` cuando tu logica verdaderamente dependa de que el client de Discord este en un estado conectado y listo.
+
+## Compartir providers entre modulos
+
+Por defecto, un provider esta escopado a su propio modulo, lo que significa que otros modulos no pueden inyectarlo a menos que el modulo dueno lo exporte explicitamente. Para compartir un provider, agregalo al array *exports* del modulo e importa ese modulo donde el provider sea necesario. Este modelo de comparticion explicita mantiene las dependencias visibles y previene acoplamiento oculto entre modulos que de otra forma seria dificil de rastrear durante depuracion o refactorizacion.
+
+```typescript filename="src/modules/metrics/metrics.module.ts"
+@Module({
+  providers: [MetricsService, MetricsRepository],
+  exports:   [MetricsService],
+})
+export class MetricsModule {}
+
+@Module({
+  imports:   [MetricsModule],
+  listeners: [EventsListener],
+})
+export class EventsModule {}
+```
+
+Para services que genuinamente se necesitan en todas partes del proyecto, como logging, configuracion y analytics, usa `@Global()` en el modulo para que sus exports esten disponibles sin imports explicitos. Usa modulos globales con moderacion porque eluden el encapsulamiento y dificultan el rastreo de dependencias, asi que reservalos exclusivamente para infraestructura transversal que cada modulo en la aplicacion realmente necesita acceder.
+
+## Siguiente paso
+
+Continua con [Vision General de Configuracion](/guide/configuration-layers).
