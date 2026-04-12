@@ -1,0 +1,137 @@
+---
+title: Layouts and Mapping
+description: |
+  Understand the role of exception layouts in Spraxium runtime and how they are resolved.
+  Learn when to use the decorator approach, when to map in configuration, and when to use per-instance overrides.
+order: 3
+category: Exceptions
+---
+
+## What an exception layout is
+
+When a user runs a command and something goes wrong, what they see in the chat is the layout. It is the visual response that Spraxium sends on behalf of the error: a text message, an embed with a title and description, an ephemeral reply, or any combination of those. The exception class is the internal signal that says what failed and carries the context data. The layout is the template that consumes that context and turns it into the actual Discord message the user reads.
+
+This separation means domain code stays focused on business rules and never needs to know how errors look to the user. A guard that denies access throws a `PermissionDeniedException`. It does not build an embed, compose a message string, or decide whether the reply should be ephemeral. All of that lives in the layout, which can be changed or overridden independently without touching any domain logic.
+
+## Runtime precedence order
+
+Spraxium resolves layouts in a fixed order, and knowing this order is essential to avoid confusion when local customization and global configuration coexist in the same application. Each level in the precedence chain can override the one below it, which gives you fine-grained control over how errors are presented without creating ambiguity about which layout will actually render.
+
+1. Per-instance override on the exception object
+2. Config mapping matching the exception class name
+3. Class-level decorator with `@WithLayout()`
+4. The default entry in the configuration layout map
+5. The framework built-in *DefaultExceptionLayout*
+
+<Callout tone="warning" title="Practical consequence">
+  If you map a class in the config layout map, that mapping takes priority over
+  the class-level decorator, which allows application configuration to override
+  library defaults when needed.
+</Callout>
+
+## When to use @WithLayout
+
+Use the decorator when the exception class itself should carry a semantic default layout as part of its definition. This approach works well in shared packages or library code where you want the class to ship with a reasonable fallback without depending on the consuming application's configuration. Teams that prefer class-first conventions also benefit from this pattern because it reduces the chance of forgetting to add a layout mapping when creating a new exception class.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Scenario</TableCell>
+      <TableCell header>Why decorator fits</TableCell>
+      <TableCell header>Trade-off</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Shared exception package</TableCell>
+      <TableCell>Class ships with an opinionated default layout</TableCell>
+      <TableCell>App can still override it in config</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Class-first team conventions</TableCell>
+      <TableCell>Reduces chance of forgetting mappings</TableCell>
+      <TableCell>Less centralized policy in one file</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## When to map in configuration
+
+Map in *spraxium.config.ts* when layout policy is driven by product decisions such as branding, language tone, or environment-specific strategy. This is usually the best default for application-level governance because it centralizes all error presentation logic in one place, making change management easier since you can swap layout policy without modifying any domain exception classes.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Scenario</TableCell>
+      <TableCell header>Why config mapping fits</TableCell>
+      <TableCell header>Trade-off</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Branded error UX</TableCell>
+      <TableCell>Centralizes style, tone, and fallback policy</TableCell>
+      <TableCell>Requires mapping discipline</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Different policy per environment</TableCell>
+      <TableCell>Can switch behavior without touching classes</TableCell>
+      <TableCell>Config can become large without conventions</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## When to use per-instance override
+
+Use the per-instance override only for contextual cases where the same exception class must render differently depending on runtime conditions. Typical examples include temporary incident communication, active migrations, or feature-flag experiments where the error response needs to change without modifying class definitions or configuration files. Because this level has the highest priority in the resolution chain, treat it as an intentional exception path and document why it exists to avoid creating implicit behavior that is difficult to trace when debugging.
+
+## Complete example with custom embed
+
+The following example shows how to create an exception class with a decorator-level layout and then override it in application configuration. The config mapping takes priority over the decorator, which means the team-branded layout renders in production while the decorator serves as the fallback for any consumer that does not configure a specific mapping.
+
+```typescript filename="policy.exception.ts"
+import { WithLayout } from '@spraxium/common';
+import { defineExceptionLayout, SpraxiumException } from '@spraxium/core';
+import { EmbedBuilder } from 'discord.js';
+
+const PolicyLayout = defineExceptionLayout((exception) => ({
+  embeds: [
+    new EmbedBuilder()
+      .setColor(0xffb020)
+      .setTitle('Action blocked by policy')
+      .setDescription(String(exception.props.reason ?? 'Reason not provided')),
+  ],
+  ephemeral: true,
+}));
+
+@WithLayout(PolicyLayout)
+export class PolicyException extends SpraxiumException {
+  constructor(props: { reason: string }) {
+    super({
+      code: 'POLICY_BLOCKED',
+      message: 'Action blocked: {{reason}}',
+      props,
+    });
+  }
+}
+```
+
+And in application configuration:
+
+```typescript filename="spraxium.config.ts"
+exceptions: {
+  logUnhandled: true,
+  layouts: {
+    default: AppDefaultLayout,
+    PolicyException: TeamBrandPolicyLayout,
+  },
+}
+```
+
+## Recommended decision rule
+
+When deciding which approach to use, follow this order of preference to keep your error handling architecture clean and maintainable. Use the config layout map as the primary policy for your application, use the decorator as a semantic class-level fallback for libraries and shared packages, and reserve per-instance overrides exclusively for truly contextual behavior that cannot be expressed through the other two mechanisms.
+
+## Next page
+
+Continue with [Error Modeling and Operational Practices](/guide/exceptions-best-practices).

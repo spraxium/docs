@@ -1,0 +1,249 @@
+---
+title: Error Fundamentals
+description: |
+  The exception layer turns runtime and domain failures into predictable, user-facing behavior.
+  Build the mental model for exception classes, layouts, and policies before writing your first error handler.
+order: 1
+category: Exceptions
+---
+
+## Why the exception layer matters
+
+In Spraxium, exceptions are not just about interrupting control flow when something goes wrong. They are the mechanism that transforms both technical and domain failures into predictable user-facing behavior and operationally useful signals that help your team understand what happened and why. Without a structured exception layer, each handler ends up inventing its own error response style, which leads to inconsistent UX, noisy logs, and slower incident resolution across the board.
+
+As your bot grows, failures stop being edge cases and become part of the normal product experience that users encounter regularly. Users will trigger permission denials, cooldown limits, invalid arguments, and unavailable resources as part of their normal interaction with the bot. A dedicated exception layer ensures that all of these scenarios produce responses that are consistent, meaningful, and easy to maintain as the bot evolves over time.
+
+## Error as contract, not accident
+
+Treating an exception as a contract means that each relevant failure has explicit intent behind it rather than being an afterthought or a generic catch-all response. Instead of returning vague error messages, you define exception classes and layouts that represent concrete scenarios such as missing permissions, cooldown violations, invalid arguments, or unavailable resources. This approach creates a stable vocabulary across the team where engineers can read code and immediately understand what failed, why it failed, and how the user should be informed.
+
+The practical goal is predictability across your entire bot. The same failure type should always produce the same exception class, the same response format, and the same operational signal regardless of where in the codebase the error originates. When that contract holds consistently, debugging becomes faster, user experience stays coherent, and the team can reason about failures without reading every handler individually to understand error behavior.
+
+## The SpraxiumException base class
+
+Every exception in the Spraxium ecosystem extends `SpraxiumException`, which itself extends the native JavaScript *Error*. The base class adds structured fields that the pipeline uses for layout resolution, logging decisions, and response rendering. Understanding these fields is essential before creating custom exceptions or working with built-in ones, because each field controls a specific aspect of how the error is processed at runtime.
+
+```typescript filename="shop.command.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+throw new SpraxiumException({
+  code: 'ORDER_LIMIT_EXCEEDED',
+  message: 'You have exceeded the {{limit}} order limit for today.',
+  props: { limit: 5, userId: interaction.user.id },
+  shouldReply: true,
+  shouldLog: false,
+});
+```
+
+For anything beyond a one-off throw, extend `SpraxiumException` into a named class so the exception carries a stable identity that layouts and monitoring rules can target. The constructor accepts the same options object and forwards it to `super`, letting each subclass own its code, default message, and typed props interface.
+
+```typescript filename="order-limit.exception.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+interface OrderLimitProps {
+  limit: number;
+  userId: string;
+}
+
+export class OrderLimitExceededException extends SpraxiumException {
+  constructor(props: OrderLimitProps) {
+    super({
+      code: 'ORDER_LIMIT_EXCEEDED',
+      message: 'You have exceeded the {{limit}} order limit for today.',
+      props,
+    });
+  }
+}
+
+// Usage anywhere in domain code
+throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id });
+```
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*code*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Machine-readable identifier for filtering, monitoring, and log queries</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*message*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Human-readable description with double-brace placeholder support</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*props*</TableCell>
+      <TableCell>Record</TableCell>
+      <TableCell>Runtime data for placeholder interpolation and layout rendering</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*shouldReply*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Whether to send a Discord reply, defaults to true</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*shouldLog*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Whether to log the exception, defaults to false</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*layout*</TableCell>
+      <TableCell>ExceptionLayoutClass</TableCell>
+      <TableCell>Per-instance layout override with highest resolution priority</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Built-in exceptions
+
+Spraxium ships with fifteen exception classes that cover the most common failure scenarios in Discord bots. Each class extends `SpraxiumException` with a predefined *code*, a default *message* with placeholder support, and typed *props* for layout rendering. You can throw any of these directly without creating custom classes, and they are all imported from *@spraxium/core*.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Exception Class</TableCell>
+      <TableCell header>Code</TableCell>
+      <TableCell header>Default Behavior</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`ArgumentException`</TableCell>
+      <TableCell>INVALID_ARGUMENT</TableCell>
+      <TableCell>Reports invalid argument with expected vs received values</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`CommandNotFoundException`</TableCell>
+      <TableCell>COMMAND_NOT_FOUND</TableCell>
+      <TableCell>Signals that the requested command does not exist</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`ConfigurationException`</TableCell>
+      <TableCell>CONFIGURATION_ERROR</TableCell>
+      <TableCell>Reports a configuration key error with reason</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`CooldownException`</TableCell>
+      <TableCell>COOLDOWN</TableCell>
+      <TableCell>Tells the user how many seconds to wait before retrying</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`DMOnlyException`</TableCell>
+      <TableCell>DM_ONLY</TableCell>
+      <TableCell>Restricts the command to direct message channels</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`GuardDeniedException`</TableCell>
+      <TableCell>GUARD_DENIED</TableCell>
+      <TableCell>Signals that a guard blocked execution with reason</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`GuildOnlyException`</TableCell>
+      <TableCell>GUILD_ONLY</TableCell>
+      <TableCell>Restricts the command to server channels only</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`InternalException`</TableCell>
+      <TableCell>INTERNAL_ERROR</TableCell>
+      <TableCell>Generic internal error with safe user message</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`MaintenanceException`</TableCell>
+      <TableCell>MAINTENANCE</TableCell>
+      <TableCell>Signals a feature is under maintenance with optional ETA</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`NsfwOnlyException`</TableCell>
+      <TableCell>NSFW_ONLY</TableCell>
+      <TableCell>Restricts the command to NSFW channels</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`OwnerOnlyException`</TableCell>
+      <TableCell>OWNER_ONLY</TableCell>
+      <TableCell>Restricts the command to the bot owner</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`PermissionDeniedException`</TableCell>
+      <TableCell>PERMISSION_DENIED</TableCell>
+      <TableCell>Reports missing permission with optional permission name</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`PremiumOnlyException`</TableCell>
+      <TableCell>PREMIUM_ONLY</TableCell>
+      <TableCell>Restricts the feature to premium subscribers with tier info</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`RateLimitException`</TableCell>
+      <TableCell>RATE_LIMITED</TableCell>
+      <TableCell>Reports API rate limiting with retry timing and route</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`ValidationException`</TableCell>
+      <TableCell>VALIDATION</TableCell>
+      <TableCell>Reports invalid field value with field name and reason</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Using built-in exceptions
+
+The built-in exceptions are ready to use with zero configuration. Every class accepts an optional *props* object that populates placeholders in the default message and provides context for layout rendering. The example below shows three common scenarios you will encounter in most bots.
+
+```typescript filename="shop.command.ts"
+import {
+  CooldownException,
+  PermissionDeniedException,
+  MaintenanceException,
+} from '@spraxium/core';
+
+// User must wait before retrying the command
+throw new CooldownException({ seconds: 10 });
+
+// User lacks the required permission
+throw new PermissionDeniedException({ permission: 'MANAGE_MESSAGES' });
+
+// Feature is temporarily disabled
+throw new MaintenanceException({ feature: 'Leaderboard', eta: '2 hours' });
+```
+
+## Where exceptions enter runtime flow
+
+In practice, an exception is raised inside domain code such as a service, guard, handler, or listener, and then resolved by the core pipeline that decides the rendering strategy and logging behavior. Understanding this flow is essential because it determines where your exception classes originate, how layouts are selected to present errors to users, and what kind of operational data gets recorded for diagnostics and monitoring.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Stage</TableCell>
+      <TableCell header>Responsibility</TableCell>
+      <TableCell header>Expected outcome</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Exception throw site</TableCell>
+      <TableCell>Domain code signals a policy or rule failure</TableCell>
+      <TableCell>Explicit and traceable failure state</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Layout resolution</TableCell>
+      <TableCell>Core selects layout by override, class mapping, or fallback</TableCell>
+      <TableCell>Consistent user-facing response</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Observability</TableCell>
+      <TableCell>Pipeline records handled and unhandled failures</TableCell>
+      <TableCell>Predictable operational diagnostics</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Next page
+
+Continue with [Configuration Policy and Fallbacks](/guide/exceptions-configuration).

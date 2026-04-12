@@ -1,0 +1,252 @@
+---
+title: Fundamentos de Errores
+description: |
+  La capa de exceptions transforma fallas de runtime y de dominio en comportamiento predecible para el usuario.
+  Construye el modelo mental para clases de exception, layouts y politicas antes de escribir tu primer handler de error.
+order: 1
+category: Exceptions
+---
+
+## Para que sirve la capa de exceptions
+
+En Spraxium, las exceptions no sirven solo para interrumpir el flujo de control cuando algo sale mal. Son el mecanismo que transforma tanto fallas tecnicas como de dominio en comportamiento predecible para el usuario y senales operacionales utiles que ayudan a tu equipo a entender que paso y por que. Sin una capa de exceptions estructurada, cada handler termina inventando su propio estilo de respuesta de error, lo que lleva a UX inconsistente, logs ruidosos y resolucion de incidentes mas lenta en toda la aplicacion.
+
+A medida que el bot crece, las fallas dejan de ser casos extremos y pasan a ser parte de la experiencia normal del producto. Los usuarios encontraran negaciones de permisos, limites de cooldown, argumentos invalidos y recursos no disponibles de forma regular. Una capa dedicada de exceptions asegura que todos estos escenarios produzcan respuestas consistentes, significativas y faciles de mantener conforme el bot evoluciona con el tiempo.
+
+## La clase base SpraxiumException
+
+Todas las exceptions del framework extienden la clase `SpraxiumException`, que provee un constructor unificado con campos para identificar el error, transportar contexto y controlar como el pipeline lo procesa. Cuando creas una instancia pasas un objeto de opciones con los campos listados en la tabla a continuacion, y el pipeline usa esos campos para resolver layouts, decidir si responde al usuario y determinar si registra la falla en logs.
+
+```typescript filename="shop.command.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+throw new SpraxiumException({
+  code: 'CUSTOM_ERROR',
+  message: 'Something went wrong for {{userId}}.',
+  props: { userId: '123456' },
+  shouldReply: true,
+  shouldLog: false,
+});
+```
+
+Para cualquier cosa mas alla de un throw puntual, extiende `SpraxiumException` en una clase con nombre para que la exception lleve una identidad estable que layouts y reglas de monitoreo puedan referenciar. El constructor acepta el mismo objeto de opciones y lo reenvía a `super`, permitiendo que cada subclase defina su propio code, mensaje por defecto e interfaz *props* tipada.
+
+```typescript filename="order-limit.exception.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+interface OrderLimitProps {
+  limit: number;
+  userId: string;
+}
+
+export class OrderLimitExceededException extends SpraxiumException {
+  constructor(props: OrderLimitProps) {
+    super({
+      code: 'ORDER_LIMIT_EXCEEDED',
+      message: 'You have exceeded the {{limit}} order limit for today.',
+      props,
+    });
+  }
+}
+
+// Uso en cualquier parte del codigo de dominio
+throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id });
+```
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Descripcion</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>code</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Identificador unico estable usado para mapeo de layout y filtrado de logs</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>message</TableCell>
+      <TableCell>string (opcional)</TableCell>
+      <TableCell>Texto legible con placeholders de llaves dobles interpolados desde props</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>props</TableCell>
+      <TableCell>Record (opcional)</TableCell>
+      <TableCell>Datos estructurados disponibles para layouts, logging e interpolacion de message</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>shouldReply</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Controla si el pipeline envia una respuesta de Discord al usuario, por defecto true</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>shouldLog</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Controla si la falla se registra para diagnosticos operacionales, por defecto false</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>layout</TableCell>
+      <TableCell>ExceptionLayoutClass (opcional)</TableCell>
+      <TableCell>Override de layout a nivel de instancia que tiene prioridad sobre los mapeos del config</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Exceptions built-in
+
+El framework incluye quince clases de exception que cubren los escenarios mas comunes en bots de Discord. Cada clase viene con un *code* estable, un mensaje por defecto listo para usuario y props tipadas que transportan contexto relevante para layouts y logging. Cuando alguna de ellas se ajusta a tu escenario, usala directamente en vez de crear una clase personalizada porque las integraciones de layout y logging ya estan mapeadas.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Clase</TableCell>
+      <TableCell header>Code</TableCell>
+      <TableCell header>Descripcion</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>ArgumentException</TableCell>
+      <TableCell>INVALID_ARGUMENT</TableCell>
+      <TableCell>Un argumento de command no paso la validacion o parseo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>CommandNotFoundException</TableCell>
+      <TableCell>COMMAND_NOT_FOUND</TableCell>
+      <TableCell>El command solicitado no existe en el registro</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>ConfigurationException</TableCell>
+      <TableCell>CONFIGURATION_ERROR</TableCell>
+      <TableCell>Una clave o regla de configuracion requerida esta faltando o es invalida</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>CooldownException</TableCell>
+      <TableCell>COOLDOWN</TableCell>
+      <TableCell>El usuario activo el rate limit de cooldown del command</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>DMOnlyException</TableCell>
+      <TableCell>DM_ONLY</TableCell>
+      <TableCell>El command solo puede ejecutarse en mensajes directos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>GuardDeniedException</TableCell>
+      <TableCell>GUARD_DENIED</TableCell>
+      <TableCell>Un guard de ejecucion rechazo la solicitud con razon opcional</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>GuildOnlyException</TableCell>
+      <TableCell>GUILD_ONLY</TableCell>
+      <TableCell>El command solo puede ejecutarse dentro de un servidor</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>InternalException</TableCell>
+      <TableCell>INTERNAL_ERROR</TableCell>
+      <TableCell>Una falla tecnica inesperada que deberia registrarse y no exponerse al usuario</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>MaintenanceException</TableCell>
+      <TableCell>MAINTENANCE</TableCell>
+      <TableCell>La funcionalidad esta temporalmente deshabilitada por mantenimiento</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>NsfwOnlyException</TableCell>
+      <TableCell>NSFW_ONLY</TableCell>
+      <TableCell>El command solo puede ejecutarse en canales marcados como NSFW</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>OwnerOnlyException</TableCell>
+      <TableCell>OWNER_ONLY</TableCell>
+      <TableCell>El command esta restringido al propietario del bot</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>PermissionDeniedException</TableCell>
+      <TableCell>PERMISSION_DENIED</TableCell>
+      <TableCell>El usuario carece del permiso de Discord requerido</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>PremiumOnlyException</TableCell>
+      <TableCell>PREMIUM_ONLY</TableCell>
+      <TableCell>La funcionalidad requiere un tier premium o suscripcion</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>RateLimitException</TableCell>
+      <TableCell>RATE_LIMITED</TableCell>
+      <TableCell>La solicitud fue rechazada por la politica de rate limiting</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>ValidationException</TableCell>
+      <TableCell>VALIDATION</TableCell>
+      <TableCell>El input fallo en una regla de validacion de campo o esquema</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Usando exceptions built-in
+
+Las exceptions built-in se importan desde *@spraxium/core* y se lanzan con un objeto de props opcional que adjunta contexto al error. El pipeline resuelve el layout basado en el mapeo de configuracion, renderiza la respuesta al usuario y registra la falla si la politica de logging lo requiere, todo automaticamente y sin codigo adicional en el punto de lanzamiento.
+
+```typescript filename="shop.command.ts"
+import {
+  CooldownException,
+  PermissionDeniedException,
+  MaintenanceException,
+} from '@spraxium/core';
+
+// El usuario debe esperar antes de usar el command de nuevo
+throw new CooldownException({ seconds: 30 });
+
+// El usuario no tiene el permiso requerido
+throw new PermissionDeniedException({ permission: 'BanMembers' });
+
+// La funcionalidad esta en mantenimiento con hora estimada de retorno
+throw new MaintenanceException({
+  feature: 'economy',
+  eta: '15 minutes',
+});
+```
+
+## Error como contrato, no como accidente
+
+Tratar una exception como contrato significa que cada falla relevante tiene intencion explicita detras de ella, en lugar de ser una solucion improvisada o una respuesta generica. En vez de retornar mensajes de error vagos, defines clases de exception y layouts que representan escenarios concretos como permisos insuficientes, violaciones de cooldown, argumentos invalidos o recursos no disponibles. Este enfoque crea un vocabulario estable en todo el equipo donde los ingenieros pueden leer codigo e inmediatamente entender que fallo, por que fallo y como el usuario deberia ser informado.
+
+El objetivo practico es predictibilidad en todo tu bot. El mismo tipo de falla siempre deberia producir la misma clase de exception, el mismo formato de respuesta y la misma senal operacional sin importar donde en el codigo se origina el error. Cuando ese contrato se mantiene de forma consistente, la depuracion se vuelve mas rapida, la experiencia del usuario permanece coherente y el equipo puede razonar sobre fallas sin leer cada handler individualmente para entender el comportamiento de error.
+
+## Donde las exceptions entran en el flujo de runtime
+
+En la practica, una exception se lanza dentro de codigo de dominio como un service, guard, handler o listener, y luego es resuelta por el pipeline central que decide la estrategia de rendering y el comportamiento de logging. Entender este flujo es esencial porque determina donde se originan tus clases de exception, como se seleccionan los layouts para presentar errores a los usuarios y que tipo de datos operacionales se registran para diagnosticos y monitoreo.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Etapa</TableCell>
+      <TableCell header>Responsabilidad</TableCell>
+      <TableCell header>Resultado esperado</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Punto de lanzamiento</TableCell>
+      <TableCell>Codigo de dominio senala una falla de politica o regla</TableCell>
+      <TableCell>Estado de falla explicito y rastreable</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Resolucion de layout</TableCell>
+      <TableCell>Core selecciona layout por override, mapeo de clase o fallback</TableCell>
+      <TableCell>Respuesta consistente para el usuario</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Observabilidad</TableCell>
+      <TableCell>Pipeline registra fallas manejadas y no manejadas</TableCell>
+      <TableCell>Diagnosticos operacionales predecibles</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Siguiente pagina
+
+Continua con [Politica de Configuracion y Fallbacks](/guide/exceptions-configuration).

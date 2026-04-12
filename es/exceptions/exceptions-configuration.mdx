@@ -1,0 +1,112 @@
+---
+title: Configuracion y Fallback
+description: |
+  Configura exceptions en el archivo central de config para centralizar la politica de errores en runtime en todo el bot.
+  Entiende el mapeo clase-layout, comportamiento de fallback por defecto y estrategia de logging de errores no manejados.
+order: 2
+category: Exceptions
+---
+
+## Por que configurar exceptions en el core
+
+La configuracion central de exceptions impide que los equipos manejen la misma categoria de falla de formas diferentes entre modulos. Al definir la politica en *spraxium.config.ts*, el comportamiento de runtime permanece coherente incluso cuando multiples features y equipos evolucionan en paralelo, porque cada exception sigue las mismas reglas de resolucion sin importar donde se origina. Esto tambien reduce significativamente el riesgo de refactorizacion, ya que cambiar la estrategia de fallback o actualizar un mapeo de layout requiere tocar una unica ubicacion de politica en lugar de buscar a traves de decenas de archivos de command y listener dispersos por el proyecto.
+
+## Configuracion minima
+
+Una baseline pequeña ya da control significativo sobre como tu bot maneja errores en produccion. Definir un fallback de layout por defecto y una politica de logging de errores no manejados asegura que cada exception en el sistema produzca una respuesta para el usuario y una senal operacional, incluso cuando no has mapeado esa clase especifica de exception a un layout dedicado. Esto previene respuestas vacias o rotas que confunden a los usuarios durante escenarios de falla inesperados.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+    },
+  },
+});
+```
+
+## Donde encajan los layouts
+
+Los layouts pertenecen a la politica de presentacion de errores, y esta pagina se enfoca en configuracion central, comportamiento de fallback y gobernanza a traves de mapas de config en lugar de detalles de implementacion de layout. Para la estrategia completa de layouts cubriendo que son, como crearlos, la precedencia entre decorators y mapeos, y cuando usar overrides por instancia, consulta [Estrategia de Layout](/guide/exception-layout-strategy).
+
+## Configuracion con mapeo por clase
+
+Cuando tu aplicacion tiene multiples dominios como moderacion, billing y onboarding, mapear layouts por clase de exception preserva contexto y tono para cada tipo de falla. Cada familia de falla puede retornar lenguaje y orientacion apropiada a la accion del usuario, lo que mejora significativamente la experiencia de error comparada con un unico mensaje generico para cada escenario en el bot.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import {
+  DefaultFriendlyLayout,
+  CooldownLayout,
+  PermissionDeniedLayout,
+  ArgumentLayout,
+} from './layouts/exceptions.layouts';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+      CooldownException: CooldownLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+      ArgumentException: ArgumentLayout,
+    },
+  },
+});
+```
+
+## Referencia de claves de configuracion
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Clave</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Uso</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`exceptions.layouts`</TableCell>
+      <TableCell>`ExceptionLayoutMap`</TableCell>
+      <TableCell>Mapear nombres de clase de exception a clases de layout</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`exceptions.layouts.default`</TableCell>
+      <TableCell>`ExceptionLayoutClass`</TableCell>
+      <TableCell>Fallback global cuando no existe un mapeo especifico</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`exceptions.logUnhandled`</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Controla logging para errores desconocidos lanzados</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Orden de resolucion de layout
+
+La seleccion de layout sigue un orden estable que determina cual layout renderiza la respuesta cuando multiples opciones de personalizacion coexisten. Entender este orden previene ambiguedad cuando overrides locales y configuraciones de fallback global estan activos al mismo tiempo, y te permite apilar politicas de forma predecible desde lo mas especifico a lo mas general.
+
+1. Override por instancia a traves del objeto de exception directamente
+2. Entrada en el mapa de layout del config que corresponda al nombre de la clase de exception
+3. Layout a nivel de decorator de clase definido con `@WithLayout()`
+4. El layout por defecto definido en la configuracion
+5. El layout por defecto integrado del framework como fallback final
+
+<Callout tone="warning" title="Los nombres de clase son claves">
+  El mapa de layout usa nombres de clase de exception como claves. Si una clase es renombrada durante
+  refactorizacion, actualiza el mapeo para evitar comportamiento de fallback accidental que cambia
+  silenciosamente la experiencia del usuario.
+</Callout>
+
+## Estrategia por entorno
+
+Una baseline comun de equipo es mantener la opcion de logging de errores no manejados como verdadera en staging y produccion mientras se preservan layouts amigables en todos los entornos. Esto mantiene los diagnosticos fuertes para operaciones sin filtrar detalles internos hacia los usuarios, porque el layout comunica con usuarios mientras el logging comunica con el equipo responsable de monitoreo y respuesta a incidentes.
+
+## Siguiente pagina
+
+Continua con [Estrategia de Layout](/guide/exception-layout-strategy).

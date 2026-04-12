@@ -1,0 +1,249 @@
+---
+title: Fundamentos de Erros
+description: |
+  A camada de exceptions transforma falhas de runtime e de domínio em comportamento previsível para o usuário.
+  Construa o modelo mental para classes de exception, layouts e políticas antes de escrever seu primeiro handler de erro.
+order: 1
+category: Exceptions
+---
+
+## Para que serve a camada de exceptions
+
+No Spraxium, exceptions não servem apenas para interromper o fluxo de controle quando algo dá errado. Elas são o mecanismo que transforma tanto falhas técnicas quanto de domínio em comportamento previsível para o usuário e sinais operacionais úteis que ajudam sua equipe a entender o que aconteceu e por quê. Sem uma camada de exceptions estruturada, cada handler acaba inventando seu próprio estilo de resposta de erro, o que leva a UX inconsistente, logs ruidosos e resolução de incidentes mais lenta em toda a aplicação.
+
+Conforme o bot cresce, falhas deixam de ser casos extremos e passam a fazer parte da experiência normal do produto. Usuários vão encontrar negações de permissão, limites de cooldown, argumentos inválidos e recursos indisponíveis regularmente. Uma camada dedicada de exceptions garante que todos esses cenários produzam respostas consistentes, significativas e fáceis de manter conforme o bot evolui ao longo do tempo.
+
+## Erro como contrato, não como acidente
+
+Tratar uma exception como contrato significa que cada falha relevante tem intenção explícita por trás dela, em vez de ser uma solução improvisada ou uma resposta genérica. Em vez de retornar mensagens de erro vagas, você define classes de exception e layouts que representam cenários concretos como permissões insuficientes, violações de cooldown, argumentos inválidos ou recursos indisponíveis. Essa abordagem cria um vocabulário estável em toda a equipe onde engenheiros podem ler código e imediatamente entender o que falhou, por que falhou e como o usuário deve ser informado.
+
+O objetivo prático é previsibilidade em todo o bot. O mesmo tipo de falha deve sempre produzir a mesma classe de exception, o mesmo formato de resposta e o mesmo sinal operacional independente de onde no código o erro se origina. Quando esse contrato se mantém de forma consistente, debugging fica mais rápido, a experiência do usuário permanece coerente e a equipe pode raciocinar sobre falhas sem ler cada handler individualmente para entender o comportamento de erro.
+
+## A classe base SpraxiumException
+
+Toda exception no ecossistema Spraxium estende `SpraxiumException`, que por sua vez estende o *Error* nativo do JavaScript. A classe base adiciona campos estruturados que o pipeline usa para resolução de layout, decisões de logging e rendering de resposta. Entender esses campos é essencial antes de criar exceptions customizadas ou trabalhar com as built-in, porque cada campo controla um aspecto específico de como o erro é processado em runtime.
+
+```typescript filename="shop.command.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+throw new SpraxiumException({
+  code: 'ORDER_LIMIT_EXCEEDED',
+  message: 'You have exceeded the {{limit}} order limit for today.',
+  props: { limit: 5, userId: interaction.user.id },
+  shouldReply: true,
+  shouldLog: false,
+});
+```
+
+Para qualquer coisa além de um throw pontual, estenda `SpraxiumException` em uma classe nomeada para que a exception carregue uma identidade estável que layouts e regras de monitoramento possam referenciar. O construtor aceita o mesmo objeto de opções e repassa para `super`, permitindo que cada subclasse defina seu próprio code, message padrão e interface *props* tipada.
+
+```typescript filename="order-limit.exception.ts"
+import { SpraxiumException } from '@spraxium/core';
+
+interface OrderLimitProps {
+  limit: number;
+  userId: string;
+}
+
+export class OrderLimitExceededException extends SpraxiumException {
+  constructor(props: OrderLimitProps) {
+    super({
+      code: 'ORDER_LIMIT_EXCEEDED',
+      message: 'You have exceeded the {{limit}} order limit for today.',
+      props,
+    });
+  }
+}
+
+// Uso em qualquer lugar do código de domínio
+throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id });
+```
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*code*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Identificador machine-readable para filtragem, monitoramento e queries de log</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*message*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Descrição legível com suporte a placeholders de chaves duplas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*props*</TableCell>
+      <TableCell>Record</TableCell>
+      <TableCell>Dados de runtime para interpolação de placeholders e rendering de layout</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*shouldReply*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Se deve enviar resposta no Discord, padrão true</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*shouldLog*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Se deve registrar a exception em log, padrão false</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*layout*</TableCell>
+      <TableCell>ExceptionLayoutClass</TableCell>
+      <TableCell>Override de layout por instância com maior prioridade na resolução</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Exceptions built-in
+
+O Spraxium vem com quinze classes de exception que cobrem os cenários de falha mais comuns em bots Discord. Cada classe estende `SpraxiumException` com um *code* predefinido, uma *message* padrão com suporte a placeholders e *props* tipados para rendering de layout. Você pode lançar qualquer uma delas diretamente sem criar classes customizadas, e todas são importadas de *@spraxium/core*.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Classe de Exception</TableCell>
+      <TableCell header>Code</TableCell>
+      <TableCell header>Comportamento Padrão</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`ArgumentException`</TableCell>
+      <TableCell>INVALID_ARGUMENT</TableCell>
+      <TableCell>Reporta argumento inválido com valores esperado vs recebido</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`CommandNotFoundException`</TableCell>
+      <TableCell>COMMAND_NOT_FOUND</TableCell>
+      <TableCell>Sinaliza que o comando solicitado não existe</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`ConfigurationException`</TableCell>
+      <TableCell>CONFIGURATION_ERROR</TableCell>
+      <TableCell>Reporta erro de chave de configuração com motivo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`CooldownException`</TableCell>
+      <TableCell>COOLDOWN</TableCell>
+      <TableCell>Informa quantos segundos o usuário deve esperar para tentar novamente</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`DMOnlyException`</TableCell>
+      <TableCell>DM_ONLY</TableCell>
+      <TableCell>Restringe o comando a canais de mensagem direta</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`GuardDeniedException`</TableCell>
+      <TableCell>GUARD_DENIED</TableCell>
+      <TableCell>Sinaliza que um guard bloqueou a execução com motivo</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`GuildOnlyException`</TableCell>
+      <TableCell>GUILD_ONLY</TableCell>
+      <TableCell>Restringe o comando a canais de servidor apenas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`InternalException`</TableCell>
+      <TableCell>INTERNAL_ERROR</TableCell>
+      <TableCell>Erro interno genérico com mensagem segura para o usuário</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`MaintenanceException`</TableCell>
+      <TableCell>MAINTENANCE</TableCell>
+      <TableCell>Sinaliza que uma feature está em manutenção com ETA opcional</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`NsfwOnlyException`</TableCell>
+      <TableCell>NSFW_ONLY</TableCell>
+      <TableCell>Restringe o comando a canais NSFW</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`OwnerOnlyException`</TableCell>
+      <TableCell>OWNER_ONLY</TableCell>
+      <TableCell>Restringe o comando ao dono do bot</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`PermissionDeniedException`</TableCell>
+      <TableCell>PERMISSION_DENIED</TableCell>
+      <TableCell>Reporta permissão ausente com nome da permissão opcional</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`PremiumOnlyException`</TableCell>
+      <TableCell>PREMIUM_ONLY</TableCell>
+      <TableCell>Restringe a feature a assinantes premium com info de tier</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`RateLimitException`</TableCell>
+      <TableCell>RATE_LIMITED</TableCell>
+      <TableCell>Reporta rate limiting de API com timing de retry e rota</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`ValidationException`</TableCell>
+      <TableCell>VALIDATION</TableCell>
+      <TableCell>Reporta valor de campo inválido com nome do campo e motivo</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Usando exceptions built-in
+
+As exceptions built-in estão prontas para uso sem nenhuma configuração. Cada classe aceita um objeto *props* opcional que preenche placeholders na mensagem padrão e fornece contexto para rendering de layout. O exemplo abaixo mostra três cenários comuns que você vai encontrar na maioria dos bots.
+
+```typescript filename="shop.command.ts"
+import {
+  CooldownException,
+  PermissionDeniedException,
+  MaintenanceException,
+} from '@spraxium/core';
+
+// Usuário precisa esperar antes de tentar o comando novamente
+throw new CooldownException({ seconds: 10 });
+
+// Usuário não tem a permissão necessária
+throw new PermissionDeniedException({ permission: 'MANAGE_MESSAGES' });
+
+// Feature temporariamente desabilitada
+throw new MaintenanceException({ feature: 'Leaderboard', eta: '2 horas' });
+```
+
+## Onde as exceptions entram no fluxo de runtime
+
+Na prática, uma exception é lançada dentro de código de domínio como um service, guard, handler ou listener, e então resolvida pelo pipeline central que decide a estratégia de rendering e o comportamento de logging. Entender esse fluxo é essencial porque ele determina onde suas classes de exception se originam, como layouts são selecionados para apresentar erros aos usuários e que tipo de dado operacional é registrado para diagnósticos e monitoramento.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Estágio</TableCell>
+      <TableCell header>Responsabilidade</TableCell>
+      <TableCell header>Resultado esperado</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Ponto de lançamento</TableCell>
+      <TableCell>Código de domínio sinaliza uma falha de política ou regra</TableCell>
+      <TableCell>Estado de falha explícito e rastreável</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Resolução de layout</TableCell>
+      <TableCell>Core seleciona layout por override, mapeamento de classe ou fallback</TableCell>
+      <TableCell>Resposta consistente para o usuário</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Observabilidade</TableCell>
+      <TableCell>Pipeline registra falhas tratadas e não tratadas</TableCell>
+      <TableCell>Diagnósticos operacionais previsíveis</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Próxima página
+
+Continue com [Política de Configuração e Fallbacks](/guide/exceptions-configuration).
