@@ -1,0 +1,134 @@
+---
+title: Exceptions e Integracao com Guards
+description: |
+  Listeners tem dois caminhos de execucao dependendo do formato do payload do evento.
+  Entenda como guards e exceptions funcionam dentro de listeners e quando se aplicam.
+order: 4
+category: Listeners
+---
+
+## Dois caminhos de execucao
+
+Nem todos os eventos do Discord sao iguais da perspectiva do framework. Alguns eventos carregam uma message ou interaction como primeiro argumento, e outros carregam outros tipos de payload como um objeto Client, um GuildMember ou um canal. Essa distincao importa porque o framework a usa pra decidir como executar seu metodo listener e se aplica o pipeline de guards e exceptions.
+
+Quando o primeiro argumento do evento e um *BaseInteraction* ou uma *Message*, o framework roda o metodo pelo pipeline completo. Isso significa que guards de classe e metodo executam primeiro, e se o metodo lanca uma exception, o pipeline de exceptions trata com renderizacao de layout e comportamento opcional de reply. Esse e o mesmo pipeline que slash e prefix commands usam, e por isso guards e exception layouts funcionam sem problemas em listeners de message e interaction.
+
+Quando o primeiro argumento e qualquer outra coisa, como o objeto *Client* pra *ClientReady* ou um *GuildMember* pra *GuildMemberAdd*, o framework chama o metodo diretamente sem o pipeline de guards ou exceptions. Se o metodo lanca um erro, o framework captura e loga como um erro de listener nao tratado, mas nao ha renderizacao de layout ou comportamento de reply porque o payload do evento nao suporta respostas da mesma forma que messages e interactions.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Tipo do primeiro argumento</TableCell>
+      <TableCell header>Caminho de execucao</TableCell>
+      <TableCell header>Tratamento de erro</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*BaseInteraction* ou *Message*</TableCell>
+      <TableCell>Pipeline completo com guards e exception handler</TableCell>
+      <TableCell>Exception layouts, comportamento de reply, tratamento estruturado</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Qualquer outro tipo</TableCell>
+      <TableCell>Invocacao direta do metodo</TableCell>
+      <TableCell>Erro e capturado e logado, sem capacidade de reply</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Esse e um detalhe importante pra manter em mente ao projetar seus listeners. Se voce aplica guards a um listener que trata *GuildMemberAdd*, os guards nao vao rodar porque o primeiro argumento e um *GuildMember*, nao um *BaseInteraction* ou *Message*. Guards so ativam quando o framework consegue construir um *ExecutionContext* a partir do payload do evento, o que exige uma interaction ou message.
+
+## Usando guards em listeners
+
+Pra eventos que passam pelo pipeline completo, voce pode aplicar guards no nivel de classe ou metodo usando *@UseGuards*, exatamente como faria em um command handler. Os guards rodam antes do metodo listener executar, e se qualquer guard nega, o metodo e pulado e a negacao vai pelo pipeline de exceptions.
+
+```typescript filename="protected-message.listener.ts"
+import { Events, Listener, On, UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, RoleGuard } from '@spraxium/core';
+import type { Message } from 'discord.js';
+
+@Listener(Events.MessageCreate)
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Verified'] }))
+export class ProtectedMessageListener {
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+    await message.reply('Voce esta verificado e em um servidor.');
+  }
+}
+```
+
+Nesse exemplo, tanto o guard *GuildOnly* quanto o *RoleGuard* rodam antes de *onMessage* executar. Se a mensagem vem de DM, *GuildOnly* nega e o metodo nunca roda. Se o membro nao tem a role "Verified", *RoleGuard* nega. Somente quando ambos os guards passam o metodo executa.
+
+Voce tambem pode usar guards de metodo pra controle refinado quando uma classe listener tem multiplos metodos handler. Os guards de classe se aplicam a todos os metodos, e guards de metodo adicionam restricoes extras a metodos especificos.
+
+## Lancando exceptions de listeners
+
+Pra eventos no pipeline completo, voce pode lancar exceptions de dominio especificas dos metodos listener e a camada de exceptions trata da mesma forma que trata exceptions de comandos. Isso significa que seus layouts, comportamento de reply e configuracao de logging se aplicam a exceptions de listener sem nenhuma configuracao extra.
+
+```typescript filename="account-policy.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { SpraxiumException } from '@spraxium/core';
+
+class AccountSuspendedException extends SpraxiumException {
+  constructor(props: { reason: string; userId: string }) {
+    super({
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'Sua conta foi suspensa: {{reason}}.',
+      props,
+    });
+  }
+}
+
+@Listener(Events.MessageCreate)
+export class AccountPolicyListener {
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+
+    const isSuspended = await this.checkSuspension(message.author.id);
+    if (isSuspended) {
+      throw new AccountSuspendedException({
+        reason: 'Violacao de politica',
+        userId: message.author.id,
+      });
+    }
+  }
+
+  private async checkSuspension(userId: string): Promise<boolean> {
+    // substitua pela consulta real ao banco
+    return false;
+  }
+}
+```
+
+Pra eventos que passam por invocacao direta em vez do pipeline completo, erros lancados sao capturados e logados mas nao processados pela camada de exceptions. Isso significa que voce nao recebe renderizacao de layout ou respostas estruturadas pra esses eventos. Se voce precisa de tratamento confiavel de erros em eventos de invocacao direta como *GuildMemberAdd*, trate erros explicitamente dentro do metodo com try-catch e seu proprio logging.
+
+```typescript filename="member-join.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { GuildMember } from 'discord.js';
+
+@Listener(Events.GuildMemberAdd)
+export class MemberJoinListener {
+  private readonly logger = new Logger(MemberJoinListener.name);
+
+  @On()
+  async onJoin(member: GuildMember): Promise<void> {
+    try {
+      const channel = await member.guild.channels.fetch('1234567890');
+      if (channel?.isTextBased()) {
+        await channel.send(`Bem-vindo ao servidor, ${member}!`);
+      }
+    } catch (error) {
+      this.logger.error(`Falha ao enviar mensagem de boas-vindas pra ${member.user.username}`, error);
+    }
+  }
+}
+```
+
+<Callout tone="warning" title="Guards so funcionam em eventos de message e interaction">
+  Aplicar guards a um listener que trata eventos como ClientReady ou GuildMemberAdd nao tem efeito porque o framework nao consegue construir um ExecutionContext a partir desses payloads de evento. Use checagens explicitas dentro do metodo no lugar.
+</Callout>

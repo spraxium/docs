@@ -1,0 +1,123 @@
+---
+title: Listener Architecture Patterns
+description: |
+  Design listeners as thin event boundaries that delegate to injected services.
+  Organize modules and file structure to keep event handling maintainable as your bot grows.
+order: 3
+category: Listeners
+---
+
+## Listeners as event boundaries
+
+A listener should be the thinnest possible boundary between a Discord event and your domain logic. Its job is to receive the event payload, perform basic filtering like ignoring bot accounts, and then call the appropriate service to handle the actual business logic. When you keep listeners thin, your domain code stays testable without mocking the Discord event system, and your listeners stay readable because each one does very little on its own.
+
+The opposite approach, putting business logic directly inside listener methods, works in small bots but breaks down quickly as the codebase grows. If your leaderboard ranking algorithm lives inside a *MessageCreateListener*, you cannot test that algorithm without simulating Discord messages. If the same algorithm needs to run from an API endpoint or a scheduled task later, you have to extract it anyway. Starting with the service delegation pattern from the beginning avoids that refactoring entirely.
+
+This pattern also makes it obvious where to look when something breaks. If the event is not firing at all, the problem is in the listener binding or gateway intents. If the event fires but the wrong thing happens, the problem is in the service. The separation makes debugging faster because each layer has a clear, narrow responsibility.
+
+## Service delegation example
+
+Here is the pattern in practice. The listener receives the *MessageCreate* event, checks if the author is a bot, and then delegates to a *LeaderboardService* that handles the actual tracking logic. The listener does not know how scoring works, and the service does not know that it is being called from a Discord event.
+
+<CodeTabs>
+  <Tab label="Listener" language="typescript">
+```typescript filename="src/events/listeners/message-create.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { LeaderboardService } from '../../services/leaderboard.service';
+
+@Listener(Events.MessageCreate)
+export class MessageCreateListener {
+  private readonly logger = new Logger(MessageCreateListener.name);
+
+  constructor(private readonly leaderboard: LeaderboardService) {}
+
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+    this.logger.debug(`Message from ${message.author.id} in guild ${message.guildId}`);
+    await this.leaderboard.trackMessage(message.author.id, message.guildId);
+  }
+}
+```
+  </Tab>
+  <Tab label="Service" language="typescript">
+```typescript filename="src/services/leaderboard.service.ts"
+export class LeaderboardService {
+  async trackMessage(userId: string, guildId: string | null): Promise<void> {
+    if (!guildId) return;
+    // scoring logic, database updates, rank calculations
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+The service is a regular injectable class that the module registers in its *providers* array. The listener receives it through constructor injection and calls its methods. If you need the same scoring logic from a different entry point later, you inject the same service there without duplicating any code.
+
+## Module organization
+
+A well-organized event module groups related listeners together and keeps the module declaration file at the folder root. As your bot handles more events, this structure scales without becoming hard to navigate. Each listener file handles one event, and the module file is the index that declares what is active.
+
+<FolderStructure title="Event module with services">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="events" open>
+        <Folder name="listeners" open>
+          <File name="ready.listener.ts" />
+          <File name="message-create.listener.ts" />
+          <File name="member-join.listener.ts" />
+          <File name="member-leave.listener.ts" />
+        </Folder>
+        <Folder name="services" open>
+          <File name="leaderboard.service.ts" />
+          <File name="welcome.service.ts" />
+        </Folder>
+        <File name="events.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+The module ties everything together by listing all listeners and providers in one place. Anyone reading the module file can immediately see which events the module handles and which services are available for injection.
+
+```typescript filename="src/events/events.module.ts"
+import { Module } from '@spraxium/common';
+import { LeaderboardService } from '../services/leaderboard.service';
+import { WelcomeService } from '../services/welcome.service';
+import { MemberJoinListener } from './listeners/member-join.listener';
+import { MemberLeaveListener } from './listeners/member-leave.listener';
+import { MessageCreateListener } from './listeners/message-create.listener';
+import { ReadyListener } from './listeners/ready.listener';
+
+@Module({
+  providers: [LeaderboardService, WelcomeService],
+  listeners: [ReadyListener, MessageCreateListener, MemberJoinListener, MemberLeaveListener],
+})
+export class EventsModule {}
+```
+
+## Practical patterns for listener methods
+
+Listener methods should follow a consistent structure that makes them predictable across your codebase. Start with early returns for irrelevant events, then do any lightweight transformation, and finally call the service. This three-step pattern keeps every listener method readable and easy to review.
+
+<Steps>
+  <Step title="Filter irrelevant events first">
+    Start the method with guard clauses that return early for events you do not care about. Checking if the author is a bot, if the message is from a specific channel, or if the interaction has the right type should happen before any real work. This prevents unnecessary service calls and keeps event throughput high.
+  </Step>
+  <Step title="Extract what the service needs">
+    Pull the specific data your service expects from the event payload. Instead of passing the entire Discord.js message or member object to your service, extract the user ID, guild ID, channel ID, or whatever specific fields the service needs. This keeps your service layer decoupled from Discord types and makes it easier to test with simple mock data.
+  </Step>
+  <Step title="Delegate to the injected service">
+    Call the service method with the extracted data. The listener's job is done at this point. Any errors thrown by the service will be caught by the exception pipeline for supported events, so you do not need try-catch blocks in the listener method itself.
+  </Step>
+</Steps>
+
+<Callout tone="info" title="Avoid heavy constructor work">
+  Do not perform expensive operations like database connections, HTTP requests, or file reads in the listener constructor. The constructor runs during bootstrap before the bot connects to Discord. Move initialization logic to the first event handler call or to a lifecycle hook if the framework supports it.
+</Callout>
+
+## Next page
+
+Continue with [Exceptions and Guard Integration](/listeners-exceptions-integration).

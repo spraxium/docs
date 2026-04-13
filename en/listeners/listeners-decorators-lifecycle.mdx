@@ -1,0 +1,138 @@
+---
+title: Decorators and Lifecycle
+description: |
+  Understand how Listener, On, Once, and Ctx decorators work together in the event pipeline.
+  Learn binding semantics, parameter injection, and dependency injection support for listeners.
+order: 2
+category: Listeners
+---
+
+## The @Listener class decorator
+
+The *@Listener* decorator is what turns a regular class into a listener. It takes a single argument: the Discord event name from the Discord.js *Events* enum. This decorator does two things internally. It stores the event name as metadata on the class, and it marks the class as injectable so the DI container can resolve its constructor dependencies during bootstrap.
+
+Each listener class is bound to exactly one event. If you need to react to *GuildMemberAdd* and *GuildMemberRemove*, you create two separate listener classes. This keeps each class focused on one event and avoids confusion about which methods handle which events. You can define multiple listener classes in the same file if they are closely related, like a *MemberJoinListener* and a *MemberLeaveListener* that deal with the same concept. Just remember that each class still needs its own *@Listener* decorator with the correct event.
+
+<CodeTabs>
+  <Tab label="Single Class" language="typescript">
+```typescript filename="member-join.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import type { GuildMember } from 'discord.js';
+
+@Listener(Events.GuildMemberAdd)
+export class MemberJoinListener {
+  @On()
+  async onJoin(member: GuildMember): Promise<void> {
+    const channel = await member.guild.channels.fetch('1234567890');
+    if (channel?.isTextBased()) {
+      await channel.send(`Welcome, ${member}!`);
+    }
+  }
+}
+```
+  </Tab>
+  <Tab label="Multiple Classes" language="typescript">
+```typescript filename="member.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { GuildMember, PartialGuildMember } from 'discord.js';
+
+@Listener(Events.GuildMemberAdd)
+export class MemberJoinListener {
+  private readonly logger = new Logger(MemberJoinListener.name);
+
+  @On()
+  async onJoin(member: GuildMember): Promise<void> {
+    this.logger.info(`${member.user.username} joined ${member.guild.name}`);
+  }
+}
+
+@Listener(Events.GuildMemberRemove)
+export class MemberLeaveListener {
+  private readonly logger = new Logger(MemberLeaveListener.name);
+
+  @On()
+  async onLeave(member: GuildMember | PartialGuildMember): Promise<void> {
+    const name = member.partial ? `User ${member.id}` : member.user.username;
+    this.logger.info(`${name} left guild ${member.guild.id}`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## @On versus @Once
+
+The *@On* decorator creates a persistent event binding. Every time the Discord event fires, the decorated method runs. This is what you want for most events like *MessageCreate*, *InteractionCreate*, *GuildMemberAdd*, and anything else that can happen repeatedly. The binding stays active for the entire lifetime of the bot process.
+
+The *@Once* decorator creates a one-time event binding. It fires only the first time the event occurs after the bot starts, and then the binding is removed automatically. This is typically used for the *ClientReady* event, which you only need to handle once when the bot finishes connecting. You could also use it for any initialization logic that should run exactly once in response to a specific event.
+
+```typescript filename="ready.listener.ts"
+import { Events, Listener, Once } from '@spraxium/common';
+import type { Client } from 'discord.js';
+
+@Listener(Events.ClientReady)
+export class ReadyListener {
+  @Once()
+  onReady(client: Client<true>): void {
+    console.log(`Logged in as ${client.user.tag}`);
+  }
+}
+```
+
+An important detail: *@Once* is about event binding semantics, not class instance semantics. It means "bind this handler with client.once() instead of client.on()". The Discord.js client automatically removes the listener after the first invocation. This is a subtle but important distinction because it means the behavior is controlled by the Discord.js event system, not by the framework tracking invocation counts.
+
+## The @Ctx parameter decorator
+
+The *@Ctx* decorator is a parameter decorator that injects the raw Discord event arguments into a method parameter. Most of the time you do not need this decorator because the event payload is already available as the method's regular parameters. However, *@Ctx* is useful when you want to make the injection intent explicit in your code or when working with events that provide multiple arguments.
+
+```typescript filename="interaction.listener.ts"
+import { Ctx, Events, Listener, On } from '@spraxium/common';
+import type { Interaction } from 'discord.js';
+
+@Listener(Events.InteractionCreate)
+export class InteractionListener {
+  @On()
+  async onInteraction(@Ctx() interaction: Interaction): Promise<void> {
+    if (!interaction.isChatInputCommand()) return;
+    console.log(`Received command: ${interaction.commandName}`);
+  }
+}
+```
+
+## Dependency injection in listeners
+
+Because *@Listener* automatically marks the class as injectable, your listener can receive constructor dependencies just like any other injectable class in Spraxium. This is how you connect listeners to services, repositories, and other parts of your application without creating tight coupling or manual wiring.
+
+```typescript filename="message-create.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { LeaderboardService } from '../../services/leaderboard.service';
+
+@Listener(Events.MessageCreate)
+export class MessageCreateListener {
+  private readonly logger = new Logger(MessageCreateListener.name);
+
+  constructor(private readonly leaderboard: LeaderboardService) {}
+
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+    this.logger.debug(`Message from ${message.author.id}`);
+    await this.leaderboard.trackMessage(message.author.id, message.guildId);
+  }
+}
+```
+
+The *LeaderboardService* must be registered as a provider in the same module or exported from an imported module. The DI container resolves it at instantiation time, before any events start firing. If the dependency cannot be resolved, the framework throws a clear error during bootstrap explaining which token could not be found and suggesting where to register it.
+
+Keep listener methods thin. The listener receives the event, does basic filtering like ignoring bot messages, and then delegates the real work to an injected service. This pattern makes your business logic testable independently from the event system and prevents listeners from growing into large classes full of domain logic.
+
+<Callout tone="warning" title="Gateway intents matter">
+  If your listener is registered correctly but never fires, the most common cause is missing gateway intents in your bot configuration. For example, MessageCreate requires the GuildMessages or DirectMessages intent, and GuildMemberAdd requires the GuildMembers intent.
+</Callout>
+
+## Next page
+
+Continue with [Listener Architecture Patterns](/listeners-architecture-patterns).

@@ -1,0 +1,123 @@
+---
+title: Padroes de Arquitetura de Listeners
+description: |
+  Projete listeners como fronteiras finas de evento que delegam pra servicos injetados.
+  Organize modulos e estrutura de arquivos pra manter o tratamento de eventos sustentavel conforme o bot cresce.
+order: 3
+category: Listeners
+---
+
+## Listeners como fronteiras de evento
+
+Um listener deve ser a fronteira mais fina possivel entre um evento Discord e sua logica de dominio. O trabalho dele e receber o payload do evento, fazer filtragem basica como ignorar contas de bot, e entao chamar o servico apropriado pra tratar a logica de negocio real. Quando voce mantem listeners finos, seu codigo de dominio fica testavel sem precisar mockar o sistema de eventos do Discord, e seus listeners ficam legiveis porque cada um faz muito pouco por conta propria.
+
+A abordagem oposta, colocar logica de negocio diretamente nos metodos do listener, funciona em bots pequenos mas quebra rapido conforme o codebase cresce. Se seu algoritmo de ranking de leaderboard mora dentro de um *MessageCreateListener*, voce nao consegue testar aquele algoritmo sem simular mensagens do Discord. Se a mesma logica precisa rodar de um endpoint de API ou uma tarefa agendada depois, voce vai ter que extrair de qualquer forma. Comecar com o padrao de delegacao pra servico desde o inicio evita essa refatoracao por completo.
+
+Esse padrao tambem torna obvio onde procurar quando algo quebra. Se o evento nao esta disparando, o problema esta no binding do listener ou nos gateway intents. Se o evento dispara mas a coisa errada acontece, o problema esta no servico. A separacao torna o debugging mais rapido porque cada camada tem uma responsabilidade clara e restrita.
+
+## Exemplo de delegacao pra servico
+
+Aqui esta o padrao na pratica. O listener recebe o evento *MessageCreate*, checa se o autor e um bot, e entao delega pra um *LeaderboardService* que trata a logica real de tracking. O listener nao sabe como scoring funciona, e o servico nao sabe que esta sendo chamado de um evento Discord.
+
+<CodeTabs>
+  <Tab label="Listener" language="typescript">
+```typescript filename="src/events/listeners/message-create.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { LeaderboardService } from '../../services/leaderboard.service';
+
+@Listener(Events.MessageCreate)
+export class MessageCreateListener {
+  private readonly logger = new Logger(MessageCreateListener.name);
+
+  constructor(private readonly leaderboard: LeaderboardService) {}
+
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+    this.logger.debug(`Mensagem de ${message.author.id} na guild ${message.guildId}`);
+    await this.leaderboard.trackMessage(message.author.id, message.guildId);
+  }
+}
+```
+  </Tab>
+  <Tab label="Servico" language="typescript">
+```typescript filename="src/services/leaderboard.service.ts"
+export class LeaderboardService {
+  async trackMessage(userId: string, guildId: string | null): Promise<void> {
+    if (!guildId) return;
+    // logica de scoring, atualizacoes de banco, calculos de rank
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+O servico e uma classe injetavel regular que o modulo registra no array *providers*. O listener o recebe atraves de injecao de construtor e chama seus metodos. Se voce precisar da mesma logica de scoring de outro ponto de entrada depois, injeta o mesmo servico ali sem duplicar nenhum codigo.
+
+## Organizacao de modulos
+
+Um modulo de eventos bem organizado agrupa listeners relacionados juntos e mantem o arquivo de declaracao do modulo na raiz da pasta. Conforme seu bot trata mais eventos, essa estrutura escala sem ficar dificil de navegar. Cada arquivo de listener trata um evento, e o arquivo de modulo e o indice que declara o que esta ativo.
+
+<FolderStructure title="Modulo de eventos com servicos">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="events" open>
+        <Folder name="listeners" open>
+          <File name="ready.listener.ts" />
+          <File name="message-create.listener.ts" />
+          <File name="member-join.listener.ts" />
+          <File name="member-leave.listener.ts" />
+        </Folder>
+        <Folder name="services" open>
+          <File name="leaderboard.service.ts" />
+          <File name="welcome.service.ts" />
+        </Folder>
+        <File name="events.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+O modulo amarra tudo listando todos os listeners e providers em um unico lugar. Qualquer pessoa lendo o arquivo de modulo consegue ver imediatamente quais eventos o modulo trata e quais servicos estao disponiveis pra injecao.
+
+```typescript filename="src/events/events.module.ts"
+import { Module } from '@spraxium/common';
+import { LeaderboardService } from '../services/leaderboard.service';
+import { WelcomeService } from '../services/welcome.service';
+import { MemberJoinListener } from './listeners/member-join.listener';
+import { MemberLeaveListener } from './listeners/member-leave.listener';
+import { MessageCreateListener } from './listeners/message-create.listener';
+import { ReadyListener } from './listeners/ready.listener';
+
+@Module({
+  providers: [LeaderboardService, WelcomeService],
+  listeners: [ReadyListener, MessageCreateListener, MemberJoinListener, MemberLeaveListener],
+})
+export class EventsModule {}
+```
+
+## Padroes praticos pra metodos de listener
+
+Metodos de listener devem seguir uma estrutura consistente que os torna previsiveis em todo o codebase. Comece com early returns pra eventos irrelevantes, depois faca qualquer transformacao leve, e por fim chame o servico. Esse padrao de tres passos mantem todo metodo de listener legivel e facil de revisar.
+
+<Steps>
+  <Step title="Filtre eventos irrelevantes primeiro">
+    Comece o metodo com guard clauses que retornam cedo pra eventos que voce nao se importa. Checar se o autor e um bot, se a mensagem e de um canal especifico, ou se a interaction tem o tipo certo deve acontecer antes de qualquer trabalho real. Isso previne chamadas desnecessarias a servicos e mantem o throughput de eventos alto.
+  </Step>
+  <Step title="Extraia o que o servico precisa">
+    Pegue os dados especificos que seu servico espera do payload do evento. Em vez de passar o objeto Message ou GuildMember inteiro do Discord.js pro seu servico, extraia o user ID, guild ID, channel ID ou quaisquer campos especificos que o servico precisa. Isso mantem sua camada de servico desacoplada de tipos do Discord e facilita testar com dados mock simples.
+  </Step>
+  <Step title="Delegue pro servico injetado">
+    Chame o metodo do servico com os dados extraidos. O trabalho do listener acabou nesse ponto. Quaisquer erros lancados pelo servico serao capturados pelo pipeline de exceptions pra eventos suportados, entao voce nao precisa de blocos try-catch no metodo do listener.
+  </Step>
+</Steps>
+
+<Callout tone="info" title="Evite trabalho pesado no construtor">
+  Nao faca operacoes caras como conexoes de banco, requisicoes HTTP ou leituras de arquivo no construtor do listener. O construtor roda durante o bootstrap antes do bot se conectar ao Discord. Mova logica de inicializacao pra a primeira chamada do event handler ou pra um lifecycle hook se o framework suportar.
+</Callout>
+
+## Próxima página
+
+Continue com [Exceptions e Integração com Guards](/listeners-exceptions-integration).

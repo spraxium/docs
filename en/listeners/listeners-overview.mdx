@@ -1,0 +1,105 @@
+---
+title: Listeners Overview
+description: |
+  Listeners react to Discord events like messages, member joins, and client readiness.
+  Learn the listener model, how they connect to events, and how they register in modules.
+order: 1
+category: Listeners
+---
+
+## What a listener is
+
+A listener is a class that reacts to Discord events. When something happens on Discord, like a user sending a message, a member joining a server, or the bot finishing its login, Discord.js fires an event. A listener class in Spraxium captures that event and runs your code in response. Without listeners, your bot would not be able to respond to anything that happens outside of explicit commands.
+
+The key difference between listeners and commands is what triggers them. Commands are triggered by a user typing a slash command or a prefix command. Listeners are triggered by Discord events that happen in the background, like messages being sent, members joining or leaving, reactions being added, or the client becoming ready. Some of these events involve user interactions that can receive replies, and some are background events that happen silently.
+
+Listeners in Spraxium are not raw callbacks. They are full classes managed by the dependency injection container, registered in modules, and wired to the Discord client automatically during bootstrap. This means your listener classes can receive injected services, participate in the guard pipeline for supported events, and benefit from the same exception handling that commands use.
+
+## A basic listener example
+
+Here are two listeners that show the two binding modes. The first uses *@Once* to react to *ClientReady* a single time when the bot connects. The second uses *@On* to react to every *MessageCreate* event for the entire lifetime of the bot. Together, these cover the two most common patterns you will use.
+
+<CodeTabs>
+  <Tab label="Ready (Once)" language="typescript">
+```typescript filename="src/events/listeners/ready.listener.ts"
+import { Events, Listener, Once } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { Client } from 'discord.js';
+
+@Listener(Events.ClientReady)
+export class ReadyListener {
+  private logger: Logger = new Logger(ReadyListener.name);
+
+  @Once()
+  onReady(client: Client<true>): void {
+    this.logger.info(`Client is ready as ${client.user.tag}`);
+  }
+}
+```
+  </Tab>
+  <Tab label="Messages (On)" language="typescript">
+```typescript filename="src/events/listeners/message-create.listener.ts"
+import { Events, Listener, On } from '@spraxium/common';
+import type { Message } from 'discord.js';
+
+@Listener(Events.MessageCreate)
+export class MessageCreateListener {
+  @On()
+  async onMessage(message: Message): Promise<void> {
+    if (message.author.bot) return;
+    if (message.content === '!ping') {
+      await message.reply('pong');
+    }
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Notice that the method parameter receives the Discord.js event payload directly. For *ClientReady*, the payload is the *Client* object. For *MessageCreate*, the payload is the *Message* object. Each Discord event has its own payload type, and your method receives whatever Discord.js provides for that specific event.
+
+## Registering listeners in a module
+
+Listeners do not activate just by existing in your source code. You need to register them in a module's *listeners* array so the framework knows about them and can wire them to the Discord client during bootstrap. Without this registration, your listener class will be ignored completely.
+
+```typescript filename="src/events/events.module.ts"
+import { Module } from '@spraxium/common';
+import { ReadyListener } from './listeners/ready.listener';
+import { MessageCreateListener } from './listeners/message-create.listener';
+
+@Module({
+  listeners: [ReadyListener, MessageCreateListener],
+})
+export class EventsModule {}
+```
+
+The module itself must be imported by your root module or another module in the import chain. The framework processes modules during bootstrap, resolves their listener arrays, instantiates each listener class through the DI container, and then binds them to the Discord client. If a listener depends on a service, that service must be available in the module's provider scope or exported from an imported module, just like any other injectable dependency.
+
+## How the bootstrap wires listeners
+
+The bootstrap process handles listeners in a specific sequence that matters for understanding when your listener becomes active. First, the framework reads the *listeners* array from each module. Second, it instantiates each listener class through the DI container, resolving constructor dependencies. Third, the internal *ListenerRegistry* scans each instance for methods decorated with *@On* or *@Once* and groups them by event name. Fourth, the *ListenerBinder* takes those groups and calls the Discord.js client's *on* or *once* method to create the actual bindings. Finally, when a Discord event fires, the *ListenerInvoker* calls each registered handler for that event.
+
+<FolderStructure title="Typical listener module layout">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="events" open>
+        <Folder name="listeners" open>
+          <File name="ready.listener.ts" />
+          <File name="message-create.listener.ts" />
+          <File name="member.listener.ts" />
+        </Folder>
+        <File name="events.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+This structure keeps all listener classes in a dedicated folder and the module file at the events root. As your bot grows, you can add more listener files without changing the folder structure. Each listener handles one event, and the module file is the single place that declares which listeners are active.
+
+<Callout tone="info" title="One class per event">
+  Each listener class is bound to exactly one Discord event through the Listener decorator. If you need to listen to multiple events, create separate listener classes for each one. This keeps each class focused and easy to find when debugging.
+</Callout>
+
+## Next page
+
+Continue with [Decorators and Lifecycle](/listeners-decorators-lifecycle).
