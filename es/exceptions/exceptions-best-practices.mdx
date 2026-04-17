@@ -1,7 +1,7 @@
 ---
-title: Buenas Practicas de Errores
+title: Buenas Prácticas de Errores
 description: |
-  Crea clases de exception personalizadas, vincula layouts con decorators y aplica patrones de produccion.
+  Crea clases de exception personalizadas, vincula layouts con decorators y aplica patrones de producción.
   Evita anti-patterns que degradan la UX de error y ralentizan la respuesta a incidentes del equipo.
 order: 4
 category: Exceptions
@@ -9,7 +9,7 @@ category: Exceptions
 
 ## Creando una exception personalizada
 
-Cuando las exceptions built-in no cubren el escenario de tu dominio, creas una clase personalizada extendiendo `SpraxiumException`. Una exception personalizada define su propio *code*, un *message* con placeholders y una interfaz *props* tipada que transporta contexto de runtime para logging y rendering de layout. Esto le da al pipeline todo lo que necesita para producir una respuesta significativa al usuario y una senal operacional sin ninguna configuracion adicional.
+Cuando las exceptions built-in no cubren el escenario de tu dominio, creas una clase personalizada extendiendo `SpraxiumException`. Una exception personalizada define su propio *code*, un *message* con placeholders y una interfaz *props* tipada que transporta contexto de runtime para logging y rendering de layout. Esto le da al pipeline todo lo que necesita para producir una respuesta significativa al usuario y una señal operacional sin ninguna configuración adicional.
 
 ```typescript filename="insufficient-balance.exception.ts"
 import { SpraxiumException } from '@spraxium/core';
@@ -31,11 +31,11 @@ export class InsufficientBalanceException extends SpraxiumException {
 }
 ```
 
-La interfaz *props* tipada es importante porque le da a los layouts y al logging acceso a datos estructurados en vez de un string opaco. Cualquier clave en el objeto *props* puede ser interpolada en el *message* usando sintaxis de llaves dobles, y los layouts reciben el objeto *props* completo para que puedan construir embeds ricos, formatear numeros o mostrar orientacion contextual al usuario.
+La interfaz *props* tipada es importante porque le da a los layouts y al logging acceso a datos estructurados en vez de un string opaco. Cualquier clave en el objeto *props* puede ser interpolada en el *message* usando sintaxis de llaves dobles, y los layouts reciben el objeto *props* completo para que puedan construir embeds ricos, formatear nÃºmeros o mostrar orientación contextual al usuario.
 
 ### Lanzando la exception personalizada
 
-Usa la exception personalizada dentro de services, guards o handlers exactamente como cualquier exception built-in. El pipeline resuelve el layout, registra si esta configurado y envia la respuesta automaticamente sin ningun codigo extra en el punto de lanzamiento.
+Usa la exception personalizada dentro de services, guards o handlers exactamente como cualquier exception built-in. El pipeline resuelve el layout, registra si está configurado y envía la respuesta automÃ¡ticamente sin ningun código extra en el punto de lanzamiento.
 
 ```typescript filename="shop.service.ts"
 import { InsufficientBalanceException } from './exceptions/insufficient-balance.exception';
@@ -51,7 +51,7 @@ if (user.balance < item.price) {
 
 ### Vinculando un layout con @WithLayout
 
-Si la exception debe venir con una presentacion visual por defecto, vincula un layout usando el decorator `@WithLayout` de *@spraxium/common*. El layout recibe la instancia de la exception con acceso completo a las *props* y el contexto de ejecucion, y retorna un payload de respuesta de Discord con embeds, componentes y flags ephemeral.
+Si la exception debe venir con una presentaciÃ³n visual por defecto, vincula un layout usando el decorator `@WithLayout` de *@spraxium/common*. El layout recibe la instancia de la exception con acceso completo a las *props* y el contexto de ejecuciÃ³n, y retorna un payload de respuesta de Discord con embeds, componentes y flags ephemeral.
 
 ```typescript filename="insufficient-balance.exception.ts"
 import { WithLayout } from '@spraxium/common';
@@ -66,7 +66,7 @@ const BalanceLayout = defineExceptionLayout((exception) => ({
       .setDescription(
         `Necesitas **${exception.props.required} ${exception.props.currency}** pero solo tienes **${exception.props.current}**.`,
       )
-      .setFooter({ text: 'Gana mas completando tareas diarias.' }),
+      .setFooter({ text: 'Gana más completando tareas diarias.' }),
   ],
   ephemeral: true,
 }));
@@ -85,7 +85,7 @@ export class InsufficientBalanceException extends SpraxiumException {
 
 ### Controlando respuesta y comportamiento de logging
 
-Cada exception personalizada puede sobreescribir si el pipeline envia una respuesta en Discord y si registra el error en logs. La flag *shouldReply* por defecto es true, lo cual es correcto para fallas orientadas al usuario, y *shouldLog* por defecto es false porque la mayoria de las exceptions de dominio son comportamiento esperado en vez de incidentes. Sobreescribe esos valores por defecto cuando la exception represente una operacion silenciosa o un error interno que deberia aparecer en los logs operacionales.
+Cada exception personalizada puede sobreescribir si el pipeline envía una respuesta en Discord y si registra el error en logs. La flag *shouldReply* por defecto es true, lo cual es correcto para fallas orientadas al usuario, y *shouldLog* por defecto es false porque la mayorÃ­a de las exceptions de dominio son comportamiento esperado en vez de incidentes. Sobreescribe esos valores por defecto cuando la exception represente una operación silenciosa o un error interno que debería aparecer en los logs operacionales.
 
 ```typescript filename="silent-audit.exception.ts"
 export class SilentAuditException extends SpraxiumException {
@@ -103,21 +103,21 @@ export class SilentAuditException extends SpraxiumException {
 
 ## Principio central
 
-La calidad de la exception comienza con claridad de intencion, lo que significa que cada exception deberia responder tres preguntas a nivel de arquitectura: que fallo, por que fallo y que accion deberia ocurrir a continuacion para usuarios u operadores. Cuando las clases de exception fallan en comunicar esas dimensiones claramente, los costos aparecen rapidamente en forma de experiencias de usuario vagas, logs ruidosos dificiles de filtrar y triaje de incidentes mas lento porque el equipo no puede determinar solo por el error que realmente salio mal.
+La calidad de la exception comienza con claridad de intención, lo que significa que cada exception debería responder tres preguntas a nivel de arquitectura: que falló, por que falló y que acción debería ocurrir a continuación para usuarios u operadores. Cuando las clases de exception fallan en comunicar esas dimensiones claramente, los costos aparecen rapidamente en forma de experiencias de usuario vagas, logs ruidosos difíciles de filtrar y triaje de incidentes más lento porque el equipo no puede determinar solo por el error que realmente salió mal.
 
 ## Patrones recomendados
 
 <Table variant="striped">
   <TableHead>
     <TableRow>
-      <TableCell header>Patron</TableCell>
+      <TableCell header>Patrón</TableCell>
       <TableCell header>Por que funciona</TableCell>
-      <TableCell header>Aplicacion practica</TableCell>
+      <TableCell header>Aplicación práctica</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>Nomenclatura especifica de clase</TableCell>
+      <TableCell>Nomenclatura específica de clase</TableCell>
       <TableCell>Mejora legibilidad y calidad del mapeo de layout</TableCell>
       <TableCell>Usa *PermissionDeniedException* en vez de *CustomError*</TableCell>
     </TableRow>
@@ -127,46 +127,46 @@ La calidad de la exception comienza con claridad de intencion, lo que significa 
       <TableCell>Define una interfaz con los campos exactos que el layout necesita</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Separar fallas de dominio y tecnicas</TableCell>
+      <TableCell>Separar fallas de dominio y técnicas</TableCell>
       <TableCell>Previene que mensajes al usuario filtren internals</TableCell>
-      <TableCell>Fallas tecnicas usan fallback seguro mas logging fuerte</TableCell>
+      <TableCell>Fallas técnicas usan fallback seguro más logging fuerte</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Estrategia explicita de fallback</TableCell>
-      <TableCell>Previene respuestas vacias o inconsistentes en errores no mapeados</TableCell>
-      <TableCell>Siempre define un layout por defecto en la configuracion</TableCell>
+      <TableCell>Estrategia explícita de fallback</TableCell>
+      <TableCell>Previene respuestas vacías o inconsistentes en errores no mapeados</TableCell>
+      <TableCell>Siempre define un layout por defecto en la configuración</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Anti-patterns a evitar
 
-Lanzar exceptions genericas para cada escenario puede parecer mas rapido al principio, pero perjudica la sostenibilidad y observabilidad con el tiempo porque cada error luce igual en los logs y no hay forma de apuntar tipos especificos de falla con layouts dedicados o reglas de monitoreo. Otro error frecuente es esconder contexto clave dentro de strings libres que no pueden ser consultados, agregados o filtrados en herramientas de analisis de log. Un tercer anti-pattern es acoplar logica de UI de error directamente dentro de domain services, lo que hace que el service sea responsable tanto de decisiones de negocio como de rendering de respuesta cuando esas preocupaciones deberian estar claramente separadas.
+Lanzar exceptions genéricas para cada escenario puede parecer más rápido al principio, pero perjudica la sostenibilidad y observabilidad con el tiempo porque cada error luce igual en los logs y no hay forma de apuntar tipos específicos de falla con layouts dedicados o reglas de monitoreo. Otro error frecuente es esconder contexto clave dentro de strings libres que no pueden ser consultados, agregados o filtrados en herramientas de análisis de log. Un tercer anti-pattern es acoplar lógica de UI de error directamente dentro de domain services, lo que hace que el service sea responsable tanto de decisiones de negocio como de rendering de respuesta cuando esas preocupaciones deberian estar claramente separadas.
 
 ## Flujo operacional recomendado
 
 <Steps>
-  <Step title="Modelar clases por politica de negocio">
-    Crea clases de exception alineadas con reglas reales de producto y escenarios orientados al usuario en lugar de layout de archivos o detalles temporales de implementacion. Cada clase deberia representar una categoria de falla significativa que el equipo pueda referenciar consistentemente en code reviews, dashboards de monitoreo e informes de incidentes.
+  <Step title="Modelar clases por política de negocio">
+    Crea clases de exception alineadas con reglas reales de producto y escenarios orientados al usuario en lugar de layout de archivos o detalles temporales de implementaciÃ³n. Cada clase debería representar una categoría de falla significativa que el equipo pueda referenciar consistentemente en code reviews, dashboards de monitoreo e informes de incidentes.
   </Step>
   <Step title="Mapear layouts en el config central">
     Manten el comportamiento orientado al usuario estable para cualquier command o listener que pueda emitir la misma familia de falla. Centralizar mapeos de layout en *spraxium.config.ts* asegura que la misma clase de exception siempre renderice de la misma forma, sin importar que modulo la lance.
   </Step>
   <Step title="Estandarizar contexto de logging">
-    Incluye identificadores estables en los payloads de exception para que los operadores puedan correlacionar errores con el command, actor y entorno especificos que los dispararon. Metadatos consistentes hacen posible construir dashboards y alertas que evidencien patrones en lugar de incidentes individuales.
+    Incluye identificadores estables en los payloads de exception para que los operadores puedan correlacionar errores con el command, actor y entorno específicos que los dispararon. Metadatos consistentes hacen posible construir dashboards y alertas que evidencien patrones en lugar de incidentes individuales.
   </Step>
-  <Step title="Revisar despues de incidentes">
-    Despues de cada incidente, evalua si la clase de exception, payload o mapeo de layout deberia ser actualizado para reducir la posibilidad de que problemas similares sean dificiles de diagnosticar en el futuro. Este refinamiento iterativo es lo que transforma un sistema de error reactivo en uno proactivo con el tiempo.
+  <Step title="Revisar después de incidentes">
+    Después de cada incidente, evalua si la clase de exception, payload o mapeo de layout debería ser actualizado para reducir la posibilidad de que problemas similares sean difíciles de diagnosticar en el futuro. Este refinamiento iterativo es lo que transforma un sistema de error reactivo en uno proactivo con el tiempo.
   </Step>
 </Steps>
 
-<Callout tone="info" title="Nota de decision arquitectural">
-  Si necesitas elegir entre menos clases con mensajes genericos y mas
-  clases de exception especificas, prefiere especificidad en las fronteras de negocio. El
-  costo inicial de modelado se compensa en soportabilidad y evolucion del producto
+<Callout tone="info" title="Nota de decisión arquitectural">
+  Si necesitas elegir entre menos clases con mensajes genéricos y más
+  clases de exception específicas, prefiere especificidad en las fronteras de negocio. El
+  costo inicial de modelado se compensa en soportabilidad y evolución del producto
   porque cada clase se convierte en un punto de referencia estable para todo el equipo.
 </Callout>
 
-## Proximos estudios
+## Siguiente estudio
 
-Continua con [Exceptions e Integracion con Guards](/guide/listeners-exceptions-integration).
+Continúa con [Excepciones e Integración](/guide/listeners-exceptions-integration).

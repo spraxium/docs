@@ -12,7 +12,44 @@ category: Exceptions
 When a user runs a command and something goes wrong, what they see in the chat is the layout. It is the visual response that Spraxium sends on behalf of the error: a text message, an embed with a title and description, an ephemeral reply, or any combination of those. The exception class is the internal signal that says what failed and carries the context data. The layout is the template that consumes that context and turns it into the actual Discord message the user reads.
 
 This separation means domain code stays focused on business rules and never needs to know how errors look to the user. A guard that denies access throws a `PermissionDeniedException`. It does not build an embed, compose a message string, or decide whether the reply should be ephemeral. All of that lives in the layout, which can be changed or overridden independently without touching any domain logic.
+The *build* method returns an *ExceptionLayoutPayload* object. Every field is optional and they can be combined freely. A layout can return just text content, just embeds, or a combination with interactive components.
 
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*content*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Plain text reply sent as the message body</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*embeds*</TableCell>
+      <TableCell>`EmbedBuilder[]`</TableCell>
+      <TableCell>Rich embed cards with color, title, description, and fields</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*components*</TableCell>
+      <TableCell>`ActionRowBuilder[]`</TableCell>
+      <TableCell>Interactive components such as buttons or select menus</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*ephemeral*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Whether the reply is visible only to the triggering user, defaults to `true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*flags*</TableCell>
+      <TableCell>`MessageFlags`</TableCell>
+      <TableCell>Low-level Discord message flags for advanced reply control</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 ## Runtime precedence order
 
 Spraxium resolves layouts in a fixed order, and knowing this order is essential to avoid confusion when local customization and global configuration coexist in the same application. Each level in the precedence chain can override the one below it, which gives you fine-grained control over how errors are presented without creating ambiguity about which layout will actually render.
@@ -134,4 +171,4 @@ When deciding which approach to use, follow this order of preference to keep you
 
 ## Next page
 
-Continue with [Error Modeling and Operational Practices](/guide/exceptions-best-practices).
+Continue with [Error Best Practices](/guide/exceptions-best-practices).

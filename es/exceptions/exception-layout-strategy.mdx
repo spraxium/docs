@@ -1,37 +1,76 @@
 ---
 title: Layouts y Mapeo
 description: |
-  Entiende el rol de los layouts de exception en el runtime de Spraxium y como se resuelven.
-  Aprende cuando usar el enfoque por decorator, cuando mapear en configuracion y cuando usar overrides por instancia.
+  Entiende el rol de los layouts de exception en el runtime de Spraxium y cómo se resuelven.
+  Aprende cuando usar el enfoque por decorator, cuando mapear en configuración y cuando usar overrides por instancia.
 order: 3
 category: Exceptions
 ---
 
-## Que es un layout de exception
+## Qué es un layout de exception
 
-Cuando un usuario ejecuta un comando y algo sale mal, lo que ve en el chat es el layout. Es la respuesta visual que Spraxium envia en nombre del error: un mensaje de texto, un embed con titulo y descripcion, una respuesta efimera, o cualquier combinacion de esas opciones. La clase de exception es la senal interna que dice que fallo y lleva los datos de contexto. El layout es el template que consume ese contexto y lo transforma en el mensaje de Discord que el usuario va a leer.
+Cuando un usuario ejecuta un comando y algo sale mal, lo que ve en el chat es el layout. Es la respuesta visual que Spraxium envía en nombre del error: un mensaje de texto, un embed con título y descripción, una respuesta efímera, o cualquier combinación de esas opciones. La clase de exception es la señal interna que dice que falló y lleva los datos de contexto. El layout es el template que consume ese contexto y lo transforma en el mensaje de Discord que el usuario va a leer.
 
-Esta separacion hace que el codigo de dominio se mantenga enfocado en reglas de negocio y nunca necesite saber como lucen los errores para el usuario. Un guard que deniega acceso lanza `PermissionDeniedException`. No construye un embed, no compone un string de mensaje ni decide si la respuesta debe ser efimera. Todo eso vive en el layout, que puede ser cambiado o sobreescrito de forma independiente sin tocar ninguna logica de dominio.
+Esta separación hace que el código de dominio se mantenga enfocado en reglas de negocio y nunca necesite saber cómo lucen los errores para el usuario. Un guard que deniega acceso lanza `PermissionDeniedException`. No construye un embed, no compone un string de mensaje ni decide si la respuesta debe ser efímera. Todo eso vive en el layout, que puede ser cambiado o sobreescrito de forma independiente sin tocar ninguna lógica de dominio.
+
+El método *build* retorna un objeto *ExceptionLayoutPayload*. Todos los campos son opcionales y se pueden combinar libremente. Un layout puede retornar solo texto, solo embeds, o una combinación con componentes interactivos.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*content*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Texto simple enviado como cuerpo del mensaje</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*embeds*</TableCell>
+      <TableCell>`EmbedBuilder[]`</TableCell>
+      <TableCell>Cards de embed con color, título, descripción y campos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*components*</TableCell>
+      <TableCell>`ActionRowBuilder[]`</TableCell>
+      <TableCell>Componentes interactivos como botones o menús de selección</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*ephemeral*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>Si la respuesta es visible solo para el usuario que disparó el error, por defecto `true`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*flags*</TableCell>
+      <TableCell>`MessageFlags`</TableCell>
+      <TableCell>Flags de mensaje de Discord de bajo nivel para control avanzado de respuesta</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ## Orden de precedencia en runtime
 
-Spraxium resuelve layouts en un orden fijo, y conocer este orden es esencial para evitar confusion cuando la personalizacion local y la configuracion global coexisten en la misma aplicacion. Cada nivel en la cadena de precedencia puede sobreescribir al que esta debajo, lo que da control granular sobre como se presentan los errores sin crear ambiguedad sobre cual layout realmente renderizara.
+Spraxium resuelve layouts en un orden fijo, y conocer este orden es esencial para evitar confusión cuando la personalización local y la configuración global coexisten en la misma aplicación. Cada nivel en la cadena de precedencia puede sobreescribir al que está debajo, lo que da control granular sobre cómo se presentan los errores sin crear ambigüedad sobre cuál layout realmente renderizará.
 
 1. Override por instancia en el objeto de exception
 2. Mapeo en el config que corresponda al nombre de la clase de exception
 3. Decorator a nivel de clase con `@WithLayout()`
-4. La entrada por defecto en el mapa de layout de la configuracion
+4. La entrada por defecto en el mapa de layout de la configuración
 5. El *DefaultExceptionLayout* integrado del framework
 
-<Callout tone="warning" title="Consecuencia practica">
+<Callout tone="warning" title="Consecuencia práctica">
   Si mapeas una clase en el mapa de layout del config, ese mapeo tiene prioridad sobre
-  el decorator a nivel de clase, lo que permite que la configuracion de la aplicacion sobreescriba
+  el decorator a nivel de clase, lo que permite que la configuración de la aplicación sobreescriba
   valores por defecto de biblioteca cuando sea necesario.
 </Callout>
 
 ## Cuando usar @WithLayout
 
-Usa el decorator cuando la propia clase de exception deberia llevar un layout por defecto semantico como parte de su definicion. Este enfoque funciona bien en paquetes compartidos o codigo de biblioteca donde quieres que la clase venga con un fallback razonable sin depender de la configuracion de la aplicacion consumidora. Los equipos que prefieren convenciones class-first tambien se benefician de este patron porque reduce la posibilidad de olvidar agregar un mapeo de layout al crear una nueva clase de exception.
+Usa el decorator cuando la propia clase de exception debería llevar un layout por defecto semantico como parte de su definición. Este enfoque funciona bien en paquetes compartidos o código de biblioteca donde quieres que la clase venga con un fallback razonable sin depender de la configuración de la aplicación consumidora. Los equipos que prefieren convenciones class-first también se benefician de este patrón porque reduce la posibilidad de olvidar agregar un mapeo de layout al crear una nueva clase de exception.
 
 <Table variant="striped">
   <TableHead>
@@ -50,14 +89,14 @@ Usa el decorator cuando la propia clase de exception deberia llevar un layout po
     <TableRow>
       <TableCell>Convenciones class-first del equipo</TableCell>
       <TableCell>Reduce la posibilidad de olvidar mapeos</TableCell>
-      <TableCell>Politica menos centralizada en un archivo</TableCell>
+      <TableCell>Política menos centralizada en un archivo</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Cuando mapear en configuracion
+## Cuando mapear en configuración
 
-Mapea en *spraxium.config.ts* cuando la politica de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia especifica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicacion porque centraliza toda la logica de presentacion de error en un lugar, facilitando la gestion de cambios ya que puedes intercambiar la politica de layout sin modificar ninguna clase de exception de dominio.
+Mapea en *spraxium.config.ts* cuando la política de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia específica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicación porque centraliza toda la lógica de presentaciÃ³n de error en un lugar, facilitando la gestión de cambios ya que puedes intercambiar la política de layout sin modificar ninguna clase de exception de dominio.
 
 <Table variant="striped">
   <TableHead>
@@ -70,11 +109,11 @@ Mapea en *spraxium.config.ts* cuando la politica de layout esta orientada por de
   <TableBody>
     <TableRow>
       <TableCell>UX de error con branding</TableCell>
-      <TableCell>Centraliza estilo, tono y politica de fallback</TableCell>
+      <TableCell>Centraliza estilo, tono y política de fallback</TableCell>
       <TableCell>Requiere disciplina de mapeo</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Politica diferente por entorno</TableCell>
+      <TableCell>Política diferente por entorno</TableCell>
       <TableCell>Puede cambiar comportamiento sin tocar clases</TableCell>
       <TableCell>El config puede crecer sin convenciones</TableCell>
     </TableRow>
@@ -83,11 +122,11 @@ Mapea en *spraxium.config.ts* cuando la politica de layout esta orientada por de
 
 ## Cuando usar override por instancia
 
-Usa el override por instancia solo para casos contextuales donde la misma clase de exception necesita renderizar de forma diferente dependiendo de condiciones de runtime. Ejemplos tipicos incluyen comunicacion temporal de incidentes, migraciones activas o experimentos de feature-flag donde la respuesta de error necesita cambiar sin modificar definiciones de clase o archivos de configuracion. Como este nivel tiene la mayor prioridad en la cadena de resolucion, tratalo como un camino de excepcion intencional y documenta por que existe para evitar crear comportamiento implicito que es dificil de rastrear al depurar.
+Usa el override por instancia solo para casos contextuales donde la misma clase de exception necesita renderizar de forma diferente dependiendo de condiciones de runtime. Ejemplos típicos incluyen comunicaciÃ³n temporal de incidentes, migraciones activas o experimentos de feature-flag donde la respuesta de error necesita cambiar sin modificar definiciones de clase o archivos de configuración. Como este nivel tiene la mayor prioridad en la cadena de resolución, tratalo como un camino de excepciÃ³n intencional y documenta por que existe para evitar crear comportamiento implícito que es dificil de rastrear al depurar.
 
 ## Ejemplo completo con embed personalizado
 
-El siguiente ejemplo muestra como crear una clase de exception con un layout a nivel de decorator y luego sobreescribirlo en la configuracion de la aplicacion. El mapeo en config tiene prioridad sobre el decorator, lo que significa que el layout con branding del equipo renderiza en produccion mientras el decorator sirve como fallback para cualquier consumidor que no configure un mapeo especifico.
+El siguiente ejemplo muestra como crear una clase de exception con un layout a nivel de decorator y luego sobreescribirlo en la configuración de la aplicación. El mapeo en config tiene prioridad sobre el decorator, lo que significa que el layout con branding del equipo renderiza en producción mientras el decorator sirve como fallback para cualquier consumidor que no configure un mapeo específico.
 
 ```typescript filename="policy.exception.ts"
 import { WithLayout } from '@spraxium/common';
@@ -98,8 +137,8 @@ const PolicyLayout = defineExceptionLayout((exception) => ({
   embeds: [
     new EmbedBuilder()
       .setColor(0xffb020)
-      .setTitle('Accion bloqueada por politica')
-      .setDescription(String(exception.props.reason ?? 'Razon no proporcionada')),
+      .setTitle('Acción bloqueada por política')
+      .setDescription(String(exception.props.reason ?? 'Razón no proporcionada')),
   ],
   ephemeral: true,
 }));
@@ -116,7 +155,7 @@ export class PolicyException extends SpraxiumException {
 }
 ```
 
-Y en la configuracion de la aplicacion:
+Y en la configuración de la aplicación:
 
 ```typescript filename="spraxium.config.ts"
 exceptions: {
@@ -128,10 +167,10 @@ exceptions: {
 }
 ```
 
-## Regla de decision recomendada
+## Regla de decisión recomendada
 
-Al decidir que enfoque usar, sigue este orden de preferencia para mantener la arquitectura de manejo de errores limpia y sostenible. Usa el mapa de layout del config como la politica primaria para tu aplicacion, usa el decorator como fallback semantico a nivel de clase para bibliotecas y paquetes compartidos, y reserva overrides por instancia exclusivamente para comportamiento genuinamente contextual que no puede expresarse a traves de los otros dos mecanismos.
+Al decidir que enfoque usar, sigue este orden de preferencia para mantener la arquitectura de manejo de errores limpia y sostenible. Usa el mapa de layout del config como la política primaria para tu aplicación, usa el decorator como fallback semantico a nivel de clase para bibliotecas y paquetes compartidos, y reserva overrides por instancia exclusivamente para comportamiento genuinamente contextual que no puede expresarse a traves de los otros dos mecanismos.
 
-## Siguiente pagina
+## Siguiente página
 
-Continua con [Modelado de Errores y Practicas Operacionales](/guide/exceptions-best-practices).
+Continúa con [Buenas Prácticas de Errores](/guide/exceptions-best-practices).
