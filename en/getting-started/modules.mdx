@@ -72,51 +72,34 @@ export class AppModule {}
 
 ## Module properties reference
 
-<Table variant="striped">
-  <TableHead>
-    <TableRow>
-      <TableCell header>Property</TableCell>
-      <TableCell header>Purpose</TableCell>
-      <TableCell header>Typical usage</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`imports`</TableCell>
-      <TableCell>Loads other modules before the current module</TableCell>
-      <TableCell>Compose feature modules in AppModule</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`providers`</TableCell>
-      <TableCell>Registers injectable classes in DI</TableCell>
-      <TableCell>Services and internal runtime classes</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`exports`</TableCell>
-      <TableCell>Exposes providers to parent or root module</TableCell>
-      <TableCell>Share a service across module boundaries</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`listeners`</TableCell>
-      <TableCell>Registers listener classes for Discord events</TableCell>
-      <TableCell>Event-driven handlers like messageCreate</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`commands`</TableCell>
-      <TableCell>Registers command metadata classes</TableCell>
-      <TableCell>SlashCommand and PrefixCommand classes</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`handlers`</TableCell>
-      <TableCell>Registers execution classes for commands</TableCell>
-      <TableCell>SlashCommandHandler and PrefixCommandHandler classes</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="imports , load modules before the current one">
+    Registers the modules the current module depends on. Spraxium loads and initializes them in the correct order before instantiating the importing module's providers. Use it in *AppModule* to compose all feature modules, and in any feature module that depends on providers exported by another.
+  </Dropdown>
+  <Dropdown title="providers , register injectable classes in the container">
+    Lists classes decorated with *@Injectable()* that the DI container should instantiate and manage. Each provider is created once per module and shared across all classes that inject it. Use it for services, repositories, and any runtime class with dependencies.
+  </Dropdown>
+  <Dropdown title="exports , expose providers to other modules">
+    Makes the listed providers available to any module that imports this one. Without exports, providers are private to the module that declares them. Use it when a service needs to be shared across module boundaries without making it globally available.
+  </Dropdown>
+  <Dropdown title="listeners , register Discord event handlers">
+    Binds listener classes to the Discord client to react to gateway events like *messageCreate* or *guildMemberAdd*. Listeners are instantiated with full DI support, so they can inject any exported provider available in the module.
+  </Dropdown>
+  <Dropdown title="commands , register command metadata">
+    Registers *SlashCommand* and *PrefixCommand* metadata classes that describe the command name, description, and options. Spraxium uses this metadata to sync commands with Discord and route incoming interactions to the correct handler.
+  </Dropdown>
+  <Dropdown title="handlers , register command execution logic">
+    Registers *SlashCommandHandler* and *PrefixCommandHandler* classes that contain the actual execution logic. Handlers receive the interaction context with full access to the module's DI, which keeps them focused and easy to test in isolation.
+  </Dropdown>
+</DropdownGroup>
 
 ## Global modules
 
-By default, a module's providers are only available to modules that explicitly import it, which is the desired behavior for most feature modules because it keeps dependencies visible and traceable. Marking a module with `@Global()` makes its exports available everywhere in the application without requiring explicit imports, but this should be reserved exclusively for cross-cutting concerns like logging, analytics, or shared configuration services that genuinely need to be accessed from every part of the codebase.
+By default, a module's providers are only available to modules that explicitly import it, which is the desired behavior for most feature modules because it keeps dependencies visible and traceable. Marking a module with *@Global()* makes its exports available everywhere in the application without requiring explicit imports, but this should be reserved exclusively for cross-cutting concerns like logging, analytics, or shared configuration services that genuinely need to be accessed from every part of the codebase.
+
+<Callout tone="warning" title="Use @Global() sparingly">
+  Marking too many modules as global bypasses the encapsulation that makes the module system valuable and makes dependency tracking harder as the project grows. Reserve *@Global()* for infrastructure that every module genuinely needs , such as logging or analytics , and keep feature-specific services scoped to their own module with explicit exports.
+</Callout>
 
 ```typescript filename="src/modules/analytics/analytics.module.ts"
 import { Global, Module } from '@spraxium/common';
@@ -138,6 +121,6 @@ Keeping modules healthy over time requires following a few practical guidelines 
 
 As the bot matures, it is normal for an existing module to split into two more focused ones when a single domain grows beyond its original scope. This kind of split is a sign of healthy growth rather than a refactoring burden, and the module system is designed to make such splits straightforward because each module already owns its own folder and dependencies.
 
-## Next step
+## Next page
 
 Continue with [Providers and Lifecycle](/guide/providers-and-lifecycle).

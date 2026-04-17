@@ -71,51 +71,34 @@ export class AppModule {}
 
 ## Referência de propriedades do módulo
 
-<Table variant="striped">
-  <TableHead>
-    <TableRow>
-      <TableCell header>Propriedade</TableCell>
-      <TableCell header>Propósito</TableCell>
-      <TableCell header>Uso típico</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`imports`</TableCell>
-      <TableCell>Carrega outros módulos antes do módulo atual</TableCell>
-      <TableCell>Compor módulos de feature no AppModule</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`providers`</TableCell>
-      <TableCell>Registra classes injetáveis no DI</TableCell>
-      <TableCell>Services e classes internas de runtime</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`exports`</TableCell>
-      <TableCell>Expõe providers para o módulo pai ou raiz</TableCell>
-      <TableCell>Compartilhar service entre fronteiras de módulo</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`listeners`</TableCell>
-      <TableCell>Registra classes listener para eventos do Discord</TableCell>
-      <TableCell>Handlers orientados a eventos como messageCreate</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`commands`</TableCell>
-      <TableCell>Registra classes de metadados de comando</TableCell>
-      <TableCell>Classes de SlashCommand e PrefixCommand</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`handlers`</TableCell>
-      <TableCell>Registra classes de execução para comandos</TableCell>
-      <TableCell>Classes de SlashCommandHandler e PrefixCommandHandler</TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+<DropdownGroup>
+  <Dropdown title="imports , carregar módulos antes do atual">
+    Registra os módulos dos quais o módulo atual depende. O Spraxium os carrega e inicializa na ordem correta antes de instanciar os providers do módulo que os importa. Use no *AppModule* para compor todos os módulos de feature, e em qualquer módulo de feature que dependa de providers exportados por outro.
+  </Dropdown>
+  <Dropdown title="providers , registrar classes injetáveis no contêiner">
+    Lista as classes decoradas com *@Injectable()* que o contêiner de DI deve instanciar e gerenciar. Cada provider é criado uma vez por módulo e compartilhado entre todas as classes que o injetam. Use para services, repositórios e qualquer classe de runtime com dependências.
+  </Dropdown>
+  <Dropdown title="exports , expor providers para outros módulos">
+    Torna os providers listados disponíveis para qualquer módulo que importe este. Sem exports, os providers são privados ao módulo que os declara. Use quando um service precisar ser compartilhado entre fronteiras de módulo sem torná-lo global.
+  </Dropdown>
+  <Dropdown title="listeners , registrar handlers de eventos do Discord">
+    Vincula classes listener ao client do Discord para reagir a eventos de gateway como *messageCreate* ou *guildMemberAdd*. Os listeners são instanciados com suporte completo de DI, podendo injetar qualquer provider exportado disponível no módulo.
+  </Dropdown>
+  <Dropdown title="commands , registrar metadados de comandos">
+    Registra as classes de metadados de *SlashCommand* e *PrefixCommand* que descrevem o nome, descrição e opções do comando. O Spraxium usa esses metadados para sincronizar comandos com o Discord e rotear interações recebidas ao handler correto.
+  </Dropdown>
+  <Dropdown title="handlers , registrar a lógica de execução dos comandos">
+    Registra as classes *SlashCommandHandler* e *PrefixCommandHandler* que contêm a lógica de execução real. Os handlers recebem o contexto de interação com acesso completo ao DI do módulo, o que os mantém focados e fáceis de testar de forma isolada.
+  </Dropdown>
+</DropdownGroup>
 
-## Módulos globais com @Global()
+## Módulos globais com *@Global()*
 
-Por padrão, os providers de um módulo ficam disponíveis apenas para módulos que o importam explicitamente, que é o comportamento desejado para a maioria dos módulos de feature porque mantém as dependências visíveis e rastreáveis. Marcar um módulo com `@Global()` torna seus exports disponíveis em toda a aplicação sem exigir imports explícitos, mas isso deve ser reservado exclusivamente para preocupações transversais como logging, analytics ou services de configuração compartilhada que genuinamente precisam ser acessados de todas as partes da base de código.
+Por padrão, os providers de um módulo ficam disponíveis apenas para módulos que o importam explicitamente, que é o comportamento desejado para a maioria dos módulos de feature porque mantém as dependências visíveis e rastreadas. Marcar um módulo com *@Global()* torna seus exports disponíveis em toda a aplicação sem exigir imports explícitos, mas isso deve ser reservado exclusivamente para preocupações transversais como logging, analytics ou services de configuração compartilhada que genuinamente precisam ser acessados de todas as partes da base de código.
+
+<Callout tone="warning" title="Use @Global() com moderação">
+  Marcar muitos módulos como globais contorna o encapsulamento que torna o sistema de módulos valioso e dificulta o rastreamento de dependências à medida que o projeto cresce. Reserve *@Global()* exclusivamente para infraestrutura que todo módulo genuinamente precise , como logging ou analytics , e mantém os services de feature dentro do próprio módulo com exports explícitos.
+</Callout>
 
 ```typescript filename="src/modules/analytics/analytics.module.ts"
 import { Global, Module } from '@spraxium/common';
@@ -135,6 +118,6 @@ Use módulos globais com moderação porque eles contornam as fronteiras de enca
 
 Manter módulos saudáveis ao longo do tempo exige seguir algumas diretrizes práticas que previnem a complexidade de crescer sorrateiramente conforme o bot evolui. Mantenha uma fronteira de negócio por pasta de módulo, e exporte apenas o que outros módulos devem consumir enquanto mantém todos os detalhes de implementação internos privados. Separe declarações de command e listener dos internals de service, e prefira muitos módulos pequenos e focados compostos pelo *AppModule* em vez de poucos módulos grandes e compartilhados que tentam fazer demais. Conforme o bot amadurece, é normal que um módulo existente se divida em dois mais focados quando um único domínio cresce além do seu escopo original, e esse tipo de divisão é sinal de crescimento saudável em vez de uma carga de refatoração.
 
-## Próximo passo
+## Próxima página
 
 Continue com [Providers e Ciclo de Vida](/guide/providers-and-lifecycle).
