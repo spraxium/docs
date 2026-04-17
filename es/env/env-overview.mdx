@@ -1,0 +1,152 @@
+---
+title: Variables de Entorno
+description: |
+  El paquete @spraxium/env valida y convierte variables de entorno en el momento del arranque.
+  Aprende a definir schemas, vincular propiedades a claves de entorno y visualizar la tabla de inicio.
+order: 1
+category: Environment
+---
+
+## Qué resuelve @spraxium/env
+
+Todo bot de Discord necesita configuración que cambia entre entornos: el token del bot, URIs de bases de datos, números de puerto y feature flags. Leer estos valores directamente de `process.env` es frágil porque las variables de entorno siempre son strings, pueden estar ausentes, y los errores tipográficos solo aparecen en runtime cuando una funcionalidad falla. El paquete *@spraxium/env* reemplaza lecturas manuales de `process.env` con un sistema basado en schema que valida, transforma y tipa cada variable antes de que el bot arranque.
+
+Defines una clase donde cada propiedad mapea a una variable de entorno a través del decorator *@Env*. Decorators de validación como *IsString*, *IsPort* o *IsDiscordToken* declaran el formato esperado. En el momento del arranque el framework ejecuta cada validador, imprime una tabla de inicio con todos los valores resueltos y detiene el proceso si algo es inválido. Esto captura errores de configuración inmediatamente en lugar de dejarlos propagarse como fallos en runtime.
+
+El paquete también incluye una clase base llamada *SpraxiumBaseEnv* que ya declara los bindings de `DISCORD_TOKEN` y `NODE_ENV`. Puedes extenderla para que tu schema herede estos campos comunes y solo agregue las variables específicas del proyecto. La clase del schema es inyectable, así que cualquier provider puede solicitarla por el constructor y acceder a valores tipados y validados.
+
+## Definiendo un schema
+
+Un schema es una clase simple decorada con *@EnvSchema*. Cada propiedad usa *@Env* para especificar qué variable de entorno lee, y uno o más decorators de validación para declarar el tipo esperado. La clase actúa como la única fuente de verdad para toda la configuración que tu bot necesita en runtime.
+
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsString, IsPort, IsBoolean, IsOptional } from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv {
+  @Env('DATABASE_URL')
+  @IsString()
+  DATABASE_URL!: string;
+
+  @Env('PORT')
+  @IsPort()
+  PORT!: number;
+
+  @Env('ENABLE_CACHE')
+  @IsBoolean()
+  @IsOptional()
+  ENABLE_CACHE?: boolean;
+}
+```
+
+El decorator *@EnvSchema* marca la clase para el pipeline de validación. Sin él, el framework imprime una advertencia y aún valida, pero siempre se recomienda incluirlo para que la intención sea explícita. El decorator *@Env* recibe el nombre exacto de la variable de entorno como primer argumento y un objeto de opciones opcional como segundo.
+
+Cada propiedad debe tener al menos un validador de tipo. Los validadores se ejecutan en orden de declaración de arriba hacia abajo: primero una fase de *transform* convierte la string cruda en el tipo destino, luego una fase de *validate* verifica si el valor convertido es aceptable. Si algún validador falla, el framework recopila todos los errores y los imprime antes de salir.
+
+## Extendiendo la clase base
+
+La clase *SpraxiumBaseEnv* viene con tres campos preconfigurados que prácticamente todo bot necesita: `DISCORD_TOKEN` con *IsDiscordToken*, `DISCORD_CLIENT_ID` con *IsDiscordId* e *IsOptional*, y `NODE_ENV` con *IsEnum* restringido a cinco valores. Extender esta clase evita duplicar estas declaraciones en cada proyecto.
+
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsMongoUri, IsPort } from '@spraxium/env';
+import { SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv extends SpraxiumBaseEnv {
+  @Env('MONGO_URI')
+  @IsMongoUri()
+  MONGO_URI!: string;
+
+  @Env('API_PORT')
+  @IsPort()
+  API_PORT!: number;
+}
+```
+
+La clase hija hereda los campos de token, client ID y node environment automáticamente. El pipeline de validación recopila campos de toda la cadena de prototipos, así que validadores definidos en *SpraxiumBaseEnv* se ejecutan junto con los tuyos. El método *get* también se hereda, permitiendo acceder a cualquier campo por su nombre de propiedad con tipado seguro.
+
+Accedes al schema validado inyectándolo en cualquier provider. Antes de que el framework pueda resolver la inyección, necesitas registrar la instancia validada en el contenedor DI raíz desde `main.ts`. El framework no puede hacer esto automáticamente porque llamar `new AppEnv()` directamente saltaría el pipeline de validación y dejaría todos los campos como `undefined`. El método *app.provide* hace este puente: acepta cualquier token y una instancia pre-construida, almacenándola en el contenedor raíz para que todo provider que declare *AppEnv* en su constructor reciba el mismo objeto validado.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const env = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: env.token });
+
+  app.useModule(AppModule);
+  app.provide(AppEnv, env);
+
+  await app.listen();
+}
+
+main();
+```
+
+Cada valor ya está parseado y tipado, así que nunca necesitas llamar `parseInt` o comparar strings manualmente. Una vez registrado, cualquier provider en cualquier módulo puede inyectar *AppEnv* a través de su constructor y acceder al mismo singleton validado. El patrón singleton garantiza que todos los providers compartan exactamente los mismos valores validados, sin riesgo de leer configuración desactualizada o inconsistente a través de los módulos.
+
+```typescript filename="src/services/database.service.ts"
+import { Injectable } from '@spraxium/core';
+import { AppEnv } from '../app.env';
+
+@Injectable()
+export class DatabaseService {
+  constructor(private readonly env: AppEnv) {}
+
+  connect() {
+    return this.createConnection(this.env.MONGO_URI, this.env.API_PORT);
+  }
+}
+```
+
+## El objeto de opciones de @Env
+
+El segundo argumento de *@Env* acepta dos opciones que controlan valores por defecto y enmascaramiento en la tabla de inicio. La opción *default* proporciona un respaldo cuando la variable de entorno está ausente, lo que también hace el campo implícitamente opcional. La opción *secret* controla si el valor aparece en la tabla de inicio o se enmascara con puntos.
+
+<DropdownGroup>
+<Dropdown title="default">
+  El valor de respaldo a usar cuando la variable de entorno está ausente. Establecer un default también hace el campo implícitamente opcional, de modo que el schema no falla en la validación si la variable no está presente. El valor debe ser una string porque las variables de entorno son strings; los validadores de tipo configurados aún ejecutan la fase de transform sobre este default antes de asignarlo a la propiedad.
+</Dropdown>
+
+<Dropdown title="secret">
+  Controla si el valor resuelto aparece en la tabla de inicio o se reemplaza con puntos. Por defecto es `true`, así que cada campo se enmascara a menos que pases explícitamente `secret: false`. Este valor por defecto protege credenciales incluso si olvidas marcarlas, y solo optas por mostrar valores no sensibles como números de puerto o feature flags.
+</Dropdown>
+</DropdownGroup>
+
+```typescript filename="src/app.env.ts"
+@Env('API_PORT', { default: '3000', secret: false })
+@IsPort()
+API_PORT!: number;
+```
+
+## Tabla de inicio y hot-reload
+
+Cuando el schema valida exitosamente, el framework imprime una tabla en la consola mostrando cada nombre de variable, su valor resuelto (o una máscara), y el origen (env, default o absent para campos opcionales). Esto da visibilidad inmediata sobre exactamente qué configuración cargó el bot, haciendo trivial detectar cuando un archivo `.env` está desactualizado o una variable se resolvió desde un default en lugar del valor real.
+
+En modo desarrollo, si la validación falla el framework no termina. En su lugar, observa el archivo `.env` esperando cambios y re-valida automáticamente. Cuando corriges la variable inválida y guardas el archivo, el validador re-ejecuta, imprime un diff mostrando qué cambió y continúa la secuencia de arranque. Este ciclo de hot-reload elimina la necesidad de reiniciar el proceso cada vez que corriges un error tipográfico en tu `.env`.
+
+El framework soporta archivos `.env.local` y `.env` de forma nativa, cargados en ese orden de prioridad. Variables que ya existen en `process.env` nunca son sobrescritas por el cargador de archivos, así que variables de sistema o de pipeline CI siempre tienen precedencia sobre las basadas en archivo.
+
+## Estructura del proyecto
+
+Un bot típico mantiene la clase de schema en la raíz de `src` para que el contrato de entorno sea visible durante el bootstrap. Los services importan *AppEnv* desde `src/app.env.ts`, lo que mantiene rutas relativas cortas y predecibles entre módulos. Los archivos `.env` permanecen en la raíz del proyecto, y la validación se ejecuta antes de que cualquier provider inicie.
+
+<FolderStructure>
+  <Folder name="src">
+    <File name="app.env.ts" />
+    <File name="app.module.ts" />
+    <File name="main.ts" />
+    <Folder name="services">
+      <File name="database.service.ts" />
+    </Folder>
+  </Folder>
+  <File name=".env" />
+  <File name=".env.local" />
+</FolderStructure>
+
+## Siguiente página
+
+Continúa con [Referencia de Validadores](/guide/env-validators).

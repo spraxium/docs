@@ -1,0 +1,234 @@
+---
+title: Referencia de Validadores
+description: |
+  Todos los decorators de validación de @spraxium/env explicados con tipos y comportamiento.
+  Conoce validadores de string, número, boolean, red, Discord, datos y utilitarios comunes.
+order: 2
+category: Environment
+---
+
+## Cómo funcionan los validadores
+
+Cada validador es un decorator de propiedad que adjunta una regla de validación a los metadatos del campo. Cuando el schema se ejecuta en el arranque, las reglas corren en el orden en que fueron declaradas en la propiedad. Cada regla puede incluir un paso de *transform* que convierte la string cruda en el tipo destino y un paso de *validate* que verifica si el valor convertido es aceptable. Si alguna regla retorna un mensaje de error, el campo falla en la validación.
+
+Puedes apilar múltiples validadores en una sola propiedad. Un campo como una URI Redis puede usar *IsRedisUri* para verificación de formato y *Secret* para enmascaramiento. El pipeline ejecuta cada regla secuencialmente, así que *Transform* corre su conversión antes de que *Validate* vea el valor. Entender este orden importa cuando combinas transforms personalizados con validadores de tipo incorporados.
+
+Los validadores están organizados en seis familias: string, número, boolean, red, Discord y datos. Un séptimo grupo, validadores comunes, contiene decorators utilitarios que modifican el comportamiento del campo sin verificar tipos.
+
+## Validador de string
+
+El validador *IsString* confirma que el valor es una string no vacía. No realiza ninguna transformación porque las variables de entorno ya son strings. Úsalo para campos de texto libre donde quieres garantizar que la variable existe y no está vacía.
+
+```typescript filename="src/app.env.ts"
+@Env('APP_NAME')
+@IsString()
+APP_NAME!: string;
+```
+
+## Validadores numéricos
+
+Tres validadores manejan valores numéricos. Cada uno transforma la string cruda en un número JavaScript antes de validar su forma. Difieren en lo que aceptan después de la conversión.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Acepta</TableCell>
+      <TableCell header>Valores de ejemplo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsNumber*</TableCell>
+      <TableCell>Cualquier número finito, incluyendo decimales</TableCell>
+      <TableCell>`"3.14"`, `"42"`, `"-1.5"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsInteger*</TableCell>
+      <TableCell>Solo números enteros</TableCell>
+      <TableCell>`"42"`, `"-7"`, `"0"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsPort*</TableCell>
+      <TableCell>Entero entre 1 y 65535</TableCell>
+      <TableCell>`"3000"`, `"8080"`, `"443"`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Los tres transforman la string con `Number()` antes de validar. *IsNumber* rechaza `NaN` y strings vacías. *IsInteger* adicionalmente requiere que `Number.isInteger()` sea verdadero. *IsPort* añade una verificación de rango de 1 a 65535 sobre el requisito de entero.
+
+```typescript filename="src/app.env.ts"
+@Env('RATE_LIMIT')
+@IsNumber()
+RATE_LIMIT!: number;
+
+@Env('MAX_RETRIES')
+@IsInteger()
+MAX_RETRIES!: number;
+
+@Env('HTTP_PORT', { secret: false })
+@IsPort()
+HTTP_PORT!: number;
+```
+
+## Validador boolean
+
+El validador *IsBoolean* transforma representaciones en string a booleans nativos. Acepta cuatro valores crudos: `"true"`, `"false"`, `"1"` y `"0"`. La comparación ignora mayúsculas y recorta espacios, así que `" TRUE "` resuelve a `true`. Cualquier otro valor falla en la validación.
+
+Después de la transformación, la propiedad contiene un boolean JavaScript real. Nunca necesitas comparar contra la string `"true"` en tu código. Esta es la forma recomendada de manejar feature flags y switches almacenados en variables de entorno.
+
+```typescript filename="src/app.env.ts"
+@Env('ENABLE_METRICS', { default: 'false', secret: false })
+@IsBoolean()
+ENABLE_METRICS!: boolean;
+```
+
+## Validadores de red
+
+Cuatro validadores cubren formatos comunes relacionados con la red. Cada uno verifica la string contra un patrón específico sin transformar el valor, ya que URIs y direcciones de red permanecen como strings.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Valida</TableCell>
+      <TableCell header>Ejemplo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsUrl*</TableCell>
+      <TableCell>Cualquier URL parseable vía `new URL()`</TableCell>
+      <TableCell>`"https://api.example.com"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsEmail*</TableCell>
+      <TableCell>Formato básico de email `user@domain.tld`</TableCell>
+      <TableCell>`"bot@spraxium.dev"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsHost*</TableCell>
+      <TableCell>Hostname, IPv4 o IPv6</TableCell>
+      <TableCell>`"localhost"`, `"192.168.1.1"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsMongoUri*</TableCell>
+      <TableCell>URI que comienza con `mongodb://` o `mongodb+srv://`</TableCell>
+      <TableCell>`"mongodb+srv://user:pass@cluster.net/db"`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsRedisUri*</TableCell>
+      <TableCell>URI que comienza con `redis://` o `rediss://`</TableCell>
+      <TableCell>`"redis://localhost:6379"`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Los validadores de red funcionan bien con *Secret* para enmascarar credenciales en la tabla de inicio. Una cadena de conexión MongoDB contiene una contraseña, así que el enmascaramiento por defecto la protege automáticamente. Hostnames y puertos son seguros para mostrar, así que márcalos con `secret: false` en las opciones de *@Env*.
+
+```typescript filename="src/app.env.ts"
+@Env('MONGO_URI')
+@IsMongoUri()
+MONGO_URI!: string;
+
+@Env('REDIS_URI')
+@IsRedisUri()
+REDIS_URI!: string;
+
+@Env('API_HOST', { default: 'localhost', secret: false })
+@IsHost()
+API_HOST!: string;
+```
+
+## Validadores Discord
+
+Dos validadores apuntan a formatos específicos de Discord. Son estrictos respecto a la forma porque tokens o IDs inválidos causan fallos de autenticación difíciles de depurar al momento de conectar.
+
+*IsDiscordToken* verifica que sea una string base64url de tres segmentos entre 59 y 100 caracteres. Valida que cada segmento no esté vacío, use solo caracteres base64url, y que la longitud total esté dentro del rango esperado. Esto captura errores comunes como pegar un token con espacios extra o copiar solo parte de él del Developer Portal.
+
+*IsDiscordId* verifica que sea un snowflake numérico entre 17 y 19 dígitos. Los snowflakes de Discord siempre son strings numéricas en este rango, así que el validador rechaza cualquier cosa que contenga caracteres no numéricos o quede fuera de los límites de longitud. El requisito estricto de longitud también rechaza IDs truncados que podrían parecer válidos en otros contextos pero causarían errores de API al usarse en solicitudes de Discord.
+
+```typescript filename="src/app.env.ts"
+@Env('DISCORD_TOKEN')
+@IsDiscordToken()
+TOKEN!: string;
+
+@Env('GUILD_ID')
+@IsDiscordId()
+GUILD_ID!: string;
+```
+
+## Validadores de datos
+
+Dos validadores manejan datos estructurados almacenados como strings en variables de entorno.
+
+*IsJson* parsea el valor crudo con `JSON.parse` durante la fase de transform. Si el parseo es exitoso, la propiedad contiene el objeto o array JavaScript parseado. Si el parseo falla, la string cruda pasa adelante y la fase de validate la rechaza. Esto es útil para configuraciones complejas que quieres almacenar como string JSON en una sola variable de entorno.
+
+*IsEnum* acepta un array de valores permitidos y verifica que el valor resuelto coincida con uno de ellos. No transforma el valor, así que funciona con strings por defecto. Puedes combinarlo con un validador de tipo como *IsNumber* si tus valores de enum son numéricos, ya que *IsEnum* ejecuta su verificación después de que todas las transforms completan.
+
+```typescript filename="src/app.env.ts"
+@Env('FEATURE_FLAGS')
+@IsJson()
+FEATURE_FLAGS!: Record<string, boolean>;
+
+@Env('LOG_LEVEL', { default: 'info', secret: false })
+@IsEnum(['debug', 'info', 'warn', 'error'])
+LOG_LEVEL!: string;
+```
+
+## Validadores comunes
+
+Los validadores comunes no verifican tipos. En su lugar, modifican cómo el campo se comporta en el pipeline. Los usas junto con validadores de tipo para controlar opcionalidad, enmascaramiento, defaults y lógica personalizada.
+
+<DropdownGroup>
+<Dropdown title="IsOptional">
+  Marca el campo para que no falle en la validación cuando la variable de entorno está ausente o vacía. Sin este decorator, todo campo es obligatorio por defecto y el schema lanza un error durante el arranque si la variable falta. Usa *IsOptional* para campos que no tienen un default significativo pero no deben bloquear el inicio.
+</Dropdown>
+
+<Dropdown title="Secret">
+  Fuerza el enmascaramiento del valor del campo en el log de inicio, sin importar la opción `secret` de *@Env*. Por defecto, campos con el decorator *@Env* enmascaran sus valores a menos que `secret: false` se defina explícitamente. Usa *Secret* como override a nivel de decorator cuando quieras garantizar enmascaramiento incluso si alguien cambia las opciones de *@Env* después.
+</Dropdown>
+
+<Dropdown title="Default">
+  Establece un valor de respaldo estático y automáticamente marca el campo como opcional. Si la variable de entorno está ausente, el campo resuelve al default proporcionado en lugar de fallar en la validación. Esto combina el comportamiento de *IsOptional* con un respaldo concreto, así que la propiedad siempre tiene un valor en runtime.
+</Dropdown>
+
+<Dropdown title="Transform">
+  Ejecuta una función personalizada en la string cruda antes de cualquier paso de validación en la misma regla y antes de regras declaradas debajo de él. La función recibe la string cruda y retorna el valor transformado, que se convierte en la nueva entrada para validadores subsiguientes. Usa esto para normalizar datos como recortar espacios, dividir listas separadas por coma o convertir formatos.
+</Dropdown>
+
+<Dropdown title="Validate">
+  Ejecuta una verificación personalizada en el valor ya transformado. La función recibe el valor y debe retornar `true` cuando es aceptable o un mensaje de error string cuando no. Esta es la válvula de escape para reglas de negocio que los validadores incorporados no cubren, como verificar rangos de valor, patrones de formato o dependencias entre campos.
+</Dropdown>
+</DropdownGroup>
+
+*IsOptional* y *Default* ambos hacen el campo opcional, pero *Default* también proporciona un respaldo concreto. Si usas *Default*, el campo siempre resuelve a un valor. Si usas *IsOptional* solo, la propiedad puede ser `undefined` en runtime.
+
+*Transform* intercepta la string cruda y retorna el nuevo valor. Se ejecuta antes de cualquier paso de *validate* en la misma regla y antes de reglas declaradas debajo de él. Esto permite normalizar datos, como recortar espacios o dividir listas separadas por coma, antes de que el validador de tipo vea el valor.
+
+*Validate* añade una verificación personalizada al pipeline. La función recibe el valor ya transformado y retorna `true` cuando es aceptable o un mensaje de error string cuando no lo es. Esta es la válvula de escape para reglas de negocio que los validadores incorporados no cubren.
+
+<CodeTabs>
+  <Tab label="Transform" language="typescript">
+```typescript filename="src/app.env.ts"
+@Env('ALLOWED_ORIGINS', { secret: false })
+@Transform((raw) => raw.split(',').map((s) => s.trim()))
+@Validate((value) => Array.isArray(value) && value.length > 0 ? true : 'Expected at least one origin')
+ALLOWED_ORIGINS!: string[];
+```
+  </Tab>
+  <Tab label="Default + Secret" language="typescript">
+```typescript filename="src/app.env.ts"
+@Env('ENCRYPTION_KEY')
+@IsString()
+@Default('dev-key-not-for-production')
+@Secret()
+ENCRYPTION_KEY!: string;
+```
+  </Tab>
+</CodeTabs>
+
+## Siguiente página
+
+Continúa con [Patrones Avanzados](/guide/env-advanced).
