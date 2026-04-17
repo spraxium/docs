@@ -1,0 +1,335 @@
+---
+title: Guards, Permissões e Tratamento de Erros
+description: |
+  Proteja handlers de slash commands com guards, permissões do Discord e tratamento de erros estruturado.
+  Aprenda o pipeline de guards em três níveis, bitfields de permissão e como SpraxiumException flui do handler até a resposta no Discord.
+order: 6
+category: Slash Commands
+---
+
+## Visão geral do modelo de permissões
+
+O controle de acesso de slash commands opera em duas camadas. A primeira camada é *defaultMemberPermissions*, uma flag em nível do Discord definida durante o registro do comando que controla quais usuários veem o comando no seletor. A segunda camada é o pipeline *@UseGuards*, uma verificação server-side que roda no processo do bot antes do handler executar. Ambas as camadas trabalham juntas: o Discord filtra a UI do lado do cliente, e os guards impõem regras que o Discord não consegue verificar, como hierarquias de roles customizadas, allowlists baseadas em banco de dados ou restrições baseadas em tempo.
+
+Nenhuma camada sozinha é suficiente para segurança. *defaultMemberPermissions* é uma dica de UI que administradores do servidor podem sobrescrever através de overrides de permissão de canal no Discord. Guards rodam no bot, mas exigem que a interação chegue ao bot primeiro. Usar ambas as camadas garante que usuários não autorizados não possam ver o comando e que, mesmo se de alguma forma invocarem, o pipeline de guards bloqueie a execução antes de qualquer lógica de negócio rodar.
+
+O exception handler fica no final do pipeline. Quando um guard nega a interação ou um handler lança erro, o framework captura o erro, normaliza em uma *SpraxiumException*, resolve o layout de resposta apropriado e envia uma mensagem no Discord. Isso significa que handlers nunca precisam de blocos try/catch brutos para cenários de erro esperados.
+
+## Configurando defaultMemberPermissions
+
+A propriedade *defaultMemberPermissions* na configuração do *@SlashCommand* aceita um bitfield de permissão que determina quais usuários podem ver o comando por padrão. Use o enum *PermissionFlagsBits* do discord.js para construção de bitfield com tipagem segura. Os padrões mais comuns são exigir uma única permissão, combinar múltiplas permissões com OR bitwise, e definir `null` para permitir todos.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Padrão">Padrão</TableCell>
+      <TableCell header="Valor">Valor</TableCell>
+      <TableCell header="Efeito">Efeito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Permissão única</TableCell>
+      <TableCell>`PermissionFlagsBits.BanMembers`</TableCell>
+      <TableCell>Apenas usuários com a permissão Ban Members veem o comando.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Múltiplas permissões</TableCell>
+      <TableCell>`PermissionFlagsBits.BanMembers | PermissionFlagsBits.KickMembers`</TableCell>
+      <TableCell>Usuários precisam de AMBAS as permissões para ver o comando (OR bitwise combina as flags).</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Apenas administrador</TableCell>
+      <TableCell>`PermissionFlagsBits.Administrator`</TableCell>
+      <TableCell>Apenas usuários com a permissão Administrator veem o comando.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Todos</TableCell>
+      <TableCell>`null` (ou omita a propriedade)</TableCell>
+      <TableCell>Todos os usuários veem o comando no seletor independentemente de suas permissões.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Literal bigint</TableCell>
+      <TableCell>`0x20n`</TableCell>
+      <TableCell>Equivalente a `PermissionFlagsBits.ManageGuild`. Útil quando importar o enum não é desejável.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="commands/ban.command.ts"
+import { SlashCommand, SlashOption } from '@spraxium/common';
+import { PermissionFlagsBits } from 'discord.js';
+
+@SlashCommand({
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
+export class BanCommand {
+  @SlashOption.User('target', { description: 'The member to ban', required: true })
+  @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
+  @SlashOption.Integer('days', {
+    description: 'Number of days of messages to delete',
+    required: false,
+    min: 0,
+    max: 7,
+  })
+  build() {}
+}
+```
+
+## O pipeline de guards
+
+Guards são classes que implementam a interface *SpraxiumGuard* com um único método *canActivate(ctx)*. O método recebe um *SpraxiumExecutionContext* envolvendo a interação e o nome do comando, e retorna um booleano (ou uma promise que resolve para um booleano). Retornar `true` permite que a interação prossiga para o handler. Retornar `false` para o pipeline e dispara uma *GuardDeniedException*.
+
+O *GuardExecutor* avalia guards em uma ordem estrita: guards globais primeiro, depois guards de nível de classe, depois guards de nível de método. Ele para no primeiro resultado `false`. Isso significa que guards globais atuam como verificações básicas que todo comando deve passar, guards de nível de classe filtram classes handler específicas, e guards de nível de método fornecem o controle mais fino.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Nível do guard">Nível do guard</TableCell>
+      <TableCell header="Como registrar">Como registrar</TableCell>
+      <TableCell header="Escopo">Escopo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Global</TableCell>
+      <TableCell>Registrado no *GuardRegistry* durante o carregamento de módulos.</TableCell>
+      <TableCell>Roda antes de todo handler de comando na aplicação.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Nível de classe</TableCell>
+      <TableCell>*@UseGuards(Guard)* na classe handler.</TableCell>
+      <TableCell>Roda antes de todo método naquela classe handler.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Nível de método</TableCell>
+      <TableCell>*@UseGuards(Guard)* no método *handle*.</TableCell>
+      <TableCell>Roda antes daquele método handler específico apenas.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Escrevendo um guard customizado
+
+Uma classe guard é decorada com *@Injectable()* (implícito pelo sistema DI) e implementa um método *canActivate*. O contexto de execução fornece *getInteraction()* para a interação Discord bruta e *getCommandName()* para o nome do comando correspondido. A partir da interação, você pode acessar o usuário, guild, canal, membro e quaisquer outros dados do Discord necessários para a decisão de autorização.
+
+```typescript filename="guards/moderator.guard.ts"
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+
+export class ModeratorGuard implements SpraxiumGuard {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const interaction = ctx.getInteraction() as ChatInputCommandInteraction;
+    if (!interaction.memberPermissions) return false;
+    return interaction.memberPermissions.has('ModerateMembers');
+  }
+}
+```
+
+O guard verifica se o membro tem a permissão *ModerateMembers*. Se a interação for em DMs (sem *memberPermissions*), o guard retorna `false`. Se o membro tiver a permissão, o guard retorna `true` e o handler prossegue. Essa é uma verificação server-side que não pode ser burlada por overrides de permissão do Discord.
+
+## Aplicando guards a handlers
+
+Aplique guards a classes handler usando o decorator *@UseGuards*. Você pode passar uma ou mais classes guard, e elas são avaliadas na ordem em que aparecem. Guards também podem ser aplicados no nível de método decorando o método *handle* diretamente.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="Guard de nível de classe" language="typescript">
+```typescript filename="handlers/ban.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import type { ChatInputCommandInteraction, User } from 'discord.js';
+import { ModeratorGuard } from '../../guards/moderator.guard';
+import { BanCommand } from '../commands/ban.command';
+
+@UseGuards(ModeratorGuard)
+@SlashCommandHandler(BanCommand)
+export class BanHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+    @SlashOpt('days') days: number | null,
+  ): Promise<void> {
+    const reasonText = reason ?? 'No reason provided';
+    await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
+  }
+}
+```
+  </Tab>
+  <Tab label="Múltiplos guards" language="typescript">
+```typescript filename="handlers/nuke.handler.ts"
+import { Ctx, SlashCommandHandler, UseGuards } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { AdminGuard } from '../../guards/admin.guard';
+import { CooldownGuard } from '../../guards/cooldown.guard';
+import { NukeCommand } from '../commands/nuke.command';
+
+@UseGuards(AdminGuard, CooldownGuard)
+@SlashCommandHandler(NukeCommand)
+export class NukeHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.reply('Channel cleared.');
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Opções de guard com withOptions
+
+Alguns guards aceitam opções de configuração que mudam seu comportamento por handler. O framework suporta passar opções tipadas a guards usando o helper *withOptions*. Os campos de opção do guard são declarados com o decorator *@GuardOption* na classe guard, especificando valores padrão e se a opção é obrigatória.
+
+```typescript filename="guards/cooldown.guard.ts"
+import { GuardOption, type ExecutionContext, type SpraxiumGuard } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+
+export class CooldownGuard implements SpraxiumGuard {
+  @GuardOption({ default: 5000, required: false })
+  duration!: number;
+
+  private readonly timestamps = new Map<string, number>();
+
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const interaction = ctx.getInteraction() as ChatInputCommandInteraction;
+    const key = `${interaction.user.id}:${ctx.getCommandName()}`;
+    const now = Date.now();
+    const last = this.timestamps.get(key) ?? 0;
+
+    if (now - last < this.duration) return false;
+
+    this.timestamps.set(key, now);
+    return true;
+  }
+}
+```
+
+<Callout tone="info" title="Respostas de erro são tratadas automaticamente">
+  Quando um guard retorna `false` ou um handler lança um erro, o framework captura o erro e envia uma resposta ao Discord automaticamente.
+  Lance uma subclasse de *SpraxiumException* com uma mensagem significativa e deixe o exception handler resolver o layout de resposta correto.
+</Callout>
+
+## Configuração do exception handler
+
+O comportamento do exception handler é configurado através da propriedade *exceptions* na configuração do Spraxium. As opções principais são *logUnhandled* (se deve logar erros que não são do framework no console) e *layouts* (um mapa de classes de exceção para classes de layout para respostas de erro customizadas).
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: [],
+  },
+});
+```
+
+Quando *logUnhandled* é `true` (o padrão), qualquer valor lançado que não seja uma subclasse de *SpraxiumException* é logado com sua mensagem e stack trace antes de ser envolvido em uma *InternalException*. Definir como `false` suprime a saída no console mas ainda envia a resposta de erro ao Discord.
+
+## Combinando permissões e guards de forma efetiva
+
+O padrão recomendado para controle de acesso de slash commands usa *defaultMemberPermissions* como primeiro filtro e *@UseGuards* como segundo. O bitfield de permissão reduz o número de interações não autorizadas que chegam ao bot, e o guard valida condições que o Discord não consegue verificar.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="commands/ban.command.ts" language="typescript">
+```typescript filename="commands/ban.command.ts"
+import { SlashCommand, SlashOption } from '@spraxium/common';
+import { PermissionFlagsBits } from 'discord.js';
+
+@SlashCommand({
+  name: 'ban',
+  description: 'Ban a member from the server.',
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
+export class BanCommand {
+  @SlashOption.User('target', { description: 'The member to ban', required: true })
+  @SlashOption.String('reason', { description: 'Reason for the ban', required: false })
+  build() {}
+}
+```
+  </Tab>
+  <Tab label="handlers/ban.handler.ts" language="typescript">
+```typescript filename="handlers/ban.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOpt, UseGuards } from '@spraxium/common';
+import type { ChatInputCommandInteraction, User } from 'discord.js';
+import { ModeratorGuard } from '../../guards/moderator.guard';
+import { BanCommand } from '../commands/ban.command';
+
+@UseGuards(ModeratorGuard)
+@SlashCommandHandler(BanCommand)
+export class BanHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+  ): Promise<void> {
+    if (!interaction.guild) {
+      await interaction.reply({ content: 'This command can only be used in a server.', flags: 'Ephemeral' });
+      return;
+    }
+
+    const member = await interaction.guild.members.fetch(target.id).catch(() => null);
+    if (!member) {
+      await interaction.reply({ content: `Could not find member ${target}.`, flags: 'Ephemeral' });
+      return;
+    }
+
+    const reasonText = reason ?? 'No reason provided';
+    await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Checklist de design para guards e tratamento de erros
+
+<Steps>
+  <Step title="Defina defaultMemberPermissions em comandos sensíveis">
+    Todo comando que executa uma ação destrutiva ou privilegiada deve definir *defaultMemberPermissions*. Isso impede que usuários não autorizados vejam o comando no seletor, reduzindo a superfície de ataque para invocações acidentais ou maliciosas. Use `PermissionFlagsBits` para segurança de tipo.
+  </Step>
+  <Step title="Use guards para autorização de nível de negócio">
+    Guards lidam com condições que permissões do Discord não conseguem expressar: hierarquias de roles em banco de dados, feature flags, restrições baseadas em tempo, allowlists específicas por guild. Escreva classes guard focadas que verificam uma condição cada, e componha-as com múltiplas entradas *@UseGuards*.
+  </Step>
+  <Step title="Deixe o exception handler gerenciar respostas de erro">
+    Não capture erros em handlers apenas para enviar mensagens de erro. Lance subclasses de *SpraxiumException* com códigos e mensagens significativos, e deixe o exception handler resolver o layout correto e enviar a resposta. Isso mantém handlers limpos e garante formatação de erros consistente em todo o bot.
+  </Step>
+  <Step title="Configure layouts customizados para erros esperados">
+    Registre classes de layout customizadas para tipos de exceção que seu bot trata frequentemente. Uma classe de layout pode renderizar um embed temático com o branding do seu bot, cores específicas para diferentes tipos de erro, e instruções acionáveis para o usuário. Isso transforma respostas de erro em uma parte polida da experiência do usuário.
+  </Step>
+  <Step title="Habilite logUnhandled em desenvolvimento">
+    Mantenha *logUnhandled* habilitado durante o desenvolvimento para que erros inesperados apareçam no console com stack traces completos. Em produção, considere se você quer logging no console ou se erros devem fluir para um serviço de logging externo através de um exception handler customizado.
+  </Step>
+</Steps>
+
+## Referência da API do contexto de execução
+
+A classe *SpraxiumExecutionContext* envolve a interação e fornece uma interface consistente para guards e exception handlers.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Método">Método</TableCell>
+      <TableCell header="Tipo de retorno">Tipo de retorno</TableCell>
+      <TableCell header="Descrição">Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*getInteraction()*</TableCell>
+      <TableCell>`BaseInteraction | Message`</TableCell>
+      <TableCell>Retorna a interação Discord bruta ou mensagem que disparou o comando.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getCommandName()*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Retorna o nome do comando correspondido conforme registrado na definição do comando.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Guards devem fazer cast do valor retornado por *getInteraction()* para o tipo esperado (como *ChatInputCommandInteraction*) antes de acessar propriedades específicas do tipo como *memberPermissions* ou *guild*. O contexto de execução não impõe o tipo de interação para manter flexibilidade entre diferentes sistemas de comando (slash, prefix, message component).
+
+## Próximo estudo
+
+[Visão Geral do Schedule](/schedule-overview)

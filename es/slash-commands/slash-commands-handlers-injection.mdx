@@ -1,0 +1,317 @@
+---
+title: Handlers e Inyección de Parámetros
+description: |
+  Implementa la lógica de slash commands en clases handler con inyección de dependencias completa.
+  Aprende cómo @SlashCommandHandler, @Ctx y @SlashOpt conectan datos de la interacción en parámetros de método automáticamente.
+order: 3
+category: Slash Commands
+---
+
+## La clase handler
+
+Una clase handler es una clase standalone decorada con *@SlashCommandHandler* que contiene la lógica de ejecución para un slash command. El decorador recibe la clase de definición del comando como primer argumento, creando un vínculo de metadatos entre el schema y la lógica. La clase handler es instanciada por el contenedor DI durante la carga de módulos, así que los parámetros de constructor se resuelven automáticamente de los providers del módulo.
+
+El handler debe exponer un método *handle*. Cuando llega una interacción que coincide con el nombre del comando (y opcionalmente el subcomando y grupo), el *SlashInvoker* llama a este método después de que el pipeline de guards pasa. La lista de parámetros del *handle* se construye dinámicamente a partir de metadatos: *@Ctx()* inyecta la interacción cruda, *@SlashOpt(name)* inyecta un valor de opción resuelto, y cualquier parámetro sin decorador recibe `undefined`.
+
+```typescript filename="handlers/ping.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
+
+@SlashCommandHandler(PingCommand)
+export class PingHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('service') service: string | null,
+  ): Promise<void> {
+    const ws = interaction.client.ws.ping;
+    if (service) {
+      await interaction.reply(`Service: ${service}, Latency: ${ws}ms`);
+    } else {
+      await interaction.reply(`Pong! ${ws}ms`);
+    }
+  }
+}
+```
+
+Spraxium exporta el tipo `SlashContext` desde `@spraxium/common`, que es un alias directo de `ChatInputCommandInteraction`. Importar desde `@spraxium/common` reduce el acoplamiento directo con discord.js en los archivos de handler. Ambos tipos son intercambiables; usa el que mejor se ajuste a la organización de imports de tu equipo.
+
+## El decorador @SlashCommandHandler
+
+El decorador *@SlashCommandHandler* acepta un argumento obligatorio y uno opcional. El primer argumento es la clase decorada con *@SlashCommand* a la que pertenece este handler. El segundo argumento es un objeto de opciones con propiedades *sub* y *group* para enrutamiento a subcomandos específicos.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Argumento">Argumento</TableCell>
+      <TableCell header="Tipo">Tipo</TableCell>
+      <TableCell header="Obligatorio">Obligatorio</TableCell>
+      <TableCell header="Descripción">Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*command*</TableCell>
+      <TableCell>Constructor de clase</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>La clase decorada con *@SlashCommand* para la cual este handler ejecuta.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*options.sub*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>El nombre del subcomando que este handler responde. Omitir para handlers de comando raíz.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*options.group*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>El nombre del grupo de subcomandos que este handler responde. Debe usarse con *sub*.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+La resolución de enrutamiento sigue una regla de coincidencia estricta. Cuando el binder recibe una interacción, extrae el nombre del comando, subcomando opcional y grupo de subcomandos opcional del objeto de interacción Discord. El registry entonces encuentra el handler donde los tres valores coinciden exactamente. Esto significa que un handler raíz (sin *sub* o *group*) nunca recibirá interacciones de subcomando, y un handler de subcomando nunca recibirá interacciones raíz.
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="Handler raíz" language="typescript">
+```typescript filename="handlers/info.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { InfoCommand } from '../commands/info.command';
+
+@SlashCommandHandler(InfoCommand)
+export class InfoHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ws = interaction.client.ws.ping;
+    await interaction.reply(`Bot latency: ${ws}ms`);
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler de subcomando" language="typescript">
+```typescript filename="handlers/config-view.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfigCommand } from '../commands/config.command';
+
+@SlashCommandHandler(ConfigCommand, { sub: 'view' })
+export class ConfigViewHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.reply('Current configuration: ...');
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler de grupo + subcomando" language="typescript">
+```typescript filename="handlers/config-automod.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfigCommand } from '../commands/config.command';
+
+@SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
+export class ConfigAutomodHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('enabled') enabled: boolean,
+    @SlashOpt('filter') filter: string | null,
+  ): Promise<void> {
+    await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Inyección de parámetros con @Ctx y @SlashOpt
+
+Los parámetros del método *handle* son poblados por el *SlashInvoker* en runtime. Dos decoradores de parámetro controlan lo que cada posición recibe: *@Ctx()* inyecta la interacción Discord cruda, y *@SlashOpt(name)* inyecta el valor resuelto para la opción nombrada. Las posiciones de parámetros son independientes, así que puedes colocar *@Ctx* en cualquier índice y mezclarlo con parámetros *@SlashOpt* en cualquier orden.
+
+*@SlashOpt* resuelve el valor de la opción llamando al getter apropiado de discord.js basado en el tipo de opción declarado en la definición del comando. Para una opción *STRING*, llama a `interaction.options.getString(name)`. Para una opción *USER*, llama a `interaction.options.getUser(name)`. El mapeo cubre los nueve tipos de opción.
+
+<Table variant="striped">
+  <TableHead>
+    <TableRow>
+      <TableCell header="Tipo de opción">Tipo de opción</TableCell>
+      <TableCell header="Getter de discord.js">Getter de discord.js</TableCell>
+      <TableCell header="Tipo de retorno">Tipo de retorno</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>STRING</TableCell>
+      <TableCell>`interaction.options.getString(name)`</TableCell>
+      <TableCell>`string | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>INTEGER</TableCell>
+      <TableCell>`interaction.options.getInteger(name)`</TableCell>
+      <TableCell>`number | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>NUMBER</TableCell>
+      <TableCell>`interaction.options.getNumber(name)`</TableCell>
+      <TableCell>`number | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>BOOLEAN</TableCell>
+      <TableCell>`interaction.options.getBoolean(name)`</TableCell>
+      <TableCell>`boolean | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>USER</TableCell>
+      <TableCell>`interaction.options.getUser(name)`</TableCell>
+      <TableCell>`User | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>CHANNEL</TableCell>
+      <TableCell>`interaction.options.getChannel(name)`</TableCell>
+      <TableCell>`Channel | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>ROLE</TableCell>
+      <TableCell>`interaction.options.getRole(name)`</TableCell>
+      <TableCell>`Role | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>MENTIONABLE</TableCell>
+      <TableCell>`interaction.options.getMentionable(name)`</TableCell>
+      <TableCell>`User | Role | null`</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>ATTACHMENT</TableCell>
+      <TableCell>`interaction.options.getAttachment(name)`</TableCell>
+      <TableCell>`Attachment | null`</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="warning" title="Los nombres de @SlashOpt deben coincidir con la definición de la opción exactamente">
+  La cadena pasada a *@SlashOpt('name')* debe ser idéntica al nombre de la opción declarado en el decorador *@SlashOption* en la definición del comando. Si los nombres no coinciden, el framework no puede localizar los metadatos de la opción y el parámetro recibe `null` en tiempo de ejecución.
+  Verifica los nombres de opciones al renombrar comandos, o importa la clase de comando como referencia de tipo para detectar discrepancias durante el code review.
+</Callout>
+
+## Inyección de dependencias en handlers
+
+Las clases handler son instanciadas por el *SpraxiumContainer*, así que participan completamente del sistema DI del framework. Puedes declarar parámetros de constructor para cualquier provider registrado en el árbol de módulos. El contenedor DI resuelve dependencias recursivamente, así que un handler puede depender de servicios que a su vez dependen de otros servicios.
+
+```typescript filename="handlers/locale.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { LocaleCommand } from '../commands/locale.command';
+
+@SlashCommandHandler(LocaleCommand)
+export class LocaleHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('language') language: string,
+  ): Promise<void> {
+    const userId = interaction.user.id;
+    if (!this.i18n.has(language)) {
+      const msg = await this.i18n.tUser(userId, 'commands.locale.invalid', {
+        locale: language,
+        available: this.i18n.locales().join(', '),
+      });
+      await interaction.reply({ content: msg, flags: 'Ephemeral' });
+      return;
+    }
+
+    await this.i18n.setUserLocale(userId, language);
+    const msg = this.i18n.t('commands.locale.set', language, { locale: language });
+    await interaction.reply({ content: msg, flags: 'Ephemeral' });
+  }
+}
+```
+
+El *I18nService* se inyecta por el contenedor porque está registrado como provider en el árbol de módulos. El handler no necesita importar el servicio del contenedor manualmente; el framework lee el metadato `design:paramtypes` emitido por TypeScript y resuelve los parámetros del constructor automáticamente.
+
+## Patrones de handler
+
+<CodeTabs defaultIndex={0}>
+  <Tab label="Respuesta efímera" language="typescript">
+```typescript filename="handlers/secret.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { SecretCommand } from '../commands/secret.command';
+
+@SlashCommandHandler(SecretCommand)
+export class SecretHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.reply({
+      content: 'This message is only visible to you.',
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+  </Tab>
+  <Tab label="Respuesta diferida" language="typescript">
+```typescript filename="handlers/slow-task.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { SlowTaskCommand } from '../commands/slow-task.command';
+
+@SlashCommandHandler(SlowTaskCommand)
+export class SlowTaskHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.deferReply();
+    const result = await this.performExpensiveWork();
+    await interaction.editReply(`Task completed: ${result}`);
+  }
+
+  private async performExpensiveWork(): Promise<string> {
+    return 'done';
+  }
+}
+```
+  </Tab>
+  <Tab label="Respuesta con embed" language="typescript">
+```typescript filename="handlers/info.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { EmbedBuilder, type ChatInputCommandInteraction } from 'discord.js';
+import { InfoCommand } from '../commands/info.command';
+
+@SlashCommandHandler(InfoCommand)
+export class InfoHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('Bot Info')
+      .addFields(
+        { name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true },
+        { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true },
+      );
+
+    await interaction.reply({ embeds: [embed] });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Checklist de diseño para handlers
+
+<Steps>
+  <Step title="Haz coincidir nombres de @SlashOpt con opciones del comando exactamente">
+    La cadena pasada a *@SlashOpt('name')* debe ser idéntica al nombre de la opción en el decorador *@SlashOption* en la definición del comando. Una discrepancia hace que el invoker falle en la búsqueda de metadatos e inyecte `null` en vez del valor real. Usa la misma constante o importa la clase de comando para verificar que los nombres coincidan durante el code review.
+  </Step>
+  <Step title="Maneja null para parámetros opcionales">
+    Cuando una opción de comando tiene `required: false`, el parámetro del handler será `null` cuando el usuario omita la opción. Siempre tipa parámetros opcionales como `Type | null` y verifica `null` antes de usar el valor. Las opciones obligatorias tienen garantía de Discord de tener un valor, así que pueden tiparse sin `null`.
+  </Step>
+  <Step title="Responde dentro de tres segundos">
+    Discord requiere una respuesta dentro de tres segundos al recibir la interacción. Si tu handler necesita más tiempo, llama a `interaction.deferReply()` inmediatamente y luego usa `interaction.editReply()` cuando el trabajo esté completado. Las respuestas diferidas muestran un indicador "Bot is thinking..." al usuario.
+  </Step>
+  <Step title="Mantén las clases handler enfocadas">
+    Cada handler debe implementar exactamente una operación lógica. Cuando un comando tiene subcomandos, usa clases handler separadas para cada subcomando en vez de hacer branching dentro de un solo handler. Esto mantiene los archivos pequeños, testeables y fáciles de navegar en el árbol de archivos.
+  </Step>
+  <Step title="Usa inyección de constructor para lógica compartida">
+    Cuando múltiples handlers comparten lógica como validación, formateo o acceso a base de datos, extrae esa lógica en una clase servicio e inyéctala por el constructor. El contenedor DI se encarga del ciclo de vida, y los handlers permanecen livianos.
+  </Step>
+</Steps>
+
+## Siguiente página
+
+[Subcomandos y Grupos](/guide/slash-commands-subcommands-groups)
