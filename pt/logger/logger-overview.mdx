@@ -1,0 +1,179 @@
+---
+title: Visão Geral do Logger
+description: |
+  A classe Logger fornece logging estruturado baseado em transports com mascaramento automático de tokens.
+  Conheça os níveis de log embutidos, como criar child loggers e como o logger se integra ao framework.
+order: 1
+category: Logger
+---
+
+## O que o logger resolve
+
+Bots Discord geram um fluxo constante de informações operacionais: comandos executados, avisos sobre rate limits, erros de chamadas de API e traces de debug durante o desenvolvimento. A classe *Logger* fornece uma API unificada para emitir essas mensagens através de transports plugáveis. Em vez de espalhar chamadas `console.log` pela codebase, você cria instâncias de logger com contextos nomeados, chama métodos tipados como *info*, *warn* ou *error*, e deixa a camada de transport decidir para onde cada mensagem vai.
+
+O logger vem com dois transports embutidos. O *ConsoleTransport* formata mensagens com timestamps, labels de nível coloridas e indicadores opcionais de shard para o terminal. O *DiscordTransport* envia entradas de log como embeds para um canal Discord ou webhook, dando à equipe de operações visibilidade em tempo real sem acesso SSH. Ambos os transports rodam em paralelo, então uma única chamada *logger.error* pode aparecer no terminal e em um canal Discord simultaneamente.
+
+Cada mensagem passa pelo *TokenMasker* antes de chegar a qualquer transport. O masker varre patterns que parecem tokens de bot Discord e os substitui por `[REDACTED]`. Isso previne vazamentos acidentais de credenciais nos logs, mesmo se um stack trace ou mensagem de erro contiver a string bruta do token.
+
+## Níveis de log embutidos
+
+O logger reconhece seis níveis nativamente. Cada nível tem uma cor padrão no console e uma cor de embed padrão no Discord. Você pode adicionar níveis customizados pela API de configuração, e eles funcionam de forma idêntica aos embutidos.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Nível</TableCell>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Cor no console</TableCell>
+      <TableCell header>Cor no Discord</TableCell>
+      <TableCell header>Uso</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*info*</TableCell>
+      <TableCell>*info*</TableCell>
+      <TableCell>Ciano</TableCell>
+      <TableCell>#3498db</TableCell>
+      <TableCell>Mensagens operacionais gerais</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*success*</TableCell>
+      <TableCell>*success*</TableCell>
+      <TableCell>Verde</TableCell>
+      <TableCell>#2ecc71</TableCell>
+      <TableCell>Operações completadas, conexões bem-sucedidas</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*warn*</TableCell>
+      <TableCell>*warn*</TableCell>
+      <TableCell>Amarelo</TableCell>
+      <TableCell>#f39c12</TableCell>
+      <TableCell>Estados degradados, limites se aproximando</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*error*</TableCell>
+      <TableCell>*error*</TableCell>
+      <TableCell>Vermelho</TableCell>
+      <TableCell>#e74c3c</TableCell>
+      <TableCell>Falhas que requerem atenção</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debug*</TableCell>
+      <TableCell>*debug*</TableCell>
+      <TableCell>Cinza</TableCell>
+      <TableCell>#95a5a6</TableCell>
+      <TableCell>Traces verbosos de desenvolvimento</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*command*</TableCell>
+      <TableCell>*log('command', ...)*</TableCell>
+      <TableCell>Magenta</TableCell>
+      <TableCell>#9b59b6</TableCell>
+      <TableCell>Execuções de slash commands</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+O nível *debug* é controlado por uma flag. Mensagens enviadas por *debug* são silenciosamente descartadas a menos que você chame `Logger.setDebug(true)` ou defina a variável de ambiente `SPRAXIUM_DEBUG` como `"true"`. Isso permite deixar chamadas debug no código de produção sem custo em runtime quando o debug está desabilitado.
+
+## Criando e usando loggers
+
+Você cria um logger instanciando a classe *Logger* com uma string de contexto opcional. O contexto aparece em cada linha de log entre o nível e a mensagem, facilitando filtrar logs por origem. Um padrão típico é criar um logger por serviço ou módulo.
+
+```typescript filename="src/services/music.service.ts"
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
+
+@Injectable()
+export class MusicService {
+  private readonly logger = new Logger('MusicService');
+
+  async play(guildId: string, trackUrl: string) {
+    this.logger.info(`Playing track in guild ${guildId}`);
+    try {
+      await this.connectAndStream(trackUrl);
+      this.logger.success(`Track started in guild ${guildId}`);
+    } catch (err) {
+      this.logger.error(`Failed to play track: ${(err as Error).message}`);
+    }
+  }
+}
+```
+
+O método *child* cria um novo logger que herda a configuração de transport do pai mas usa um nome de contexto diferente. Isso é útil dentro de métodos que precisam de sua própria identidade na saída de log sem criar um logger separado no nível da classe.
+
+```typescript filename="src/services/queue.service.ts"
+import { Logger } from '@spraxium/core';
+
+const parentLogger = new Logger('QueueService');
+const importLogger = parentLogger.child('QueueImport');
+
+importLogger.info('Starting playlist import');
+```
+
+## Níveis de log customizados
+
+O método *extend* cria uma função de log nomeada vinculada a um nível customizado. Você especifica o nome do nível e uma cor opcional. Uma vez estendida, a função funciona como qualquer método embutido e roteia por todos os transports. Isso é útil para níveis específicos do domínio como `audit`, `payment` ou `moderation` que você quer filtrar separadamente.
+
+```typescript filename="src/services/audit.service.ts"
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
+
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger('AuditService');
+  private readonly audit = this.logger.extend('audit', 'blueBright');
+
+  logAction(userId: string, action: string) {
+    this.audit(`User ${userId} performed ${action}`);
+  }
+}
+```
+
+O parâmetro de cor aceita qualquer nome de cor do chalk como `'red'`, `'greenBright'` ou `'cyan'`. Se omitido, o nível usa cinza como fallback. Cores customizadas registradas por *extend* também são reconhecidas pelo *ConsoleTransport*, então a saída colorida é consistente em todas as instâncias de logger que usam o mesmo nome de nível.
+
+## O método log
+
+O método *log* é a saída de emergência de baixo nível para emitir em qualquer nível pelo nome como string. Aceita o nível, a mensagem e um objeto `metadata` opcional. Diferente dos métodos nomeados, *log* permite anexar dados estruturados de chave-valor diretamente à entrada de log sem criar uma função tipada via *extend*. É o método que o *CommandLogger* usa internamente para anexar dados de execução de comandos.
+
+```typescript filename="src/services/payment.service.ts"
+import { Logger } from '@spraxium/core';
+
+const logger = new Logger('PaymentService');
+
+logger.log('payment', 'Cobrança processada', {
+  userId: '123456789',
+  amount: 4999,
+  currency: 'BRL',
+});
+```
+
+As chaves de metadata ficam disponíveis como placeholders `{{key}}` em templates de embed Discord. Se você configurar um transport Discord para o nível `payment`, pode usar `{{userId}}`, `{{amount}}` e `{{currency}}` diretamente no título, descrição ou campos do embed. Qualquer chave de metadata não referenciada em um template é silenciosamente ignorada pelo transport.
+
+## O método raw
+
+Quando você precisa imprimir uma mensagem sem formatação, timestamps ou prefixo de nível, use o método *raw*. Ele chama o `console.log` nativo diretamente, contornando todos os transports e o token masker. Isso é útil para imprimir banners ASCII, linhas separadoras ou saída estruturada que não deve ser envolvida no formato de log padrão.
+
+```typescript filename="src/main.ts"
+import { Logger } from '@spraxium/core';
+
+const logger = new Logger();
+logger.raw('');
+logger.raw('  Spraxium Bot v2.0.0');
+logger.raw('');
+```
+
+## Formato de saída no console
+
+Cada linha de log no console segue um layout fixo: data, hora, nível colorido, contexto opcional entre colchetes, número de shard opcional e a mensagem. O formato usa o padrão `DD/MM/YYYY - HH:MM:SS` com hora em formato 24h. Quando o bot roda em um processo sharded, o ID do shard aparece automaticamente para que você possa correlacionar mensagens entre shards.
+
+```text filename="terminal"
+12/04/2026 - 14:32:05 - INFO - [MusicService] - Playing track in guild 123456
+12/04/2026 - 14:32:05 - SUCCESS - [MusicService] - Track started in guild 123456
+12/04/2026 - 14:32:07 - ERROR - [MusicService] - [Shard 0] - Failed to play track: timeout
+```
+
+## Próxima página
+
+Continue com [Transports e Configuração](/logger-transports).

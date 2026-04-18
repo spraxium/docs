@@ -1,0 +1,179 @@
+---
+title: Logger Overview
+description: |
+  The Logger class provides structured, transport-based logging with automatic token masking.
+  Learn the built-in log levels, how to create child loggers, and how the logger integrates with the framework.
+order: 1
+category: Logger
+---
+
+## What the logger solves
+
+Discord bots generate a steady stream of operational information: commands executed, warnings about rate limits, errors from failed API calls, and debug traces during development. The *Logger* class provides a unified API for emitting these messages through pluggable transports. Instead of scattering `console.log` calls across your codebase, you create logger instances with named contexts, call typed methods like *info*, *warn*, or *error*, and let the transport layer decide where each message goes.
+
+The logger ships two built-in transports. The *ConsoleTransport* formats messages with timestamps, colored level labels, and optional shard indicators for the terminal. The *DiscordTransport* sends log entries as embeds to a Discord channel or webhook, giving your operations team real-time visibility without SSH access. Both transports run in parallel, so a single *logger.error* call can appear in the terminal and in a Discord channel simultaneously.
+
+Every message passes through the *TokenMasker* before reaching any transport. The masker scans for patterns that look like Discord bot tokens and replaces them with `[REDACTED]`. This prevents accidental credential leaks in logs, even if a stack trace or error message contains the raw token string.
+
+## Built-in log levels
+
+The logger recognizes six levels out of the box. Each level has a default color in the console and a default embed color in Discord. You can add custom levels through the configuration API, and they work identically to the built-in ones.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Level</TableCell>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Console color</TableCell>
+      <TableCell header>Discord color</TableCell>
+      <TableCell header>Use case</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*info*</TableCell>
+      <TableCell>*info*</TableCell>
+      <TableCell>Cyan</TableCell>
+      <TableCell>#3498db</TableCell>
+      <TableCell>General operational messages</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*success*</TableCell>
+      <TableCell>*success*</TableCell>
+      <TableCell>Green</TableCell>
+      <TableCell>#2ecc71</TableCell>
+      <TableCell>Completed operations, successful connections</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*warn*</TableCell>
+      <TableCell>*warn*</TableCell>
+      <TableCell>Yellow</TableCell>
+      <TableCell>#f39c12</TableCell>
+      <TableCell>Degraded states, approaching limits</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*error*</TableCell>
+      <TableCell>*error*</TableCell>
+      <TableCell>Red</TableCell>
+      <TableCell>#e74c3c</TableCell>
+      <TableCell>Failures requiring attention</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debug*</TableCell>
+      <TableCell>*debug*</TableCell>
+      <TableCell>Gray</TableCell>
+      <TableCell>#95a5a6</TableCell>
+      <TableCell>Verbose development traces</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*command*</TableCell>
+      <TableCell>*log('command', ...)*</TableCell>
+      <TableCell>Magenta</TableCell>
+      <TableCell>#9b59b6</TableCell>
+      <TableCell>Slash command executions</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+The *debug* level is gated behind a flag. Messages sent through *debug* are silently dropped unless you call `Logger.setDebug(true)` or set the `SPRAXIUM_DEBUG` environment variable to `"true"`. This lets you leave debug calls in production code without any runtime cost when debugging is disabled.
+
+## Creating and using loggers
+
+You create a logger by instantiating the *Logger* class with an optional context string. The context appears in every log line between the level and the message, making it easy to filter logs by source. A typical pattern is to create one logger per service or module.
+
+```typescript filename="src/services/music.service.ts"
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
+
+@Injectable()
+export class MusicService {
+  private readonly logger = new Logger('MusicService');
+
+  async play(guildId: string, trackUrl: string) {
+    this.logger.info(`Playing track in guild ${guildId}`);
+    try {
+      await this.connectAndStream(trackUrl);
+      this.logger.success(`Track started in guild ${guildId}`);
+    } catch (err) {
+      this.logger.error(`Failed to play track: ${(err as Error).message}`);
+    }
+  }
+}
+```
+
+The *child* method creates a new logger that inherits the parent transport configuration but uses a different context name. This is useful inside methods that need their own identity in the log output without creating a separate class-level logger.
+
+```typescript filename="src/services/queue.service.ts"
+import { Logger } from '@spraxium/core';
+
+const parentLogger = new Logger('QueueService');
+const importLogger = parentLogger.child('QueueImport');
+
+importLogger.info('Starting playlist import');
+```
+
+## Custom log levels
+
+The *extend* method creates a named log function bound to a custom level. You specify the level name and an optional color. Once extended, the function works like any built-in method and routes through all transports. This is useful for domain-specific levels like `audit`, `payment`, or `moderation` that you want to filter separately.
+
+```typescript filename="src/services/audit.service.ts"
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
+
+@Injectable()
+export class AuditService {
+  private readonly logger = new Logger('AuditService');
+  private readonly audit = this.logger.extend('audit', 'blueBright');
+
+  logAction(userId: string, action: string) {
+    this.audit(`User ${userId} performed ${action}`);
+  }
+}
+```
+
+The color parameter accepts any chalk color name like `'red'`, `'greenBright'`, or `'cyan'`. If omitted, the level falls back to gray. Custom colors registered through *extend* are also picked up by the *ConsoleTransport*, so the colored output is consistent across all logger instances that use the same level name.
+
+## The log method
+
+The *log* method is the low-level escape hatch for emitting at any level by string name. It accepts the level, the message, and an optional `metadata` object. Unlike the named methods, *log* lets you attach structured key-value data directly to the log entry without creating a typed function through *extend*. This is the method *CommandLogger* uses internally to attach command execution data.
+
+```typescript filename="src/services/payment.service.ts"
+import { Logger } from '@spraxium/core';
+
+const logger = new Logger('PaymentService');
+
+logger.log('payment', 'Charge processed', {
+  userId: '123456789',
+  amount: 4999,
+  currency: 'USD',
+});
+```
+
+The metadata keys become available as `{{key}}` placeholders in Discord embed templates. If you configure a Discord transport for the `payment` level, you can use `{{userId}}`, `{{amount}}`, and `{{currency}}` directly in the embed title, description, or fields. Any metadata key not referenced in a template is silently ignored by the transport.
+
+## The raw method
+
+When you need to print a message without any formatting, timestamps, or level prefix, use the *raw* method. It calls the native `console.log` directly, bypassing all transports and the token masker. This is useful for printing ASCII banners, separator lines, or structured output that should not be wrapped in the standard log format.
+
+```typescript filename="src/main.ts"
+import { Logger } from '@spraxium/core';
+
+const logger = new Logger();
+logger.raw('');
+logger.raw('  Spraxium Bot v2.0.0');
+logger.raw('');
+```
+
+## Console output format
+
+Each console log line follows a fixed layout: date, time, colored level, optional context in brackets, optional shard number, and the message. The format uses the `DD/MM/YYYY - HH:MM:SS` pattern with 24-hour time. When the bot runs in a sharded process, the shard ID appears automatically so you can correlate messages across shards.
+
+```text filename="terminal"
+12/04/2026 - 14:32:05 - INFO - [MusicService] - Playing track in guild 123456
+12/04/2026 - 14:32:05 - SUCCESS - [MusicService] - Track started in guild 123456
+12/04/2026 - 14:32:07 - ERROR - [MusicService] - [Shard 0] - Failed to play track: timeout
+```
+
+## Next page
+
+Continue with [Transports and Configuration](/logger-transports).

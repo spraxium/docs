@@ -1,0 +1,244 @@
+---
+title: Transports y Configuración
+description: |
+  Configura el logger con niveles personalizados, transports Discord y enmascaramiento de tokens.
+  Aprende a enviar logs a canales Discord, usar webhooks, personalizar templates de embed y agregar logging de comandos.
+order: 2
+category: Logger
+---
+
+## Configurando el logger
+
+La configuración del logger vive en un archivo dedicado `config/logger.config.ts` exportado como `const` con nombre y pasado a *defineConfig* dentro de `spraxium.config.ts`. Mantener cada preocupación en su propio módulo facilita la lectura y hace la config importable de forma independiente. El framework aplica la configuración automáticamente durante el bootstrap de la aplicación, antes de que cualquier provider comience a loguear.
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  levels: [
+    { name: 'audit', color: 'blueBright' },
+    { name: 'payment', color: 'greenBright' },
+  ],
+  maskTokens: true,
+  discord: {
+    type: 'channel',
+    channelId: '1234567890',
+    levels: ['error', 'warn', 'command'],
+  },
+};
+```
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { loggerConfig } from './config/logger.config';
+
+export default defineConfig((env) => ({
+  logger: loggerConfig,
+}));
+```
+
+El array *levels* registra niveles de log personalizados con sus colores en consola. Estos niveles quedan disponibles a través de *Logger.extend* y son reconocidos por ambos transports. La flag *maskTokens* controla el *TokenMasker*, que está habilitado por defecto. Establecerla en `false` deshabilita el ocultamiento de tokens, lo cual solo deberías hacer en desarrollo local cuando necesitas ver la salida completa.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Por defecto</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*levels*</TableCell>
+      <TableCell>`CustomLogLevel[]`</TableCell>
+      <TableCell>`[]`</TableCell>
+      <TableCell>Nombres de niveles personalizados y sus colores en consola.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*maskTokens*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>`true`</TableCell>
+      <TableCell>Ocultar patrones de tokens de Discord en todos los mensajes de log.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*discord*</TableCell>
+      <TableCell>`DiscordTransportConfig`</TableCell>
+      <TableCell>`undefined`</TableCell>
+      <TableCell>Configuración para enviar logs a Discord. Omite para deshabilitar.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## El transport Discord
+
+El transport Discord envía entradas de log como embeds a un canal de texto o webhook. Solo reenvía mensajes cuyo nivel coincida con el array *levels* en su configuración. Esto permite enviar errores y advertencias a Discord mientras mantienes mensajes info y debug solo en la consola.
+
+Dos modos de entrega están disponibles. En modo *channel*, el transport usa el propio client del bot para encontrar el canal por ID y enviar embeds. En modo *webhook*, envía solicitudes HTTP POST a una URL de webhook, lo cual funciona incluso antes de que el client del bot esté listo y no requiere que el bot esté en el servidor destino.
+
+<CodeTabs>
+  <Tab label="Modo canal" language="typescript">
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  discord: {
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['error', 'warn'],
+  },
+};
+```
+  </Tab>
+  <Tab label="Modo webhook" language="typescript">
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  discord: {
+    type: 'webhook',
+    webhookUrl: 'https://discord.com/api/webhooks/123/abc',
+    levels: ['error'],
+  },
+};
+```
+  </Tab>
+</CodeTabs>
+
+En modo canal, el transport encola mensajes que llegan antes de que el client esté listo. Cuando el client emite el evento *ready*, la cola se vacía automáticamente. La cola tiene un tamaño máximo de 100 entradas para prevenir problemas de memoria durante secuencias de arranque largas. Los mensajes que llegan después de que la cola esté llena se descartan silenciosamente.
+
+El transport también deduplica entradas. Si el mismo nivel, contexto y mensaje se envían dentro de un segundo, el segundo envío se suprime. Esto previene logging duplicado accidental por edge cases en event handlers sin requerir coordinación de tu código.
+
+## Templates de embed personalizados
+
+Por defecto, los embeds Discord usan un formato simple con el nivel como título, el mensaje como descripción, un color que coincide con el nivel y un timestamp ISO. Puedes sobrescribir esto con un template de *embed* personalizado que usa placeholders `{{key}}`.
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  discord: {
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['error', 'warn', 'command'],
+    embed: {
+      title: '{{level}} Log',
+      description: '```\n{{message}}\n```',
+      color: 0xff6b6b,
+      timestamp: true,
+      footer: { text: 'Shard {{shard}} · {{date}} {{time}}' },
+      fields: [
+        { name: 'Contexto', value: '{{context}}', inline: true },
+        { name: 'Nivel', value: '{{level}}', inline: true },
+      ],
+    },
+  },
+};
+```
+
+Las variables de placeholder disponibles se resuelven de la entrada de log al momento del envío. La variable *shard* muestra el ID del shard cuando se ejecuta en modo sharded, o "N/A" en modo single-process. Cualquier clave de metadata pasada por el método *log* también está disponible como placeholder.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Placeholder</TableCell>
+      <TableCell header>Origen</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`{{level}}`</TableCell>
+      <TableCell>Nombre del nivel en mayúsculas (INFO, ERROR, etc.)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{message}}`</TableCell>
+      <TableCell>Texto del mensaje de log</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{context}}`</TableCell>
+      <TableCell>Nombre del contexto del logger, vacío si no se estableció</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{shard}}`</TableCell>
+      <TableCell>ID del shard o "N/A"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{timestamp}}`</TableCell>
+      <TableCell>Timestamp ISO 8601</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{date}}`</TableCell>
+      <TableCell>Formateado como DD/MM/YYYY</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`{{time}}`</TableCell>
+      <TableCell>Formateado como HH:MM:SS (24h)</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Logging de comandos
+
+El servicio *CommandLogger* loguea automáticamente cada ejecución de slash command. Se vincula al evento *interactionCreate* del client y captura el nombre del comando, tag del usuario, ID del usuario, nombre del guild, ID del guild e ID del canal. Cada ejecución emite una entrada de log en el nivel `command` con metadata estructurada que puedes referenciar en templates de embed.
+
+La forma estándar de habilitar el logging de comandos es a través de `spraxium.config.ts`. Establece `commandLogging: true` dentro del bloque `logger` y el framework llama *CommandLogger.bind* automáticamente durante el wiring del client. Este enfoque se integra con el ciclo de vida completo del framework y no requiere imports adicionales.
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/core';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    channelId: '1234567890123456789',
+    levels: ['command'],
+    embed: {
+      title: 'Comando Ejecutado',
+      description: '`/{{command}}` por **{{user}}**',
+      timestamp: true,
+      footer: { text: '{{guild}} ({{guildId}})' },
+    },
+  },
+};
+```
+
+Si estás usando el logger fuera del framework o necesitas vincular el logging de comandos manualmente, llama *CommandLogger.bind* directamente con el client Discord después de que esté listo. Las claves de metadata disponibles en templates de embed son `{{command}}`, `{{user}}`, `{{userId}}`, `{{guild}}`, `{{guildId}}` y `{{channel}}`.
+
+```typescript filename="src/main.ts"
+import { CommandLogger } from '@spraxium/core';
+
+// Llama después de que el client esté listo
+CommandLogger.bind(client);
+```
+
+## Transports personalizados
+
+Puedes crear transports para cualquier destino implementando la interfaz *LogTransport*. Un transport necesita una string *name* y un método *log* que recibe un objeto *LogEntry*. El método puede retornar void o una Promise. Si lanza o rechaza, el error se captura silenciosamente para prevenir que una falla de transport rompa la aplicación.
+
+```typescript filename="src/transports/file.transport.ts"
+import { appendFileSync } from 'node:fs';
+import type { LogEntry, LogTransport } from '@spraxium/core';
+
+export class FileTransport implements LogTransport {
+  readonly name = 'file';
+
+  constructor(private readonly path: string) {}
+
+  log(entry: LogEntry): void {
+    const line = `[${entry.timestamp.toISOString()}] ${entry.level.toUpperCase()} ${entry.context ?? ''} ${entry.message}\n`;
+    appendFileSync(this.path, line);
+  }
+}
+```
+
+Registra el transport con *Logger.addTransport*. Si un transport con el mismo nombre ya existe, se reemplaza. Puedes remover un transport por nombre con *Logger.removeTransport*. El *ConsoleTransport* siempre está registrado por defecto y usa el nombre `"console"`.
+
+```typescript filename="src/main.ts"
+import { Logger } from '@spraxium/core';
+import { FileTransport } from './transports/file.transport';
+
+Logger.addTransport(new FileTransport('./logs/bot.log'));
+```
+
+Si tu transport necesita el client Discord (por ejemplo para buscar nombres de canales o resolver datos de guild), implementa la interfaz *ClientAwareTransport* en su lugar. Agrega un método *setClient* que el framework llama automáticamente cuando el client está listo. El *DiscordTransport* incorporado usa esta interfaz internamente.
