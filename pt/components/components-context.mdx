@@ -1,0 +1,325 @@
+---
+title: Flow Context
+description: |
+  Encadeie dados de estado entre interações de componentes de múltiplas etapas com SpraxiumContext.
+  Aprenda criação de contexto, adaptadores de armazenamento, expiração por TTL, restrições de usuário e injeção em handlers.
+order: 5
+category: Components
+---
+
+## O que é flow context
+
+Flow context é um contêiner de dados de estado que encadeia informações entre interações sequenciais de componentes. Quando um usuário clica em um botão, seleciona uma opção e depois submete um modal, cada handler nessa sequência pode precisar de acesso a dados de etapas anteriores. Sem flow context, você precisaria codificar estado em strings de *customId* (limitadas a 100 caracteres), armazenar dados em um banco externo ou usar mapas globais que vazam memória.
+
+O *SpraxiumContext* resolve isso fornecendo um contêiner de dados tipado, com limite de TTL e opcionalmente restrito a um usuário, que é armazenado em um adaptador plugável e referenciado por um UUID anexado ao *customId* do componente. O *ContextService* cria contextos, os serviços de componente anexam IDs de contexto a componentes renderizados, e o dispatcher resolve contextos automaticamente antes de invocar handlers.
+
+O sistema de flow context é compartilhado entre todos os tipos de componente. Um contexto criado para uma row de botões pode ser lido por um handler de modal acionado posteriormente no mesmo fluxo. Esse encadeamento entre componentes é o que torna experiências interativas de múltiplas etapas possíveis sem gerenciamento manual de estado.
+
+## Criando um contexto
+
+Injete o *ContextService* no seu comando ou serviço e chame *create* com o objeto de dados que você quer encadear através do fluxo. O método retorna um *SpraxiumContext* com um UUID gerado, os dados, timestamps e o TTL. Você então passa esse contexto para o método de build do serviço de componente.
+
+```typescript filename="src/commands/setup-wizard.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ContextService, ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { NextStepButton } from '../components/next-step.button';
+import { SetupWizardCommand } from './setup-wizard.command';
+
+@SlashCommandHandler(SetupWizardCommand)
+export class SetupWizardCommandHandler {
+  constructor(
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ctx = await this.context.create(
+      { step: 1, guildId: interaction.guildId, settings: {} },
+      { ttl: 600, restrictedTo: interaction.user.id },
+    );
+
+    const row = this.buttons.rowWithContext(ctx, NextStepButton);
+
+    await interaction.reply({
+      content: 'Welcome to the setup wizard. Click Next to begin.',
+      components: [row],
+    });
+  }
+}
+```
+
+## Interface SpraxiumContext
+
+O objeto *SpraxiumContext* carrega tanto seus dados customizados quanto metadados operacionais. O *id* é um UUID que é anexado às strings de *customId* via separador til. O campo *data* contém seu payload tipado. Os campos *ttl* e *expiresAt* controlam a expiração automática, e *restrictedTo* limita qual usuário pode interagir com componentes que carregam esse contexto.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*id*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>UUID gerado por `crypto.randomUUID()`. Anexado ao *customId* via separador til.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*data*</TableCell>
+      <TableCell>`T`</TableCell>
+      <TableCell>Seu payload tipado. Pode ser qualquer objeto serializável. Mutável através de *update*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*createdAt*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>Timestamp Unix em milissegundos de quando o contexto foi criado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*ttl*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>Tempo de vida em segundos. Usado para computar *expiresAt*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*expiresAt*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>Timestamp Unix em milissegundos de quando o contexto expira. Computado como `createdAt + ttl * 1000`.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*restrictedTo*</TableCell>
+      <TableCell>`string | undefined`</TableCell>
+      <TableCell>Quando definido, apenas este ID de usuário pode interagir com componentes que carregam este contexto.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Lendo contexto nos handlers
+
+Use o decorator de parâmetro *@FlowContext()* no método *handle* do seu handler para receber o contexto resolvido. O dispatcher extrai o ID do contexto do *customId*, recupera o contexto do adaptador de armazenamento, valida expiração e restrições de usuário, e injeta o objeto resolvido. Se o contexto tiver expirado ou o usuário estiver restrito, o dispatcher responde com a mensagem de erro configurada e não invoca o handler.
+
+```typescript filename="src/components/next-step.handler.ts"
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { NextStepButton } from './next-step.button';
+
+interface WizardData {
+  step: number;
+  guildId: string;
+  settings: Record<string, unknown>;
+}
+
+@ButtonHandler(NextStepButton)
+export class NextStepButtonHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
+    const { step, settings } = ctx.data;
+    await interaction.reply({
+      content: `You are on step ${step}. Current settings: ${JSON.stringify(settings)}`,
+      ephemeral: true,
+    });
+  }
+}
+```
+
+## Atualizando contexto
+
+O método *ContextService.update* aplica um patch parcial nos dados do contexto sem substituir o objeto inteiro. Isso é útil em fluxos de múltiplas etapas onde cada handler adiciona ou modifica um subconjunto dos dados. O método retorna um booleano indicando se a atualização foi bem-sucedida (contexto encontrado e não expirado).
+
+```typescript filename="src/components/step-two.handler.ts"
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import { ContextService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { StepTwoButton } from './step-two.button';
+
+interface WizardData {
+  step: number;
+  guildId: string;
+  settings: Record<string, unknown>;
+}
+
+@ButtonHandler(StepTwoButton)
+export class StepTwoButtonHandler {
+  constructor(private readonly context: ContextService) {}
+
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
+    await this.context.update<WizardData>(ctx.id, {
+      step: 2,
+      settings: { ...ctx.data.settings, language: 'en' },
+    });
+
+    await interaction.reply({
+      content: 'Step 2 complete. Proceeding to step 3.',
+      ephemeral: true,
+    });
+  }
+}
+```
+
+## Excluindo contexto
+
+Chame *ContextService.delete* quando o fluxo estiver completo ou cancelado. Isso remove imediatamente o contexto do adaptador de armazenamento. Embora contextos expirem automaticamente com base no TTL, a exclusão explícita é uma boa prática para fluxos que completam normalmente, pois libera armazenamento e previne que dados obsoletos sejam lidos em casos extremos.
+
+```typescript filename="src/components/finish-wizard.handler.ts"
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import { ContextService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { FinishButton } from './finish.button';
+
+@ButtonHandler(FinishButton)
+export class FinishWizardHandler {
+  constructor(private readonly context: ContextService) {}
+
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<unknown>,
+  ): Promise<void> {
+    await this.context.delete(ctx.id);
+    await interaction.reply({ content: 'Setup complete!', ephemeral: true });
+  }
+}
+```
+
+## Adaptadores de armazenamento
+
+O sistema de contexto usa um adaptador de armazenamento plugável configurado através do plugin *defineComponents*. Quatro adaptadores integrados cobrem diferentes cenários de implantação. Todos os adaptadores implementam a interface *ContextStorageAdapter* com os métodos assíncronos *get*, *set*, *delete* e *entries*.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Adaptador</TableCell>
+      <TableCell header>Valor de config</TableCell>
+      <TableCell header>Persistência</TableCell>
+      <TableCell header>Ideal para</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Memory</TableCell>
+      <TableCell>`'memory'`</TableCell>
+      <TableCell>Volátil, perdido ao reiniciar</TableCell>
+      <TableCell>Desenvolvimento e testes. Nenhuma configuração necessária.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Filesystem</TableCell>
+      <TableCell>`'filesystem'`</TableCell>
+      <TableCell>Arquivo JSON no diretório `.spraxium/`</TableCell>
+      <TableCell>Bots de instância única que precisam de contextos sobrevivendo a reinícios.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Redis</TableCell>
+      <TableCell>`'redis'`</TableCell>
+      <TableCell>Chaves Redis com prefixo `spraxium:ctx:`</TableCell>
+      <TableCell>Implantações multi-instância com necessidade de estado compartilhado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>SQLite</TableCell>
+      <TableCell>`'sqlite'`</TableCell>
+      <TableCell>Banco SQLite em `.spraxium/contexts.db`</TableCell>
+      <TableCell>Persistência leve sem infraestrutura externa.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="config/components.config.ts"
+import { defineComponents } from '@spraxium/components';
+
+export const componentsPlugin = defineComponents({
+  context: {
+    storage: 'redis',
+    defaultTtl: 600,
+  },
+});
+```
+
+## Referência da API do ContextService
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Assinatura</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*create*</TableCell>
+      <TableCell>`create<T>(data: T, options?): Promise<SpraxiumContext<T>>`</TableCell>
+      <TableCell>Cria um novo contexto com UUID gerado, armazena e retorna o objeto completo.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*get*</TableCell>
+      <TableCell>`get<T>(id: string): Promise<SpraxiumContext<T> | null>`</TableCell>
+      <TableCell>Recupera um contexto pelo ID. Retorna `null` se não encontrado ou expirado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*update*</TableCell>
+      <TableCell>`update<T>(id: string, patch: Partial<T>): Promise<boolean>`</TableCell>
+      <TableCell>Mescla um objeto parcial nos dados existentes do contexto. Retorna `false` se não encontrado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*delete*</TableCell>
+      <TableCell>`delete(id: string): Promise<void>`</TableCell>
+      <TableCell>Remove imediatamente o contexto do armazenamento. Resolve silenciosamente se não encontrado.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## TTL e comportamento de expiração
+
+Todo contexto tem um TTL medido em segundos. Quando um usuário interage com um componente cujo contexto expirou, o dispatcher responde com a mensagem configurada em *errorMessages.expired* e não invoca o handler. Contextos expirados não são excluídos imediatamente do armazenamento; eles são limpos de forma lazy quando acessados ou durante varreduras periódicas do adaptador.
+
+O TTL padrão é definido na configuração de *defineComponents*. Contextos individuais podem sobrescrevê-lo através do parâmetro *options.ttl* em *ContextService.create*.
+
+<Callout type="tip">
+  Para interações curtas como diálogos de confirmação, um TTL de 60 a 120 segundos é apropriado.
+  Para wizards de múltiplas etapas, 600 a 1800 segundos oferece uma janela confortável para os usuários completarem o fluxo sem atingir a expiração no meio da interação.
+</Callout>
+
+## Restrições de usuário
+
+A opção *restrictedTo* limita o acesso ao contexto a um ID de usuário específico. Quando definida, apenas interações daquele ID de usuário são despachadas para o handler. Outros usuários que clicam no componente recebem a mensagem configurada em *errorMessages.restricted*. Isso é essencial para fluxos onde o componente é visível a todos no canal, mas deve ser acionável apenas pelo usuário que iniciou o comando.
+
+```typescript filename="src/commands/verification.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ContextService, ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { VerifyButton } from '../components/verify.button';
+import { VerificationCommand } from './verification.command';
+
+@SlashCommandHandler(VerificationCommand)
+export class VerificationCommandHandler {
+  constructor(
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ctx = await this.context.create(
+      { userId: interaction.user.id },
+      { ttl: 300, restrictedTo: interaction.user.id },
+    );
+
+    const row = this.buttons.rowWithContext(ctx, VerifyButton);
+
+    await interaction.reply({
+      content: 'Click the button to verify your identity.',
+      components: [row],
+    });
+  }
+}
+```
+
+## Próximo estudo
+
+Continue com [Containers V2](/guide/components-v2).

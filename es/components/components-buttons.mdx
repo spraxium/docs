@@ -1,0 +1,231 @@
+---
+title: Botones
+description: |
+  Construye botones interactivos con IDs estáticos y enlaces URL para interacciones confiables orientadas a eventos.
+  Aprende los dos tipos de botón, vinculación de handlers, opciones de estilo, configuración de emoji y renderizado con ButtonService.
+order: 2
+category: Components
+---
+
+## Tipos de botón
+
+Spraxium ofrece dos variantes de botón, cada una con su propio decorator y caso de uso. Los botones estáticos tienen un *customId* fijo y disparan un handler al hacer clic. Los botones de enlace abren una URL en el navegador del usuario y no disparan ningún handler.
+
+Ambos tipos se definen como clases decoradas y se renderizan a través de *ButtonService*. Las propiedades visuales, como label, estilo, emoji y estado deshabilitado, se configuran en el decorator y se almacenan como metadatos. El renderizador lee estos metadatos en el momento del build y produce la instancia apropiada de *ButtonBuilder* de discord.js.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Tiene handler</TableCell>
+      <TableCell header>Formato del ID</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Estático</TableCell>
+      <TableCell>*@Button*</TableCell>
+      <TableCell>Sí, vía *@ButtonHandler*</TableCell>
+      <TableCell>Cadena fija de *customId*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Enlace</TableCell>
+      <TableCell>*@LinkButton*</TableCell>
+      <TableCell>No (abre URL)</TableCell>
+      <TableCell>Sin *customId*, usa *url*</TableCell>
+    </TableRow>
+
+  </TableBody>
+</Table>
+
+## Botones estáticos
+
+Un botón estático es el componente interactivo más simple. Decoras una clase con *@Button*, proporcionando un *customId* y un *label* como mínimo. El *customId* debe ser único en todo tu bot porque el dispatcher hace coincidir interacciones por igualdad exacta de *customId*. El campo *style* mapea a los estilos de botón de Discord y usa `'primary'` como predeterminado si se omite.
+
+<CodeTabs>
+<Tab label="Componente">
+```typescript filename="src/components/confirm.button.ts"
+import { Button } from '@spraxium/components';
+
+@Button({
+  customId: 'confirm-action',
+  label: 'Confirm',
+  style: 'success',
+  emoji: '✅',
+})
+export class ConfirmButton {}
+```
+</Tab>
+<Tab label="Handler">
+```typescript filename="src/components/confirm.handler.ts"
+import { ButtonHandler, Ctx } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { ConfirmButton } from './confirm.button';
+
+@ButtonHandler(ConfirmButton)
+export class ConfirmButtonHandler {
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    await interaction.reply({ content: 'Action confirmed.', ephemeral: true });
+  }
+}
+```
+</Tab>
+</CodeTabs>
+
+## Referencia de configuración
+
+El objeto de configuración pasado a *@Button* controla la apariencia y el comportamiento del botón. Todas las propiedades excepto *customId* y *label* son opcionales. El *style* acepta una de las cuatro constantes nombradas que mapean a los estilos visuales de Discord.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Propiedad</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Requerido</TableCell>
+      <TableCell header>Predeterminado</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*customId*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>-</TableCell>
+      <TableCell>Identificador único. Máximo 100 caracteres. Debe ser globalmente único.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*label*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>-</TableCell>
+      <TableCell>Texto mostrado en el botón. Máximo 80 caracteres.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*style*</TableCell>
+      <TableCell>`ButtonStyleName`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>`'primary'`</TableCell>
+      <TableCell>Estilo visual. Acepta `'primary'`, `'secondary'`, `'success'` o `'danger'`.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*emoji*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>-</TableCell>
+      <TableCell>Emoji Unicode o emoji personalizado en formato `<:name:id>`.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disabled*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>`false`</TableCell>
+      <TableCell>Cuando es `true`, el botón aparece atenuado y no emite clics.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Botones de enlace
+
+Los botones de enlace usan *@LinkButton* y abren una URL en el navegador del usuario al hacer clic. No tienen *customId* y no disparan handlers. La URL debe ser una dirección HTTP o HTTPS válida. Los botones de enlace se renderizan con el estilo *Link* de Discord automáticamente.
+
+```typescript filename="src/components/docs-link.button.ts"
+import { LinkButton } from '@spraxium/components';
+
+@LinkButton({
+  url: 'https://spraxium.dev/guide',
+  label: 'Documentation',
+  emoji: '📚',
+})
+export class DocsLinkButton {}
+```
+
+
+## Renderizado con ButtonService
+
+El *ButtonService* transforma metadatos de decorator en action rows de discord.js. Dos métodos cubren los diferentes escenarios de build. Los action rows resultantes se pasan a la propiedad *components* de la respuesta de interacción. Discord limita a 5 botones por action row.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Firma</TableCell>
+      <TableCell header>Propósito</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*build*</TableCell>
+      <TableCell>`build(...buttons: Type[])`</TableCell>
+      <TableCell>Construye un action row a partir de una o más clases de botón. Limitado a 5 botones.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*rowWithContext*</TableCell>
+      <TableCell>`rowWithContext(ctx: SpraxiumContext, ...buttons: Type[])`</TableCell>
+      <TableCell>Construye una row que adjunta el ID del contexto a cada *customId* de botón vía separador tilde.</TableCell>
+    </TableRow>
+
+  </TableBody>
+</Table>
+
+<Callout type="tip">
+  Discord limita cada action row a 5 botones. El servicio lanza un error si pasas más de cinco clases a *build*.
+  Para layouts con más botones, crea múltiples rows llamando a *build* por separado y pasa cada row en el array *components*.
+</Callout>
+
+## Referencia de estilos de botón
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Estilo</TableCell>
+      <TableCell header>Apariencia</TableCell>
+      <TableCell header>Caso de uso típico</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>`'primary'`</TableCell>
+      <TableCell>Blurple (azul de Discord)</TableCell>
+      <TableCell>Acciones principales, botón predeterminado para la mayoría de interacciones.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`'secondary'`</TableCell>
+      <TableCell>Gris</TableCell>
+      <TableCell>Acciones secundarias, cancelar, descartar.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`'success'`</TableCell>
+      <TableCell>Verde</TableCell>
+      <TableCell>Acciones de confirmación, aprobación, activar.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>`'danger'`</TableCell>
+      <TableCell>Rojo</TableCell>
+      <TableCell>Acciones destructivas, eliminar, banear, acciones irreversibles.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Registro en módulo
+
+Solo los handlers necesitan registrarse, y van en el array *handlers* del módulo de feature. Las clases de componente decoradas con *@Button* o *@LinkButton* son solo metadatos y nunca se agregan a ningún módulo. El dispatcher lee la configuración desde la referencia de clase almacenada dentro de cada decorator *@ButtonHandler*, sin necesidad de instanciar la clase del componente.
+
+```typescript filename="src/components/components.module.ts"
+import { Module } from '@spraxium/core';
+import { ConfirmButtonHandler } from './confirm.handler';
+import { SelectItemHandler } from './select-item.handler';
+
+@Module({
+  handlers: [
+    ConfirmButtonHandler,
+    SelectItemHandler,
+  ],
+})
+export class ButtonsModule {}
+```
+
+## Siguiente página
+
+Continúa con [Menús de Selección](/guide/components-selects).

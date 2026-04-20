@@ -1,0 +1,324 @@
+---
+title: Select Menus
+description: |
+  Build all five Discord select menu types with static or dynamic options.
+  Learn string, user, role, mentionable, and channel selects with handlers, dynamic option generation, and SelectService rendering.
+order: 3
+category: Components
+---
+
+## Select menu types
+
+Discord provides five select menu variants, and Spraxium supports all of them through dedicated decorators. String selects let you define custom options with labels and values. User, role, mentionable, and channel selects use Discord's built-in entity pickers that auto-populate with server data. All five types share the same handler pattern and parameter injection system.
+
+Each select type is defined as a decorated class, linked to a handler via a type-specific handler decorator, and rendered through *SelectService*. The key difference between types is the decorator used and the kind of data the user selects. String selects require explicit option definitions, while the other four types populate their options from the server automatically.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Handler</TableCell>
+      <TableCell header>Options source</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>String</TableCell>
+      <TableCell>*@StringSelect*</TableCell>
+      <TableCell>*@StringSelectHandler*</TableCell>
+      <TableCell>Developer-defined via *@SelectOption* or *dynamicOptions*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>User</TableCell>
+      <TableCell>*@UserSelect*</TableCell>
+      <TableCell>*@UserSelectHandler*</TableCell>
+      <TableCell>Auto-populated by Discord</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Role</TableCell>
+      <TableCell>*@RoleSelect*</TableCell>
+      <TableCell>*@RoleSelectHandler*</TableCell>
+      <TableCell>Auto-populated by Discord</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Mentionable</TableCell>
+      <TableCell>*@MentionableSelect*</TableCell>
+      <TableCell>*@MentionableSelectHandler*</TableCell>
+      <TableCell>Auto-populated by Discord (users + roles)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Channel</TableCell>
+      <TableCell>*@ChannelSelect*</TableCell>
+      <TableCell>*@ChannelSelectHandler*</TableCell>
+      <TableCell>Auto-populated by Discord with optional type filtering</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## String selects with static options
+
+String selects are the most flexible type because you control the option list entirely. Define options using the stackable *@SelectOption* decorator applied to the component class. Each option requires a *label* (displayed text), a *value* (returned to the handler), and an optional *description* and *emoji*. Options stack bottom-to-top in decorator order.
+
+<CodeTabs>
+  <Tab label="Component" language="typescript">
+```typescript filename="src/components/selects/language-select.component.ts"
+import { StringSelect, SelectOption } from '@spraxium/components';
+
+@StringSelect({
+  customId: 'language_picker',
+  placeholder: 'Choose a language',
+  minValues: 1,
+  maxValues: 1,
+})
+@SelectOption({ label: 'English', value: 'en', description: 'English (US)', emoji: '🇺🇸' })
+@SelectOption({ label: 'Português', value: 'pt', description: 'Portuguese (BR)', emoji: '🇧🇷' })
+@SelectOption({ label: 'Español', value: 'es', description: 'Spanish', emoji: '🇪🇸' })
+export class LanguageSelect {}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/selects/language-select.handler.ts"
+import { StringSelectHandler, Ctx, SelectedValues } from '@spraxium/components';
+import type { StringSelectMenuInteraction } from 'discord.js';
+import { LanguageSelect } from './language-select.component';
+
+@StringSelectHandler(LanguageSelect)
+export class LanguageSelectHandler {
+  async handle(
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() values: string[],
+  ): Promise<void> {
+    const language = values[0];
+    await interaction.reply({ content: `Language set to ${language}.`, ephemeral: true });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Select configuration reference
+
+The configuration object passed to any select decorator shares a common set of fields. The *customId* identifies the select for interaction routing, just like buttons. The *placeholder*, *minValues*, and *maxValues* fields control the select's UI behavior.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Required</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*customId*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Unique identifier for interaction routing. Must be unique across the bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*placeholder*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Hint text shown when no option is selected.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*minValues*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Minimum number of options the user must select. Defaults to 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*maxValues*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Maximum number of options the user can select. Defaults to 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disabled*</TableCell>
+      <TableCell>`boolean`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>When `true`, the select is rendered as non-interactive.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*dynamicOptions*</TableCell>
+      <TableCell>`(data) => SelectOptionConfig[]`</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Callback that generates options at render time from context data. String selects only.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Dynamic options
+
+When the option list depends on runtime data, use the *dynamicOptions* callback instead of static *@SelectOption* decorators. The callback receives the context *data* object passed to *SelectService.build* and must return an array of option objects. This pattern is common for selects populated from database queries, API responses, or user-specific data.
+
+```typescript filename="src/components/selects/category-select.component.ts"
+import { StringSelect } from '@spraxium/components';
+
+@StringSelect({
+  customId: 'category_picker',
+  placeholder: 'Select a category',
+  dynamicOptions: (data: { categories: Array<{ name: string; id: string }> }) =>
+    data.categories.map((cat) => ({
+      label: cat.name,
+      value: cat.id,
+    })),
+})
+export class CategorySelect {}
+```
+
+When rendering, pass the data object as the second argument to *SelectService.build*. The service calls the *dynamicOptions* callback with this data and uses the returned options to populate the select menu.
+
+<Callout type="tip">
+  *@SelectOption* decorators and *dynamicOptions* are mutually exclusive. When both are present on the same class, the dynamic callback takes precedence and static options are ignored entirely.
+</Callout>
+
+## Entity selects
+
+User, role, mentionable, and channel selects are simpler because Discord populates their options automatically. You only need to configure the *customId*, optional constraints, and the handler. Channel selects additionally support a *channelTypes* filter to restrict which channel types appear.
+
+<CodeTabs>
+  <Tab label="User select" language="typescript">
+```typescript filename="src/components/selects/user-select.component.ts"
+import { UserSelect } from '@spraxium/components';
+
+@UserSelect({
+  customId: 'target_user',
+  placeholder: 'Select a user',
+  maxValues: 3,
+})
+export class TargetUserSelect {}
+```
+  </Tab>
+  <Tab label="Role select" language="typescript">
+```typescript filename="src/components/selects/role-select.component.ts"
+import { RoleSelect } from '@spraxium/components';
+
+@RoleSelect({
+  customId: 'assign_role',
+  placeholder: 'Choose roles to assign',
+  minValues: 1,
+  maxValues: 5,
+})
+export class AssignRoleSelect {}
+```
+  </Tab>
+  <Tab label="Channel select" language="typescript">
+```typescript filename="src/components/selects/channel-select.component.ts"
+import { ChannelSelect } from '@spraxium/components';
+import { ChannelType } from 'discord.js';
+
+@ChannelSelect({
+  customId: 'log_channel',
+  placeholder: 'Select a log channel',
+  channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
+})
+export class LogChannelSelect {}
+```
+  </Tab>
+</CodeTabs>
+
+## Handler parameter injection
+
+Select handlers use the same parameter decorator system as button handlers, plus two select-specific decorators. The *@Selected()* decorator injects the full select menu interaction, giving you access to resolved users, roles, channels, or mentionables. The *@SelectedValues()* decorator injects just the `string[]` array from *interaction.values*, which is the most common pattern for string selects.
+
+```typescript filename="src/components/selects/role-select.handler.ts"
+import { RoleSelectHandler, Ctx, Selected } from '@spraxium/components';
+import type { RoleSelectMenuInteraction } from 'discord.js';
+import { AssignRoleSelect } from './role-select.component';
+
+@RoleSelectHandler(AssignRoleSelect)
+export class AssignRoleSelectHandler {
+  async handle(
+    @Ctx() interaction: RoleSelectMenuInteraction,
+    @Selected() selected: RoleSelectMenuInteraction,
+  ): Promise<void> {
+    const roles = selected.roles;
+    const names = roles.map((r) => r.name).join(', ');
+    await interaction.reply({ content: `Assigning roles: ${names}`, ephemeral: true });
+  }
+}
+```
+
+## Rendering with SelectService
+
+*SelectService* is the injectable service that builds select menu action rows from decorated classes. Its *build* method accepts the component class, an optional data argument for *dynamicOptions* callbacks, and an optional *SpraxiumContext* to embed a flow context ID in the menu's *customId*. The method is async because dynamic option callbacks may return promises.
+
+```typescript filename="src/commands/category.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { SelectService, ContextService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { CategorySelect } from '../components/selects/category-select.component';
+import { CategoryCommand } from './category.command';
+
+@SlashCommandHandler(CategoryCommand)
+export class CategoryCommandHandler {
+  constructor(
+    private readonly selects: SelectService,
+    private readonly context: ContextService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const categories = await this.fetchCategories(interaction.guildId!);
+    const ctx = await this.context.create({ userId: interaction.user.id });
+    const row = await this.selects.build(CategorySelect, categories, ctx);
+
+    await interaction.reply({
+      content: 'Choose a category:',
+      components: [row],
+    });
+  }
+
+  private async fetchCategories(guildId: string) {
+    return [
+      { name: 'General', id: 'general' },
+      { name: 'Support', id: 'support' },
+      { name: 'Feedback', id: 'feedback' },
+    ];
+  }
+}
+```
+
+## Fluent builder alternative
+
+For programmatic scenarios where defining a class is unnecessary overhead, *SelectDefBuilder* provides a fluent API for constructing select definitions inline. This builder is useful inside dynamic flows, temporary selects, or code-generated UIs where the decorator-based approach would create too many single-use classes.
+
+```typescript filename="src/commands/dynamic-select.command.ts"
+import { Selects } from '@spraxium/components';
+
+const row = Selects.string('quick_pick')
+  .placeholder('Quick selection')
+  .minValues(1)
+  .maxValues(1)
+  .options([
+    { label: 'Option A', value: 'a' },
+    { label: 'Option B', value: 'b' },
+  ])
+  .buildRow();
+```
+
+The fluent builder produces the same discord.js action row as the decorator-based approach. However, it does not participate in the handler dispatch system because there is no class or metadata to register. Use it only for fire-and-forget selects where handler routing is not needed.
+
+## Module registration
+
+Only the handler class needs to be registered, in the *handlers* array of a feature module. This applies to all five select types identically. Select component classes decorated with *@StringSelect*, *@UserSelect*, or similar decorators are metadata-only and are never added to any module. The dispatcher reads their metadata from the class reference stored inside each handler's decorator.
+
+```typescript filename="src/modules/settings/settings.module.ts"
+import { Module } from '@spraxium/common';
+import { LanguageSelectHandler } from './components/language-select.handler';
+import { TargetUserSelectHandler } from './components/user-select.handler';
+
+@Module({
+  handlers: [
+    LanguageSelectHandler,
+    TargetUserSelectHandler,
+  ],
+})
+export class SettingsModule {}
+```
+
+## Next page
+
+Continue with [Embeds](/guide/components-embeds).
