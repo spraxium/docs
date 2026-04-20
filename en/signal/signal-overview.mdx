@@ -1,0 +1,317 @@
+---
+title: Signal Foundations
+description: |
+  Understand Signal as a secure, asynchronous event delivery protocol designed for bot architectures.
+  Learn the envelope contract, HMAC security model, ten-rule validation pipeline, and production use cases for cross-service bot integration.
+order: 1
+category: '@spraxium/signal'
+---
+
+## Why Signal exists in bot architectures
+
+*Signal* was designed for teams that run bots in real operations where multiple external services need to inform the bot about domain changes without creating hard runtime dependencies. Instead of wiring each API, worker, or admin panel directly into your bot internals, you publish standardized events through Discord webhooks and let the bot consume them through one secure path. This keeps ownership boundaries clean because external systems focus on producing business events while the bot focuses on reacting to them.
+
+The protocol uses Discord's own webhook infrastructure as the transport layer. External services send signed JSON envelopes to a private Discord channel, and the bot's Signal module listens for new messages on that channel. This design avoids exposing internal service APIs, avoids setting up custom transport servers, and leverages Discord's existing reliability and delivery guarantees. The separation between producer and consumer is the core reason Signal scales better than ad-hoc webhook handlers scattered across feature modules.
+
+<Callout tone="info" title="Two packages, one protocol">
+  The Signal ecosystem consists of two packages. <code>@spraxium/signal</code> is the
+  bot-side receiver that validates and dispatches events. <code>@spraxium/signal-client</code>
+  is the lightweight emitter used by external services to publish signed envelopes.
+</Callout>
+
+## Architecture overview
+
+The Signal ecosystem splits into a receiver (the bot) and one or more emitters (external services). The emitter builds a signed envelope, posts it as a webhook message to a private Discord channel, and the bot's listener picks it up. The receiver validates the envelope through a strict ten-rule pipeline before dispatching the event to a registered handler.
+
+This architecture keeps the bot process clean. It never exposes incoming HTTP ports for event ingestion. Instead, it leverages Discord's existing *messageCreate* event, which the bot already subscribes to. The Signal module simply adds a filter that identifies webhook messages from approved sources and routes them through the validation pipeline.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Component</TableCell>
+      <TableCell header>Package</TableCell>
+      <TableCell header>Responsibility</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*SignalClient*</TableCell>
+      <TableCell>`@spraxium/signal-client`</TableCell>
+      <TableCell>Builds envelopes, signs them with HMAC, delivers via webhook POST.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*SignalModule*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Global module that wires the receiver pipeline into the bot runtime.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*SignalValidator*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Executes ten sequential validation rules on incoming messages.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*SignalProcessor*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Orchestrates validation, nonce dedup, Zod parsing, and handler dispatch.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*SignalRouter*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Maps event names to registered handler functions.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*SignalRegistry*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Discovers *@SignalListener* classes, registers handlers, and wires the *messageCreate* listener.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*NonceCache*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Tracks processed nonces with a 60-second TTL for replay protection.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*HmacService*</TableCell>
+      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>Computes and verifies HMAC-SHA256 signatures with timing-safe comparison.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Recommended folder structure
+
+<FolderStructure title="Signal integration in a bot project">
+  <Folder name="config" open>
+    <File name="signal.config.ts" comment="Trust boundaries and runtime controls" />
+  </Folder>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="signal" open>
+        <File name="signal.module.ts" comment="Imports SignalModule and registers listeners" />
+        <Folder name="listeners" open>
+          <File name="guild-config.signal.ts" comment="Handles config.update events" />
+          <File name="billing.signal.ts" comment="Handles billing domain events" />
+        </Folder>
+        <Folder name="schemas" open>
+          <File name="config-update.schema.ts" comment="Zod schema for config.update payload" />
+          <File name="billing-status.schema.ts" comment="Zod schema for billing.status.changed" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+  <File name="spraxium.config.ts" comment="Composes plugins with the signal config" />
+</FolderStructure>
+
+## The envelope contract
+
+Every Signal message follows a single envelope shape. This standardized structure ensures that transport validation happens before any business code runs. The envelope is a JSON object with seven fields, each serving a specific role in the validation and dispatch pipeline.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*v*</TableCell>
+      <TableCell>`1`</TableCell>
+      <TableCell>Protocol version used for compatibility control. Always `1` in the current version.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*event*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Domain event name that maps to a bot-side listener (e.g., `config.update`).</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*guildId*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>Target guild context for multi-guild bot deployments.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*nonce*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>UUID unique to this envelope, used for replay deduplication.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sentAt*</TableCell>
+      <TableCell>`number`</TableCell>
+      <TableCell>Unix timestamp in milliseconds when the envelope was created.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*signature*</TableCell>
+      <TableCell>`string`</TableCell>
+      <TableCell>HMAC-SHA256 hex digest for integrity and source trust verification.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*payload*</TableCell>
+      <TableCell>`unknown`</TableCell>
+      <TableCell>Free-form domain data delivered to the resolved bot handler.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="example-envelope.json"
+{
+  "v": 1,
+  "event": "config.update",
+  "guildId": "123456789012345678",
+  "nonce": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "sentAt": 1712937600000,
+  "signature": "8f14e45fceea167a5a36dedd4bea2543",
+  "payload": { "prefix": "!", "language": "en" }
+}
+```
+
+## HMAC security model
+
+The HMAC layer is the security boundary that tells the bot whether an envelope was produced by an authorized emitter and whether the content stayed intact in transit. The signature is computed by concatenating the *nonce*, *sentAt*, and *payload* fields into a single string (`${nonce}.${sentAt}.${JSON.stringify(payload)}`), then hashing it with HMAC-SHA256 using a shared secret key.
+
+On the bot side, the same computation is performed and the result is compared to the received signature using a timing-safe comparison function. If the values do not match, the envelope is rejected before any business logic executes. This protects against three categories of attacks: payload tampering in transit, replay with modified data, and envelopes forged by unauthorized services.
+
+In practical terms, HMAC allows your team to trust automation coming from external dashboards, billing systems, or moderation backoffices without exposing internal service APIs to the bot process. The shared secret must be the same on both the emitter and receiver side, and it should never be committed to version control.
+
+<Callout tone="warning" title="Shared secret must match exactly">
+  The <code>hmacSecret</code> value in <code>defineSignal</code> on the bot side must be
+  identical to the <code>hmacSecret</code> value in the <code>SignalClient</code> constructor.
+  If they diverge even by one character, every envelope will be rejected as untrusted.
+</Callout>
+
+## Ten-rule validation pipeline
+
+Before any domain handler executes, every incoming message passes through a strict ten-rule validation pipeline implemented in *SignalValidator*. Each rule is evaluated sequentially, and the first failure stops the pipeline immediately. This fail-fast design ensures that invalid messages consume minimal processing time.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Rule</TableCell>
+      <TableCell header>Check</TableCell>
+      <TableCell header>Rejects if</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>R1</TableCell>
+      <TableCell>Webhook source</TableCell>
+      <TableCell>The message does not have a *webhookId* property.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R2</TableCell>
+      <TableCell>Webhook identity</TableCell>
+      <TableCell>The *webhookId* is not in the *allowedWebhookIds* array.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R3</TableCell>
+      <TableCell>Channel boundary</TableCell>
+      <TableCell>The message channel does not match the configured *channelId*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R4</TableCell>
+      <TableCell>JSON parsing</TableCell>
+      <TableCell>The message content is not valid JSON or is not an object.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R5</TableCell>
+      <TableCell>Protocol version</TableCell>
+      <TableCell>The *v* field is not exactly `1`.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R6</TableCell>
+      <TableCell>Event registration</TableCell>
+      <TableCell>The *event* name is not registered with any bot-side handler.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R7</TableCell>
+      <TableCell>Guild ID validity</TableCell>
+      <TableCell>The *guildId* is empty or not a string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R8</TableCell>
+      <TableCell>Nonce validity</TableCell>
+      <TableCell>The *nonce* is empty or not a string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R9</TableCell>
+      <TableCell>Clock skew</TableCell>
+      <TableCell>The *sentAt* timestamp deviates more than 5 minutes from the bot's clock.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>R10</TableCell>
+      <TableCell>HMAC signature</TableCell>
+      <TableCell>The *signature* does not match the recomputed HMAC-SHA256 digest.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Full processing pipeline
+
+After the validator approves an envelope, the *SignalProcessor* continues with three additional steps before the domain handler executes. Understanding the complete pipeline helps you debug delivery issues and reason about the order of operations during incident analysis.
+
+<Steps>
+  <Step title="Ten-rule validation">
+    The *SignalValidator* checks every incoming message against ten sequential rules. The first failure rejects the message and logs a diagnostic entry when debug mode is enabled. Only messages that pass all ten rules proceed to the next stage.
+  </Step>
+  <Step title="Nonce deduplication">
+    The *NonceCache* checks whether this nonce was already seen within the last 60 seconds. If it was, the message is treated as a replay and silently dropped. If it is new, the nonce is recorded with a timestamp. Expired entries are evicted automatically on the next check.
+  </Step>
+  <Step title="Handler resolution and routing">
+    The *SignalRouter* looks up the handler registered for this event name. If no handler exists, the message is logged as unroutable and dropped. This should not happen because rule R6 already verified the event was registered, but the router check adds defense in depth.
+  </Step>
+  <Step title="Zod payload validation">
+    If the resolved handler has a Zod schema attached via the *@OnSignal* options, the processor runs *safeParse* on the payload. If validation fails, the message is rejected with a diagnostic log. If no schema is configured, the raw payload is passed through unchanged.
+  </Step>
+  <Step title="Optional message deletion">
+    If *deleteAfterProcessing* is enabled in the Signal config, the processor attempts to delete the webhook message from the Discord channel. Deletion failures are logged as warnings but do not block handler execution.
+  </Step>
+  <Step title="Handler execution">
+    The processor invokes the resolved handler with the validated payload and the full envelope. Errors thrown by the handler are caught, logged, and do not crash the Signal pipeline. Other events continue to be processed normally.
+  </Step>
+</Steps>
+
+## Practical use cases
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Use case</TableCell>
+      <TableCell header>Fit</TableCell>
+      <TableCell header>Why it works well</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Billing system notifying role updates</TableCell>
+      <TableCell>Strong</TableCell>
+      <TableCell>Business systems emit events while the bot applies guild-side role changes safely and asynchronously.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Moderation backoffice publishing enforcement actions</TableCell>
+      <TableCell>Strong</TableCell>
+      <TableCell>Backoffice stays decoupled and the bot handles Discord-facing execution independently.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Next.js admin panel using Server Actions</TableCell>
+      <TableCell>Strong</TableCell>
+      <TableCell>Server Actions publish signed events directly, keeping UI logic simple and bot operations asynchronous.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>CI/CD pipeline triggering bot announcements</TableCell>
+      <TableCell>Strong</TableCell>
+      <TableCell>Pipeline steps emit events after successful deploys and the bot posts formatted release notes.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Synchronous request-response workflows</TableCell>
+      <TableCell>Weak</TableCell>
+      <TableCell>Signal is async and unidirectional by design. Direct HTTP contracts are better for immediate responses.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## When to avoid Signal
+
+If the producer and consumer live in the same module graph and you do not need asynchronous boundaries, direct service calls are simpler to reason about and easier to trace. Signal should be adopted when its operational guarantees, security model, and decoupling benefits are genuinely useful, not as a default for every internal interaction. For synchronous user-facing feedback loops where the caller needs an immediate response, HTTP endpoints or direct Discord API calls remain the better choice.
+
+## Next page
+
+Continue with [Signal on the Bot Side](/signal-bot-runtime).
