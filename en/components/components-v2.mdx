@@ -10,8 +10,7 @@ category: Components
 ## What V2 containers are
 
 Discord's Components V2 API replaces the traditional message layout model with a composable block
-system. Instead of a message being a flat combination of text content, embeds, and component rows,
-V2 lets you combine text blocks, sections, media galleries, separators, and action rows inside a
+system. Instead of a message being a flat combination of text content, embeds, and component rows, V2 lets you combine text blocks, sections, media galleries, separators, and action rows inside a
 single container element. The container becomes the top-level layout unit for the message.
 
 Spraxium's V2 system wraps this API with the same decorator-handler architecture used across the
@@ -37,7 +36,7 @@ V2 container.
 
 <Callout type="warning">
   V2 containers require the MessageFlags.IsComponentsV2 flag when sending messages.
-  Setting this flag means the message cannot simultaneously carry traditional embeds or a plain content string alongside the containers — design V2 messages as self-contained layouts, not as enhancements to existing content.
+  Setting this flag means the message cannot simultaneously carry traditional embeds or a plain content string alongside the containers, design V2 messages as self-contained layouts, not as enhancements to existing content.
 </Callout>
 
 ## Setting up V2Service
@@ -65,8 +64,7 @@ export class MyHandler {
 
 The class-based pattern declares a container as an annotated class. Apply *@V2Container* to the
 class to mark it as a container and configure the accent color and spoiler options. Apply property
-decorators to each field to register child components in declaration order. At render time,
-*V2Service.build* reads the metadata, evaluates all factory functions with your runtime data, and
+decorators to each field to register child components in declaration order. At render time, *V2Service.build* reads the metadata, evaluates all factory functions with your runtime data, and
 assembles the container.
 
 The property names in the schema class do not matter at runtime. Only the metadata registered by
@@ -77,12 +75,7 @@ as a metadata slot.
   <Tab label="Schema" language="typescript">
 ```typescript filename="src/schemas/user-profile.container.ts"
 import {
-  V2Container,
-  V2Separator,
-  V2Section,
-  V2Text,
-  desc,
-} from '@spraxium/components';
+  V2Container, V2Separator, V2Section, V2Text, desc, } from '@spraxium/components';
 
 export interface UserProfileData {
   username: string;
@@ -103,15 +96,8 @@ export class UserProfileContainer {
   @V2Section({
     text: (data: UserProfileData) =>
       [
-        `**ID:** \`${data.userId}\``,
-        `**Joined:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
-        `**Bio:** ${data.bio}`,
-      ].join('\n'),
-    thumbnail: {
-      url: (data: UserProfileData) => data.avatarUrl,
-      description: 'User avatar',
-    },
-  })
+        `**ID:** \`${data.userId}\``, `**Joined:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
+      url: (data: UserProfileData) => data.avatarUrl, description: 'User avatar', }, })
   stats!: never;
 
   @V2Separator({ divider: false })
@@ -138,19 +124,12 @@ export class ProfileHandler {
     const user = interaction.user;
 
     const data: UserProfileData = {
-      username: user.username,
-      userId: user.id,
-      joinedAt: user.createdTimestamp,
-      avatarUrl: user.displayAvatarURL({ size: 128 }),
-      bio: 'No bio set.',
-    };
+      username: user.username, userId: user.id, joinedAt: user.createdTimestamp, avatarUrl: user.displayAvatarURL({ size: 128 }), bio: 'No bio set.', };
 
     const payload = this.v2.buildReply(UserProfileContainer, data);
 
     await interaction.reply({
-      ...payload,
-      flags: payload.flags | MessageFlags.Ephemeral,
-    });
+      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
   }
 }
 ```
@@ -187,21 +166,14 @@ export class GreetHandler {
       .sep()
       .section(
         [
-          `**ID:** \`${user.id}\``,
-          `**Account age:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
-        ].join('\n'),
-        this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
-          description: `${user.username} avatar`,
-        }),
-      )
+          `**ID:** \`${user.id}\``, `**Account age:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`, ].join('\n'), this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
+          description: `${user.username} avatar`, }), )
       .sep({ divider: false })
       .text(desc().subtext('Powered by Spraxium V2'))
       .toReply();
 
     await interaction.reply({
-      ...payload,
-      flags: payload.flags | MessageFlags.Ephemeral,
-    });
+      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
   }
 }
 ```
@@ -318,22 +290,14 @@ export class GreetHandler {
 
 *@V2Dynamic* is the solution when the number of child components depends on runtime data. Instead
 of a static configuration, you provide a factory function that receives the data object and returns
-an array of child specs created with the helper functions *v2text*, *v2sep*, *v2section*,
-*v2gallery*, and *v2row*. The engine walks this array and renders each spec in sequence.
+an array of child specs created with the helper functions *v2text*, *v2sep*, *v2section*, *v2gallery*, and *v2row*. The engine walks this array and renders each spec in sequence.
 
 A common pattern is to generate one or more text lines per data entry and insert separators between
 them, stopping one separator short so the last entry isn't followed by a divider.
 
 ```typescript filename="src/schemas/leaderboard.container.ts"
 import {
-  V2Container,
-  V2Dynamic,
-  V2Separator,
-  V2Text,
-  desc,
-  v2sep,
-  v2text,
-} from '@spraxium/components';
+  V2Container, V2Dynamic, V2Separator, V2Text, desc, v2sep, v2text, } from '@spraxium/components';
 
 export interface LeaderboardEntry {
   username: string;
@@ -364,9 +328,7 @@ export class LeaderboardContainer {
     return data.entries.flatMap((entry, index) => {
       const medal = MEDALS[index] ?? `**${entry.rank}.**`;
       return [
-        v2text(`${medal} **${entry.username}** , ${entry.score.toLocaleString()} pts`),
-        ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []),
-      ];
+        v2text(`${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`), ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []), ];
     });
   })
   entries!: never;
@@ -391,9 +353,7 @@ export class LeaderboardHandler {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
     const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: 'Weekly Top Players',
-      entries,
-    });
+      title: 'Weekly Top Players', entries, });
 
     await interaction.reply(payload);
   }
@@ -413,12 +373,7 @@ children are filtered out.
 
 ```typescript filename="src/schemas/member-card.container.ts"
 import {
-  V2Container,
-  V2Separator,
-  V2Text,
-  V2When,
-  desc,
-} from '@spraxium/components';
+  V2Container, V2Separator, V2Text, V2When, desc, } from '@spraxium/components';
 
 export interface MemberCardData {
   username: string;
@@ -440,7 +395,7 @@ export class MemberCardContainer {
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
-  @V2Text((data: MemberCardData) => `⭐ **Server Booster** , Level ${data.boostLevel}`)
+  @V2Text((data: MemberCardData) => `⭐ **Server Booster**, Level ${data.boostLevel}`)
   boostBadge!: never;
 
   @V2Text((data: MemberCardData) => data.bio)
@@ -462,14 +417,7 @@ the correct builder automatically.
   <Tab label="Button row" language="typescript">
 ```typescript filename="src/schemas/confirm-panel.container.ts"
 import {
-  Button,
-  LinkButton,
-  V2Container,
-  V2Row,
-  V2Separator,
-  V2Text,
-  desc,
-} from '@spraxium/components';
+  Button, LinkButton, V2Container, V2Row, V2Separator, V2Text, desc, } from '@spraxium/components';
 
 @Button({ customId: 'panel_confirm', label: 'Confirm', style: 'success', emoji: '✅' })
 export class ConfirmButton {}
@@ -498,10 +446,7 @@ export class ConfirmPanelContainer {
 import { LinkButton, V2Container, V2Section, V2Text, desc } from '@spraxium/components';
 
 @LinkButton({
-  label: 'View Docs',
-  url: 'https://spraxium.dev/guide',
-  emoji: '📖',
-})
+  label: 'View Docs', url: 'https://spraxium.dev/guide', emoji: '📖', })
 export class DocsLinkButton {}
 
 export interface ResourceCardData {
@@ -515,9 +460,7 @@ export class ResourceCardContainer {
   title!: never;
 
   @V2Section({
-    text: (data: ResourceCardData) => data.description,
-    button: DocsLinkButton,
-  })
+    text: (data: ResourceCardData) => data.description, button: DocsLinkButton, })
   body!: never;
 }
 ```
@@ -528,8 +471,7 @@ export class ResourceCardContainer {
 
 The *desc()* helper function returns a *DescriptionBuilder* that chains Discord-flavoured Markdown
 helpers. It is available in both class-based and fluent patterns anywhere a text content value is
-accepted. The builder is a thin string accumulator; calling *.toString()* returns the final string,
-which the V2 engine calls automatically before passing content to the discord.js builders.
+accepted. The builder is a thin string accumulator; calling *.toString()* returns the final string, which the V2 engine calls automatically before passing content to the discord.js builders.
 
 <Table variant="striped">
   <TableHead>
@@ -541,11 +483,11 @@ which the V2 engine calls automatically before passing content to the discord.js
   <TableBody>
     <TableRow>
       <TableCell>*.h2(text)*</TableCell>
-      <TableCell>`## text` , renders as a heading inside the container</TableCell>
+      <TableCell>`## text`, renders as a heading inside the container</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.subtext(text)*</TableCell>
-      <TableCell>`-# text` , renders as small subtext beneath regular content</TableCell>
+      <TableCell>`-# text`, renders as small subtext beneath regular content</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.bold(text)*</TableCell>
@@ -605,14 +547,11 @@ additional flags using bitwise OR.
 const payload = this.v2.buildReply(MyContainer, data);
 
 await interaction.reply({
-  ...payload,
-  flags: payload.flags | MessageFlags.Ephemeral,
-});
+  ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
 ```
 
 If you need to update an existing V2 message, use *interaction.editReply()* or pass the payload
-to *message.edit()* directly. The flag is required on both the initial send and subsequent edits,
-because Discord identifies a message as a V2 message by the presence of that flag.
+to *message.edit()* directly. The flag is required on both the initial send and subsequent edits, because Discord identifies a message as a V2 message by the presence of that flag.
 
 ## Next study
 

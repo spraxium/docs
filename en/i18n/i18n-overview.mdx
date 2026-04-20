@@ -41,8 +41,7 @@ store such as those illustrated in the Store API page.
 
 Slash command localizations follow a different path: when the bot registers commands with Discord's
 REST API, names and descriptions can have per-locale variants that Discord renders natively in the
-command picker. The i18n module wires those localizations automatically during the boot sequence,
-so declaring an *i18n* field on a slash decorator is all that is needed to produce a fully localized
+command picker. The i18n module wires those localizations automatically during the boot sequence, so declaring an *i18n* field on a slash decorator is all that is needed to produce a fully localized
 command entry in Discord's UI.
 
 ## Configuring the module
@@ -51,13 +50,8 @@ command entry in Discord's UI.
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US',
-  references: [
-    { name: 'commands',  path: './locales/commands'  },
-    { name: 'messages',  path: './locales/messages'  },
-    { name: 'errors',    path: './locales/errors'    },
-  ],
-});
+  defaultLocale: 'en-US', references: [
+    { name: 'commands', path: './locales/commands'  }, { name: 'messages', path: './locales/messages'  }, { name: 'errors', path: './locales/errors'    }, ], });
 ```
 
 Add the config object to the `plugins` array in your Spraxium config. The module is self-contained
@@ -133,11 +127,7 @@ export class GreetHandler {
 
     // Resolves locale priority: user pref > guild pref > default
     const message = await this.i18n.tUser(
-      userId,
-      'commands.greet.welcome',
-      { name: interaction.user.username },
-      guildId,
-    );
+      userId, 'commands.greet.welcome', { name: interaction.user.username }, guildId, );
 
     await interaction.reply(message);
   }
@@ -225,7 +215,7 @@ export class ItemsHandler {
 </Table>
 
 <DropdownGroup>
-<Dropdown title="tUser , resolving locale through user and guild preferences">
+<Dropdown title="tUser, resolving locale through user and guild preferences">
   *tUser* is the primary method for sending localized responses in slash command handlers. It
   reads the user's stored locale preference first, falls back to the guild preference if none is
   found, and then falls back to the configured default locale. This means users who set their own
@@ -238,15 +228,11 @@ export class ItemsHandler {
 
   ```typescript filename="welcome.handler.ts"
   const message = await this.i18n.tUser(
-    interaction.user.id,
-    'commands.welcome.text',
-    { username: interaction.user.username },
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, 'commands.welcome.text', { username: interaction.user.username }, interaction.guildId ?? undefined, );
   ```
 </Dropdown>
 
-<Dropdown title="tpUser , combining pluralization with preference resolution">
+<Dropdown title="tpUser, combining pluralization with preference resolution">
   *tpUser* works identically to *tUser* but also applies pluralization rules after resolving the
   locale. The count is passed as the third argument and becomes available as `{{count}}` in the
   translated string automatically, so you do not need to include it in the vars object. The engine
@@ -254,22 +240,16 @@ export class ItemsHandler {
   variant.
 
   Use *tpUser* whenever the response text changes depending on a numeric value and the locale
-  preference chain should still apply. Common examples include inventory counts, queue positions,
-  leaderboard rankings, and any quantity-dependent feedback message.
+  preference chain should still apply. Common examples include inventory counts, queue positions, leaderboard rankings, and any quantity-dependent feedback message.
 
   ```typescript filename="inventory.handler.ts"
   const count = await getItemCount(interaction.user.id);
   const message = await this.i18n.tpUser(
-    interaction.user.id,
-    'commands.inventory.items',
-    count,
-    {},
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, 'commands.inventory.items', count, {}, interaction.guildId ?? undefined, );
   ```
 </Dropdown>
 
-<Dropdown title="setUserLocale and setGuildLocale , saving preferences">
+<Dropdown title="setUserLocale and setGuildLocale, saving preferences">
   *setUserLocale* and *setGuildLocale* write a locale preference to the active store backend. They
   are called from locale-change commands, typically a slash command where the user picks a language
   from a string option or a select menu. After the preference is saved, every subsequent call to
@@ -288,7 +268,7 @@ export class ItemsHandler {
   ```
 </Dropdown>
 
-<Dropdown title="resolveLocale , reading the resolved locale without translating">
+<Dropdown title="resolveLocale, reading the resolved locale without translating">
   *resolveLocale* runs the same priority chain as *tUser* but returns only the winning locale
   string instead of a translated value. Call it when you need to know which locale will be used
   before deciding what to look up, when building embed fields that need a locale-aware date
@@ -301,9 +281,7 @@ export class ItemsHandler {
 
   ```typescript filename="profile.handler.ts"
   const locale = await this.i18n.resolveLocale(
-    interaction.user.id,
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, interaction.guildId ?? undefined, );
   const formatted = new Intl.DateTimeFormat(locale).format(new Date());
   await interaction.reply(`Your account was created on ${formatted}.`);
   ```

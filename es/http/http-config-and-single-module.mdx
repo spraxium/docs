@@ -22,35 +22,35 @@ Este modelo elimina ambigüedad de ownership. El ciclo de vida del servidor, gua
 *HttpConfig* es la interfaz que *defineHttp()* acepta y *ConfigStore* entrega a *HttpServer* al arrancar. Cada campo mapea a un comportamiento específico de runtime, así que entender el contrato previene sorpresas durante el despliegue.
 
 <DropdownGroup>
-<Dropdown title="enabled: boolean — Activa o desactiva el runtime HTTP">
+<Dropdown title="enabled: boolean, Activa o desactiva el runtime HTTP">
   Cuando es `false`, *HttpServer.onBoot()* retorna inmediatamente sin hacer bind a un puerto ni registrar rutas.
 </Dropdown>
 
-<Dropdown title="host: string — Interfaz de red a vincular">
+<Dropdown title="host: string, Interfaz de red a vincular">
   Por defecto `0.0.0.0`. Usa `127.0.0.1` en desarrollo para restringir acceso solo a localhost.
 </Dropdown>
 
-<Dropdown title="port: number — Puerto TCP para el listener de Hono">
+<Dropdown title="port: number, Puerto TCP para el listener de Hono">
   Por defecto `3000`. Lee desde variables de entorno para evitar valores hardcodeados en producción.
 </Dropdown>
 
-<Dropdown title="apiKey: string — Valor secreto para ApiKeyGuard">
+<Dropdown title="apiKey: string, Valor secreto para ApiKeyGuard">
   Cuando se define, el paquete instancia *ApiKeyGuard* automáticamente con este valor y lo agrega como guard global. No es necesario registrarlo manualmente en la metadata de *HttpClientModule*.
 </Dropdown>
 
-<Dropdown title="security: SecurityConfig — Headers, CORS, límite de body y proxies de confianza">
+<Dropdown title="security: SecurityConfig, Headers, CORS, límite de body y proxies de confianza">
   Cuando se omite, se aplican *SECURITY_DEFAULTS*. Establece subcampos individuales a `false` para deshabilitar protecciones específicas.
 </Dropdown>
 
-<Dropdown title="rateLimit: RateLimitConfig — Configuración opcional de rate limiting">
+<Dropdown title="rateLimit: RateLimitConfig, Configuración opcional de rate limiting">
   Configuración `{ windowMs, max }` a nivel de config. Aún necesitas instanciar *RateLimitMiddleware* con estos valores y registrarlo.
 </Dropdown>
 
-<Dropdown title="sharding: boolean — Selecciona modo directo vs sharded">
+<Dropdown title="sharding: boolean, Selecciona modo directo vs sharded">
   Cambia la ruta de arranque, la implementación de bridge y si un *Client* de Discord es requerido al arrancar.
 </Dropdown>
 
-<Dropdown title="module: Constructor — Clase decorada con @HttpClientModule">
+<Dropdown title="module: Constructor, Clase decorada con @HttpClientModule">
   Fuente principal de metadata de controllers, services, guards, middleware y *middlewareProviders*.
 </Dropdown>
 </DropdownGroup>
@@ -60,23 +60,23 @@ Este modelo elimina ambigüedad de ownership. El ciclo de vida del servidor, gua
 El campo *security* acepta un objeto *SecurityConfig* con cuatro subcampos opcionales. Cada subcampo controla una capa del stack de hardening y puede establecerse a `false` para deshabilitarlo por completo. Cuando un subcampo se omite, el paquete aplica *SECURITY_DEFAULTS* automáticamente.
 
 <DropdownGroup>
-<Dropdown title="hidePoweredBy: boolean — Elimina headers de fingerprinting">
+<Dropdown title="hidePoweredBy: boolean, Elimina headers de fingerprinting">
   Elimina los headers `X-Powered-By` y `Server` de todas las respuestas. Por defecto `true`. Previene fingerprinting del framework y runtime.
 </Dropdown>
 
-<Dropdown title="headers: SecurityHeadersConfig — SecurityHeadersMiddleware envolviendo Hono secureHeaders">
+<Dropdown title="headers: SecurityHeadersConfig, SecurityHeadersMiddleware envolviendo Hono secureHeaders">
   *frameOptions* (`DENY` o `SAMEORIGIN`), *hstsMaxAge* (31536000), *contentSecurityPolicy*, *referrerPolicy*, *noSniff*, *xssProtection*, *permissionsPolicy*, *crossOriginOpenerPolicy*, *crossOriginResourcePolicy*. Establece a `false` para deshabilitar todos los headers de seguridad.
 </Dropdown>
 
-<Dropdown title="cors: CorsConfig — CorsMiddleware envolviendo Hono cors">
+<Dropdown title="cors: CorsConfig, CorsMiddleware envolviendo Hono cors">
   *origins* (array de strings o `'*'`), *methods*, *allowedHeaders*, *exposedHeaders*, *credentials* (boolean), *maxAge* (cache de preflight en segundos, default 600). Solo activo cuando este campo está configurado.
 </Dropdown>
 
-<Dropdown title="bodyLimit: BodyLimitConfig — BodyLimitMiddleware envolviendo Hono bodyLimit">
+<Dropdown title="bodyLimit: BodyLimitConfig, BodyLimitMiddleware envolviendo Hono bodyLimit">
   *maxSize* en bytes, por defecto 102400 (100 KB). Payloads sobredimensionados reciben `{ ok: false, error: 'Payload too large', maxSize }` con status 413. Establece a `false` para deshabilitar.
 </Dropdown>
 
-<Dropdown title="trustedProxies: TrustedProxiesConfig — Configuración de proxies de confianza">
+<Dropdown title="trustedProxies: TrustedProxiesConfig, Configuración de proxies de confianza">
   Array *proxies* (por defecto `['127.0.0.1', '::1']`). Define qué proxies pueden establecer headers de forwarding de confianza. Configura correctamente para que rate limiting e IP logging funcionen con tu infraestructura de reverse proxy en producción.
 </Dropdown>
 </DropdownGroup>
@@ -92,50 +92,24 @@ import { defineHttp } from '@spraxium/http';
 import { AppModule } from '../src/app.module';
 
 export const httpPlugin = defineHttp({
-  enabled: true,
-  host: process.env.HTTP_HOST ?? '0.0.0.0',
-  port: Number(process.env.HTTP_PORT ?? 3000),
-  apiKey: process.env.HTTP_API_KEY ?? '',
-  sharding: false,
-  security: {
-    hidePoweredBy: true,
-    headers: {
-      frameOptions: 'DENY',
-      contentSecurityPolicy: "default-src 'none'",
-      referrerPolicy: 'no-referrer',
-    },
-    cors: {
-      origins: ['https://admin.example.com'],
-      methods: ['GET', 'POST', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'],
-      credentials: true,
-    },
-    bodyLimit: { maxSize: 256_000 },
-  },
-  module: AppModule,
-});
+  enabled: true, host: process.env.HTTP_HOST ?? '0.0.0.0', port: Number(process.env.HTTP_PORT ?? 3000), apiKey: process.env.HTTP_API_KEY ?? '', sharding: false, security: {
+    hidePoweredBy: true, headers: {
+      frameOptions: 'DENY', contentSecurityPolicy: "default-src 'none'", referrerPolicy: 'no-referrer', }, cors: {
+      origins: ['https://admin.example.com'], methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Key'], credentials: true, }, bodyLimit: { maxSize: 256_000 }, }, module: AppModule, });
 ```
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
 import { Module } from '@spraxium/common';
 import {
-  HttpClientModule,
-  HttpModule,
-  LoggerMiddleware,
-} from '@spraxium/http';
+  HttpClientModule, HttpModule, LoggerMiddleware, } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-  controllers: [GuildHttpController],
-  services: [GuildHttpService],
-  middleware: [new LoggerMiddleware()],
-})
+  controllers: [GuildHttpController], services: [GuildHttpService], middleware: [new LoggerMiddleware()], })
 @Module({
-  imports: [HttpModule],
-  providers: [GuildHttpController, GuildHttpService],
-})
+  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
 export class AppModule {}
 ```
   </Tab>
@@ -145,8 +119,7 @@ import { defineConfig } from '@spraxium/core';
 import { httpPlugin } from './config/http.config';
 
 export default defineConfig(() => ({
-  plugins: [httpPlugin],
-}));
+  plugins: [httpPlugin], }));
 ```
   </Tab>
 </CodeTabs>
@@ -156,23 +129,23 @@ export default defineConfig(() => ({
 *@HttpClientModule* es un decorator de clase que almacena metadata consumida por *HttpServer* durante el registro de rutas. Cada campo controla una fase diferente del pipeline de arranque.
 
 <DropdownGroup>
-<Dropdown title="controllers: Array<Constructor> — Rutas de la API">
+<Dropdown title="controllers: Array<Constructor>, Rutas de la API">
   *RouteRegistry* instancia cada clase con DI y *RouteBuilder* vincula sus métodos decorados como rutas de Hono.
 </Dropdown>
 
-<Dropdown title="services: Array<Constructor> — Lógica de negocio inyectable">
+<Dropdown title="services: Array<Constructor>, Lógica de negocio inyectable">
   Se resuelven antes que los controllers usando ordenamiento topológico. Las instancias se agregan al mapa de DI para que los controllers puedan inyectarlas como parámetros de constructor.
 </Dropdown>
 
-<Dropdown title="guards: Array<HttpGuard> — Autenticación y autorización global">
+<Dropdown title="guards: Array<HttpGuard>, Autenticación y autorización global">
   *GuardExecutor* los ejecuta secuencialmente en cada request antes de cualquier handler de ruta. Un solo retorno `false` detiene la ejecución con 401.
 </Dropdown>
 
-<Dropdown title="middleware: Array<HttpMiddleware> — Pipeline global de requests">
+<Dropdown title="middleware: Array<HttpMiddleware>, Pipeline global de requests">
   Se registran como middleware global de Hono en la ruta `'*'` después del stack de seguridad pero antes de la ejecución de guards.
 </Dropdown>
 
-<Dropdown title="middlewareProviders: Map<Constructor, HttpMiddleware> — Middleware a nivel de ruta">
+<Dropdown title="middlewareProviders: Map<Constructor, HttpMiddleware>, Middleware a nivel de ruta">
   Mapea tokens de clase a instancias concretas. *RouteBuilder* resuelve referencias de decorators *@HttpUseMiddleware* a través de este mapa durante el binding de rutas.
 </Dropdown>
 </DropdownGroup>

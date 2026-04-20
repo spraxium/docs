@@ -22,9 +22,7 @@ items. It fails for zero. In French, zero takes the singular form (`0 élément`
 zero takes the plural form (`0 items`).
 
 The core insight is that plural selection is a function of both the language and the number. Every
-major language has rules documented in the Unicode CLDR (Common Locale Data Repository) project,
-and those rules map any integer to one of five named categories: `zero`, `one`, `two`, `few`,
-`many`, and `other`. Every language uses a subset of these categories, and `other` is always the
+major language has rules documented in the Unicode CLDR (Common Locale Data Repository) project, and those rules map any integer to one of five named categories: `zero`, `one`, `two`, `few`, `many`, and `other`. Every language uses a subset of these categories, and `other` is always the
 mandatory catch-all.
 
 Spraxium's pluralization engine delegates category selection to *Intl.PluralRules*, the V8 engine
@@ -39,9 +37,7 @@ Plural keys follow the pattern `baseKey_category`. The base key is the same key 
 ```json filename="locales/commands/en-US/items.json"
 {
   "items": {
-    "_zero":  "No items in your inventory",
-    "_one":   "One item in your inventory",
-    "_other": "{{count}} items in your inventory"
+    "_zero":  "No items in your inventory", "_one":   "One item in your inventory", "_other": "{{count}} items in your inventory"
   }
 }
 ```
@@ -84,12 +80,12 @@ you pass to `tp()`.
     <TableRow>
       <TableCell>*few*</TableCell>
       <TableCell>Paucal / small plural</TableCell>
-      <TableCell>Russian (2–4), Polish (2, 3, 4 not ending in teen), Arabic (3–10)</TableCell>
+      <TableCell>Russian (-), Polish (2, 3, 4 not ending in teen), Arabic (-0)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*many*</TableCell>
       <TableCell>Large plural or irregular</TableCell>
-      <TableCell>Russian (5+, 11–14), Polish (5+), Arabic (11–99)</TableCell>
+      <TableCell>Russian (5+, 1-4), Polish (5+), Arabic (1-9)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*other*</TableCell>
@@ -162,10 +158,7 @@ to `_other` for those counts, which may be grammatically incorrect for your spec
 ```json filename="locales/commands/ru/items.json"
 {
   "items": {
-    "_one":   "{{count}} предмет",
-    "_few":   "{{count}} предмета",
-    "_many":  "{{count}} предметов",
-    "_other": "{{count}} предмета"
+    "_one":   "{{count}} предмет", "_few":   "{{count}} предмета", "_many":  "{{count}} предметов", "_other": "{{count}} предмета"
   }
 }
 ```
@@ -220,12 +213,7 @@ export class InventoryHandler {
 
     // Resolves locale via user > guild > default priority
     const message = await this.i18n.tpUser(
-      userId,
-      'commands.items',
-      count,
-      { count },
-      guildId,
-    );
+      userId, 'commands.items', count, { count }, guildId, );
 
     await interaction.reply(message);
   }
@@ -244,20 +232,15 @@ Node.js version), you can override the rule at config time:
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US',
-  references: [{ name: 'commands', path: './locales/commands' }],
-  pluralRules: {
-    'pt-BR': (count) => count === 1 ? 'one' : 'other',
-    'ar': (count) => {
+  defaultLocale: 'en-US', references: [{ name: 'commands', path: './locales/commands' }], pluralRules: {
+    'pt-BR': (count) => count === 1 ? 'one' : 'other', 'ar': (count) => {
       if (count === 0) return 'zero';
       if (count === 1) return 'one';
       if (count === 2) return 'two';
       if (count % 100 >= 3 && count % 100 <= 10) return 'few';
       if (count % 100 >= 11 && count % 100 <= 99) return 'many';
       return 'other';
-    },
-  },
-});
+    }, }, });
 ```
 
 Custom rules receive the numeric count and must return one of the six category strings. They run
@@ -273,8 +256,7 @@ in automatically so that every plural variant can reference the count without ex
 ```json filename="items translation showing count use"
 {
   "items": {
-    "_one":   "You have one item remaining",
-    "_other": "You have {{count}} items remaining"
+    "_one":   "You have one item remaining", "_other": "You have {{count}} items remaining"
   }
 }
 ```

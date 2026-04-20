@@ -21,7 +21,7 @@ Containers V2 são adequados sempre que a mensagem precisa de um layout estrutur
 
 <Callout type="warning">
   Containers V2 exigem a flag MessageFlags.IsComponentsV2 ao enviar mensagens.
-  Definir essa flag significa que a mensagem não pode carregar embeds tradicionais ou uma string de conteúdo simples junto com os containers — projete mensagens V2 como layouts independentes, não como melhorias de conteúdo já existente.
+  Definir essa flag significa que a mensagem não pode carregar embeds tradicionais ou uma string de conteúdo simples junto com os containers, projete mensagens V2 como layouts independentes, não como melhorias de conteúdo já existente.
 </Callout>
 
 ## Configurando o V2Service
@@ -53,12 +53,7 @@ Os nomes das propriedades na classe de schema não importam em runtime. Somente 
   <Tab label="Schema">
 ```typescript filename="src/schemas/user-profile.container.ts"
 import {
-  V2Container,
-  V2Separator,
-  V2Section,
-  V2Text,
-  desc,
-} from '@spraxium/components';
+  V2Container, V2Separator, V2Section, V2Text, desc, } from '@spraxium/components';
 
 export interface UserProfileData {
   username: string;
@@ -79,15 +74,8 @@ export class UserProfileContainer {
   @V2Section({
     text: (data: UserProfileData) =>
       [
-        `**ID:** \`${data.userId}\``,
-        `**Entrou:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
-        `**Bio:** ${data.bio}`,
-      ].join('\n'),
-    thumbnail: {
-      url: (data: UserProfileData) => data.avatarUrl,
-      description: 'Avatar do usuário',
-    },
-  })
+        `**ID:** \`${data.userId}\``, `**Entrou:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
+      url: (data: UserProfileData) => data.avatarUrl, description: 'Avatar do usuário', }, })
   stats!: never;
 
   @V2Separator({ divider: false })
@@ -114,19 +102,12 @@ export class ProfileHandler {
     const user = interaction.user;
 
     const data: UserProfileData = {
-      username: user.username,
-      userId: user.id,
-      joinedAt: user.createdTimestamp,
-      avatarUrl: user.displayAvatarURL({ size: 128 }),
-      bio: 'Sem bio definida.',
-    };
+      username: user.username, userId: user.id, joinedAt: user.createdTimestamp, avatarUrl: user.displayAvatarURL({ size: 128 }), bio: 'Sem bio definida.', };
 
     const payload = this.v2.buildReply(UserProfileContainer, data);
 
     await interaction.reply({
-      ...payload,
-      flags: payload.flags | MessageFlags.Ephemeral,
-    });
+      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
   }
 }
 ```
@@ -158,21 +139,14 @@ export class GreetHandler {
       .sep()
       .section(
         [
-          `**ID:** \`${user.id}\``,
-          `**Idade da conta:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
-        ].join('\n'),
-        this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
-          description: `Avatar de ${user.username}`,
-        }),
-      )
+          `**ID:** \`${user.id}\``, `**Idade da conta:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`, ].join('\n'), this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
+          description: `Avatar de ${user.username}`, }), )
       .sep({ divider: false })
       .text(desc().subtext('Desenvolvido com Spraxium V2'))
       .toReply();
 
     await interaction.reply({
-      ...payload,
-      flags: payload.flags | MessageFlags.Ephemeral,
-    });
+      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
   }
 }
 ```
@@ -293,14 +267,7 @@ Um padrão comum é gerar uma ou mais linhas de texto por entrada de dados e ins
 
 ```typescript filename="src/schemas/leaderboard.container.ts"
 import {
-  V2Container,
-  V2Dynamic,
-  V2Separator,
-  V2Text,
-  desc,
-  v2sep,
-  v2text,
-} from '@spraxium/components';
+  V2Container, V2Dynamic, V2Separator, V2Text, desc, v2sep, v2text, } from '@spraxium/components';
 
 export interface LeaderboardEntry {
   username: string;
@@ -331,9 +298,7 @@ export class LeaderboardContainer {
     return data.entries.flatMap((entry, index) => {
       const medal = MEDALS[index] ?? `**${entry.rank}.**`;
       return [
-        v2text(`${medal} **${entry.username}** , ${entry.score.toLocaleString()} pts`),
-        ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []),
-      ];
+        v2text(`${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`), ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []), ];
     });
   })
   entries!: never;
@@ -357,9 +322,7 @@ export class LeaderboardHandler {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
     const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: 'Top Jogadores da Semana',
-      entries,
-    });
+      title: 'Top Jogadores da Semana', entries, });
 
     await interaction.reply(payload);
   }
@@ -374,12 +337,7 @@ export class LeaderboardHandler {
 
 ```typescript filename="src/schemas/member-card.container.ts"
 import {
-  V2Container,
-  V2Separator,
-  V2Text,
-  V2When,
-  desc,
-} from '@spraxium/components';
+  V2Container, V2Separator, V2Text, V2When, desc, } from '@spraxium/components';
 
 export interface MemberCardData {
   username: string;
@@ -401,7 +359,7 @@ export class MemberCardContainer {
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
-  @V2Text((data: MemberCardData) => `⭐ **Server Booster** , Nível ${data.boostLevel}`)
+  @V2Text((data: MemberCardData) => `⭐ **Server Booster**, Nível ${data.boostLevel}`)
   boostBadge!: never;
 
   @V2Text((data: MemberCardData) => data.bio)
@@ -419,14 +377,7 @@ Quando `isAdmin` é `false`, a linha do emblema de administrador não é renderi
   <Tab label="Action row de botões">
 ```typescript filename="src/schemas/confirm-panel.container.ts"
 import {
-  Button,
-  LinkButton,
-  V2Container,
-  V2Row,
-  V2Separator,
-  V2Text,
-  desc,
-} from '@spraxium/components';
+  Button, LinkButton, V2Container, V2Row, V2Separator, V2Text, desc, } from '@spraxium/components';
 
 @Button({ customId: 'panel_confirm', label: 'Confirm', style: 'success', emoji: '✅' })
 export class ConfirmButton {}
@@ -455,10 +406,7 @@ export class ConfirmPanelContainer {
 import { LinkButton, V2Container, V2Section, V2Text, desc } from '@spraxium/components';
 
 @LinkButton({
-  label: 'Ver Docs',
-  url: 'https://spraxium.dev/guide',
-  emoji: '📖',
-})
+  label: 'Ver Docs', url: 'https://spraxium.dev/guide', emoji: '📖', })
 export class DocsLinkButton {}
 
 export interface ResourceCardData {
@@ -472,9 +420,7 @@ export class ResourceCardContainer {
   title!: never;
 
   @V2Section({
-    text: (data: ResourceCardData) => data.description,
-    button: DocsLinkButton,
-  })
+    text: (data: ResourceCardData) => data.description, button: DocsLinkButton, })
   body!: never;
 }
 ```
@@ -495,11 +441,11 @@ A função auxiliar *desc()* retorna um *DescriptionBuilder* que encadeia helper
   <TableBody>
     <TableRow>
       <TableCell>*.h2(text)*</TableCell>
-      <TableCell>`## text` , renderiza como um heading dentro do container</TableCell>
+      <TableCell>`## text`, renderiza como um heading dentro do container</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.subtext(text)*</TableCell>
-      <TableCell>`-# text` , renderiza como subtexto pequeno abaixo do conteúdo regular</TableCell>
+      <TableCell>`-# text`, renderiza como subtexto pequeno abaixo do conteúdo regular</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.bold(text)*</TableCell>
@@ -557,9 +503,7 @@ Tanto *buildReply* quanto o método fluente *.toReply()* retornam um objeto `{ c
 const payload = this.v2.buildReply(MyContainer, data);
 
 await interaction.reply({
-  ...payload,
-  flags: payload.flags | MessageFlags.Ephemeral,
-});
+  ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
 ```
 
 Se você precisar atualizar uma mensagem V2 existente, use *interaction.editReply()* ou passe o payload para *message.edit()* diretamente. A flag é necessária tanto no envio inicial quanto nas edições subsequentes, pois o Discord identifica uma mensagem como V2 pela presença dessa flag.

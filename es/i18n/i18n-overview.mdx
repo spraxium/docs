@@ -10,8 +10,7 @@ category: i18n
 ## Por qué importa un sistema de i18n estructurado
 
 La mayoría de los bots comienzan con cadenas en inglés dispersas por los handlers, y eso funciona
-para los primeros usuarios. El problema aparece cuando el bot llega a servidores en Brasil, España,
-Japón o Corea: la única forma de dar soporte a esos usuarios es rastrear cada cadena en el código
+para los primeros usuarios. El problema aparece cuando el bot llega a servidores en Brasil, España, Japón o Corea: la única forma de dar soporte a esos usuarios es rastrear cada cadena en el código
 manualmente y añadir lógica condicional alrededor de cada una. Este enfoque no escala, se rompe
 constantemente durante refactorizaciones y mezcla responsabilidades de presentación con lógica de
 comandos.
@@ -35,13 +34,8 @@ de sistema de i18n que merece ser parte de un framework.
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'es-ES',
-  references: [
-    { name: 'comandos',  path: './locales/comandos'  },
-    { name: 'mensajes',  path: './locales/mensajes'  },
-    { name: 'errores',   path: './locales/errores'   },
-  ],
-});
+  defaultLocale: 'es-ES', references: [
+    { name: 'comandos', path: './locales/comandos'  }, { name: 'mensajes', path: './locales/mensajes'  }, { name: 'errores', path: './locales/errores'   }, ], });
 ```
 
 <Table variant="striped">
@@ -112,11 +106,7 @@ export class SaludoHandler {
     const guildId = interaction.guildId ?? undefined;
 
     const mensaje = await this.i18n.tUser(
-      userId,
-      'comandos.saludo.bienvenida',
-      { nombre: interaction.user.username },
-      guildId,
-    );
+      userId, 'comandos.saludo.bienvenida', { nombre: interaction.user.username }, guildId, );
 
     await interaction.reply(mensaje);
   }
@@ -217,18 +207,16 @@ Para comandos que pueden ejecutarse tanto en servidores como en mensajes directo
 servidor simplemente se omite y la cadena pasa directamente al locale predeterminado. Esto hace que
 el mismo handler funcione correctamente en ambos contextos sin lógica adicional de ramificación.
 
-El resultado de la cadena de resolución es siempre una string de locale válida, nunca `undefined`,
-porque el `defaultLocale` actúa como última garantía. Esto significa que puedes confiar en que
+El resultado de la cadena de resolución es siempre una string de locale válida, nunca `undefined`, porque el `defaultLocale` actúa como última garantía. Esto significa que puedes confiar en que
 *tUser* siempre devolverá texto traducido, independientemente de si el usuario o el servidor han
 configurado sus preferencias.
 
 <DropdownGroup>
-<Dropdown title="tUser , resolviendo el locale a través de las preferencias de usuario y servidor">
+<Dropdown title="tUser, resolviendo el locale a través de las preferencias de usuario y servidor">
   *tUser* es el método principal para enviar respuestas localizadas en handlers de slash commands.
   Lee primero la preferencia de locale guardada del usuario, recurre a la preferencia del servidor
   si no encuentra ninguna y, por último, cae al locale predeterminado configurado. Esto garantiza
-  que los usuarios que han definido su propio idioma siempre ven el texto en su lengua preferida,
-  mientras que los servidores pueden establecer un idioma por defecto para quienes aún no hayan
+  que los usuarios que han definido su propio idioma siempre ven el texto en su lengua preferida, mientras que los servidores pueden establecer un idioma por defecto para quienes aún no hayan
   configurado una preferencia personal.
 
   El parámetro *guildId* es opcional. Pasarlo activa la capa de preferencia de servidor, útil
@@ -237,15 +225,11 @@ configurado sus preferencias.
 
   ```typescript filename="bienvenida.handler.ts"
   const mensaje = await this.i18n.tUser(
-    interaction.user.id,
-    'comandos.bienvenida.texto',
-    { nombre: interaction.user.username },
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, 'comandos.bienvenida.texto', { nombre: interaction.user.username }, interaction.guildId ?? undefined, );
   ```
 </Dropdown>
 
-<Dropdown title="tpUser , combinando pluralización con resolución de preferencias">
+<Dropdown title="tpUser, combinando pluralización con resolución de preferencias">
   *tpUser* funciona de forma idéntica a *tUser*, pero también aplica las reglas de pluralización
   después de resolver el locale. El count se pasa como tercer argumento y está disponible
   automáticamente como `{{count}}` en la cadena traducida, sin necesidad de incluirlo en el objeto
@@ -259,16 +243,11 @@ configurado sus preferencias.
   ```typescript filename="inventario.handler.ts"
   const total = await contarObjetos(interaction.user.id);
   const mensaje = await this.i18n.tpUser(
-    interaction.user.id,
-    'comandos.inventario.objetos',
-    total,
-    {},
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, 'comandos.inventario.objetos', total, {}, interaction.guildId ?? undefined, );
   ```
 </Dropdown>
 
-<Dropdown title="setUserLocale y setGuildLocale , guardando preferencias">
+<Dropdown title="setUserLocale y setGuildLocale, guardando preferencias">
   *setUserLocale* y *setGuildLocale* guardan una preferencia de locale en el backend de store activo.
   Se invocan desde comandos de cambio de idioma, normalmente un slash command donde el usuario elige
   una lengua de una opción de cadena o menú de selección. Tras guardar la preferencia, cada llamada
@@ -288,7 +267,7 @@ configurado sus preferencias.
   ```
 </Dropdown>
 
-<Dropdown title="resolveLocale , leyendo el locale resuelto sin traducir">
+<Dropdown title="resolveLocale, leyendo el locale resuelto sin traducir">
   *resolveLocale* ejecuta la misma cadena de prioridades que *tUser*, pero devuelve únicamente la
   string de locale ganadora en lugar de un valor traducido. Úsalo cuando necesites saber qué
   locale se usará antes de decidir qué buscar, al construir campos de embed que requieren un
@@ -301,9 +280,7 @@ configurado sus preferencias.
 
   ```typescript filename="perfil.handler.ts"
   const locale = await this.i18n.resolveLocale(
-    interaction.user.id,
-    interaction.guildId ?? undefined,
-  );
+    interaction.user.id, interaction.guildId ?? undefined, );
   const formateado = new Intl.DateTimeFormat(locale).format(new Date());
   await interaction.reply(`Tu cuenta fue creada el ${formateado}.`);
   ```

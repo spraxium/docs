@@ -22,9 +22,7 @@ Falha para zero: em francês, zero usa a forma singular (`0 élément`), enquant
 a forma plural (`0 items`).
 
 O insight central é que a seleção de plural é uma função tanto do idioma quanto do número. Todos os
-idiomas principais têm regras documentadas no projeto Unicode CLDR (Common Locale Data Repository),
-e essas regras mapeiam qualquer inteiro para uma de cinco categorias nomeadas: `zero`, `one`, `two`,
-`few`, `many` e `other`.
+idiomas principais têm regras documentadas no projeto Unicode CLDR (Common Locale Data Repository), e essas regras mapeiam qualquer inteiro para uma de cinco categorias nomeadas: `zero`, `one`, `two`, `few`, `many` e `other`.
 
 O motor de pluralização do Spraxium delega a seleção de categoria ao *Intl.PluralRules*, o motor V8
 integrado ao Node.js que implementa as regras CLDR, e depois consulta a variante com chave no mapa
@@ -38,9 +36,7 @@ Chaves de plural seguem o padrão `chaveBase_categoria`. A chave base é a mesma
 ```json filename="locales/commands/pt-BR/itens.json"
 {
   "itens": {
-    "_zero":  "Nenhum item no seu inventário",
-    "_one":   "Um item no seu inventário",
-    "_other": "{{count}} itens no seu inventário"
+    "_zero":  "Nenhum item no seu inventário", "_one":   "Um item no seu inventário", "_other": "{{count}} itens no seu inventário"
   }
 }
 ```
@@ -78,12 +74,12 @@ a chave de consulta adicionando `_` mais a categoria resolvida à chave base que
     <TableRow>
       <TableCell>*few*</TableCell>
       <TableCell>Plural pequeno / paucal</TableCell>
-      <TableCell>Russo (2–4), Polonês (2, 3, 4 fora dos teens), Árabe (3–10)</TableCell>
+      <TableCell>Russo (-), Polonês (2, 3, 4 fora dos teens), Árabe (-0)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*many*</TableCell>
       <TableCell>Plural grande ou irregular</TableCell>
-      <TableCell>Russo (5+, 11–14), Polonês (5+), Árabe (11–99)</TableCell>
+      <TableCell>Russo (5+, 1-4), Polonês (5+), Árabe (1-9)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*other*</TableCell>
@@ -188,12 +184,7 @@ export class InventarioHandler {
     const total   = await contarItens(userId);
 
     const mensagem = await this.i18n.tpUser(
-      userId,
-      'commands.itens',
-      total,
-      { count: total },
-      guildId,
-    );
+      userId, 'commands.itens', total, { count: total }, guildId, );
 
     await interaction.reply(mensagem);
   }
@@ -208,19 +199,14 @@ export class InventarioHandler {
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'pt-BR',
-  references: [{ name: 'commands', path: './locales/commands' }],
-  pluralRules: {
-    'pt-BR': (count) => count === 1 ? 'one' : 'other',
-    'ru': (count) => {
+  defaultLocale: 'pt-BR', references: [{ name: 'commands', path: './locales/commands' }], pluralRules: {
+    'pt-BR': (count) => count === 1 ? 'one' : 'other', 'ru': (count) => {
       const mod10  = count % 10;
       const mod100 = count % 100;
       if (mod10 === 1 && mod100 !== 11) return 'one';
       if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'few';
       return 'many';
-    },
-  },
-});
+    }, }, });
 ```
 
 ## A variável `{{count}}`
@@ -231,8 +217,7 @@ traduzida. Você não precisa passá-lo explicitamente no objeto de vars. O moto
 ```json filename="itens com count na tradução"
 {
   "itens": {
-    "_one":   "Você tem um item restante",
-    "_other": "Você tem {{count}} itens restantes"
+    "_one":   "Você tem um item restante", "_other": "Você tem {{count}} itens restantes"
   }
 }
 ```

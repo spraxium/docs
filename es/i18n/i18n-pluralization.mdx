@@ -35,9 +35,7 @@ para *t()*. La categoría es uno de los seis nombres CLDR añadido con un separa
 ```json filename="locales/comandos/es-ES/objetos.json"
 {
   "objetos": {
-    "_zero":  "Ningún objeto en tu inventario",
-    "_one":   "Un objeto en tu inventario",
-    "_other": "{{count}} objetos en tu inventario"
+    "_zero":  "Ningún objeto en tu inventario", "_one":   "Un objeto en tu inventario", "_other": "{{count}} objetos en tu inventario"
   }
 }
 ```
@@ -74,12 +72,12 @@ completas son `comandos.objetos._zero`, `comandos.objetos._one` y `comandos.obje
     <TableRow>
       <TableCell>*few*</TableCell>
       <TableCell>Plural pequeño / paucal</TableCell>
-      <TableCell>Ruso (2–4), Polaco (2, 3, 4 fuera de teens), Árabe (3–10)</TableCell>
+      <TableCell>Ruso (-), Polaco (2, 3, 4 fuera de teens), Árabe (-0)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*many*</TableCell>
       <TableCell>Plural grande o irregular</TableCell>
-      <TableCell>Ruso (5+, 11–14), Polaco (5+), Árabe (11–99)</TableCell>
+      <TableCell>Ruso (5+, 1-4), Polaco (5+), Árabe (1-9)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*other*</TableCell>
@@ -94,8 +92,7 @@ completas son `comandos.objetos._zero`, `comandos.objetos._one` y `comandos.obje
 <Steps>
 <Step title="Determinación de la categoría">
   El motor determina la categoría plural para el `count` proporcionado. Si se ha registrado una
-  regla personalizada para el locale actual en `pluralRules`, se ejecuta primero. En caso contrario,
-  el motor delega a *Intl.PluralRules*, el motor V8 integrado en Node.js que implementa las reglas
+  regla personalizada para el locale actual en `pluralRules`, se ejecuta primero. En caso contrario, el motor delega a *Intl.PluralRules*, el motor V8 integrado en Node.js que implementa las reglas
   CLDR para todos los idiomas principales.
 </Step>
 
@@ -182,12 +179,7 @@ export class InventarioHandler {
     const total   = await contarObjetos(userId);
 
     const mensaje = await this.i18n.tpUser(
-      userId,
-      'comandos.objetos',
-      total,
-      { count: total },
-      guildId,
-    );
+      userId, 'comandos.objetos', total, { count: total }, guildId, );
 
     await interaction.reply(mensaje);
   }
@@ -202,20 +194,15 @@ export class InventarioHandler {
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'es-ES',
-  references: [{ name: 'comandos', path: './locales/comandos' }],
-  pluralRules: {
-    'es-ES': (count) => count === 1 ? 'one' : 'other',
-    'ar': (count) => {
+  defaultLocale: 'es-ES', references: [{ name: 'comandos', path: './locales/comandos' }], pluralRules: {
+    'es-ES': (count) => count === 1 ? 'one' : 'other', 'ar': (count) => {
       if (count === 0) return 'zero';
       if (count === 1) return 'one';
       if (count === 2) return 'two';
       if (count % 100 >= 3 && count % 100 <= 10) return 'few';
       if (count % 100 >= 11 && count % 100 <= 99) return 'many';
       return 'other';
-    },
-  },
-});
+    }, }, });
 ```
 
 ## La variable `{{count}}`
@@ -226,8 +213,7 @@ traducida. No necesitas pasarlo explícitamente en el objeto de variables.
 ```json filename="objetos con count en la traducción"
 {
   "objetos": {
-    "_one":   "Tienes un objeto restante",
-    "_other": "Tienes {{count}} objetos restantes"
+    "_one":   "Tienes un objeto restante", "_other": "Tienes {{count}} objetos restantes"
   }
 }
 ```

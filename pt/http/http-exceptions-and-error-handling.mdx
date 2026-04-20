@@ -22,51 +22,51 @@ A classe base também define `this.name` com o nome concreto da classe, tornando
 ## Hierarquia de erros exportada pela package
 
 <DropdownGroup>
-<Dropdown title="BadRequestError — 400">
+<Dropdown title="BadRequestError, 400">
   Sinaliza que a request é válida sintaticamente mas semanticamente incorreta ou contém combinações de input malformadas. Use essa classe quando a lógica de domínio rejeita uma request por razões além da validação DTO, como referenciar uma entidade em estado inválido ou fornecer parâmetros conflitantes. A mensagem padrão é `'Bad request'`.
 </Dropdown>
 
-<Dropdown title="ValidationError — 400">
+<Dropdown title="ValidationError, 400">
   A única classe de erro que carrega estrutura adicional além de mensagem e status code. Ela estende *HttpError* com um array *details* onde cada entrada mapeia o nome de uma propriedade DTO para as constraints que falharam. O *ValidationPipe* lança essa classe automaticamente quando a validação via *@HttpBody* falha, então raramente é necessário construí-la manualmente.
 </Dropdown>
 
-<Dropdown title="UnauthorizedError — 401">
+<Dropdown title="UnauthorizedError, 401">
   Sinaliza que a request não possui credenciais de autenticação válidas. Use quando o solicitante não forneceu nenhuma prova de identidade, ao contrário de *ForbiddenError* que se aplica quando uma identidade autenticada não tem permissão. A mensagem padrão é `'Unauthorized'`.
 </Dropdown>
 
-<Dropdown title="ForbiddenError — 403">
+<Dropdown title="ForbiddenError, 403">
   Sinaliza que uma request autenticada não tem permissão para realizar a ação solicitada. Use quando a identidade está estabelecida mas a verificação de autorização falha, por exemplo quando uma operação de admin é tentada por um usuário comum. A mensagem padrão é `'Forbidden'`.
 </Dropdown>
 
-<Dropdown title="NotFoundError — 404">
+<Dropdown title="NotFoundError, 404">
   Sinaliza que o recurso solicitado não existe ou não está acessível pelo contrato. É a classe de erro mais comum para endpoints GET e PATCH que buscam entidades por ID e não encontram nada. A mensagem padrão é `'Not found'`.
 </Dropdown>
 
-<Dropdown title="MethodNotAllowedError — 405">
+<Dropdown title="MethodNotAllowedError, 405">
   Sinaliza que o método HTTP usado na request não é suportado pelo endpoint de destino. Use em lógica de controller quando um handler rejeita condicionalmente o método com base no estado do recurso, não porque uma rota não está registrada. A mensagem padrão é `'Method not allowed'`.
 </Dropdown>
 
-<Dropdown title="ConflictError — 409">
+<Dropdown title="ConflictError, 409">
   Sinaliza que a request não pode ser concluída por causa de um conflito de estado no recurso alvo. Cenários comuns incluem criar um registro duplicado, atribuir um valor que já está definido, ou realizar uma operação que exige um estado diferente. A mensagem padrão é `'Conflict'`.
 </Dropdown>
 
-<Dropdown title="UnprocessableEntityError — 422">
+<Dropdown title="UnprocessableEntityError, 422">
   Sinaliza que o servidor entendeu o conteúdo da request mas não pode processá-lo por restrições semânticas. Use quando uma request parseada atende aos requisitos estruturais mas viola regras de negócio que a validação DTO não consegue verificar. A mensagem padrão é `'Unprocessable entity'`.
 </Dropdown>
 
-<Dropdown title="TooManyRequestsError — 429">
+<Dropdown title="TooManyRequestsError, 429">
   Sinaliza que o cliente excedeu um limite de rate ou política de quota. O *RateLimitMiddleware* retorna uma resposta 429 diretamente sem lançar essa classe, mas você pode lançá-la manualmente quando verificações personalizadas de quota falham. A mensagem padrão é `'Too many requests'`.
 </Dropdown>
 
-<Dropdown title="InternalServerError — 500">
+<Dropdown title="InternalServerError, 500">
   Sinaliza uma falha interna inesperada onde uma resposta JSON controlada ainda é necessária. Use quando catching erros não recuperáveis onde você quer expor um status code previsível em vez de deixar o fallback genérico de 500 tratar. A mensagem padrão é `'Internal server error'`.
 </Dropdown>
 
-<Dropdown title="NotImplementedError — 501">
+<Dropdown title="NotImplementedError, 501">
   Sinaliza que uma operação reconhecida ainda não foi implementada na versão atual. Use como placeholder durante o desenvolvimento quando uma rota está registrada mas seu handler ainda não foi concluído, dando aos clientes um sinal semântico claro em vez de uma resposta 500 genérica. A mensagem padrão é `'Not implemented'`.
 </Dropdown>
 
-<Dropdown title="ServiceUnavailableError — 503">
+<Dropdown title="ServiceUnavailableError, 503">
   Sinaliza uma indisponibilidade temporária de infraestrutura ou dependência. Use quando o servidor está rodando mas uma dependência downstream como banco de dados ou API externa está inacessível, estabelecendo a expectativa de que uma nova tentativa pode ter sucesso. A mensagem padrão é `'Service unavailable'`.
 </Dropdown>
 </DropdownGroup>
@@ -85,19 +85,9 @@ Clientes recebem uma estrutura previsível onde `details` é sempre um array, me
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody,
-  HttpController,
-  HttpGet,
-  HttpParam,
-  HttpPatch,
-  HttpStatus,
-} from '@spraxium/http';
+  HttpBody, HttpController, HttpGet, HttpParam, HttpPatch, HttpStatus, } from '@spraxium/http';
 import {
-  NotFoundError,
-  ForbiddenError,
-  ConflictError,
-  ServiceUnavailableError,
-} from '@spraxium/http';
+  NotFoundError, ForbiddenError, ConflictError, ServiceUnavailableError, } from '@spraxium/http';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
@@ -120,9 +110,7 @@ export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   @HttpStatus(200)
   async updateConfig(
-    @HttpParam('guildId') guildId: string,
-    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
-  ) {
+    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
     const guild = await this.findGuild(guildId);
     if (!guild) throw new NotFoundError('Guild não encontrada');
 
@@ -165,12 +153,9 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 
 @HttpClientModule({
-  controllers: [GuildHttpController],
-})
+  controllers: [GuildHttpController], })
 @Module({
-  imports: [HttpModule],
-  providers: [GuildHttpController],
-})
+  imports: [HttpModule], providers: [GuildHttpController], })
 export class AppModule {}
 ```
   </Tab>
@@ -250,9 +235,7 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 export class GuildHttpController {
   @HttpPatch('/:guildId/config')
   async updateConfig(
-    @HttpParam('guildId') guildId: string,
-    @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
-  ) {
+    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
     const guild = await this.fetchGuild(guildId);
     if (!guild) throw new BridgeUnavailableError();
     if (guild.locked) throw new GuildLockedError(guildId);

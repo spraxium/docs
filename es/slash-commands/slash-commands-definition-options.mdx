@@ -14,31 +14,31 @@ Una definición de slash command es una clase decorada con *@SlashCommand* que d
 El decorador *@SlashCommand* acepta un objeto *SlashCommandConfig* con las siguientes propiedades. Cada comando debe proporcionar *name* y *description* como mínimo. Las propiedades restantes controlan permisos por defecto, disponibilidad en DMs, marcado NSFW, registro específico de guild y localización.
 
 <DropdownGroup>
-  <Dropdown title="name , string (obligatorio)">
+  <Dropdown title="name, string (obligatorio)">
     El nombre del comando mostrado en el selector de Discord. Debe ser minúscula, entre 1 y 32 caracteres, sin espacios. Es el identificador que Discord usa para enrutar la interacción a tu bot.
     Cambiar el nombre de un comando después del registro crea una nueva entrada en el registry de Discord; el nombre anterior no se elimina automáticamente hasta que fuerces un nuevo registro.
   </Dropdown>
-  <Dropdown title="description , string (obligatorio)">
+  <Dropdown title="description, string (obligatorio)">
     La descripción mostrada debajo del nombre del comando en el selector de Discord. Acepta de 1 a 100 caracteres. Escribe una descripción concisa y orientada a la acción para que los usuarios entiendan el propósito del comando antes de invocarlo.
     Discord indexa las descripciones para búsqueda, por lo que textos claros mejoran la visibilidad del comando.
   </Dropdown>
-  <Dropdown title="defaultMemberPermissions , bigint | number | null">
+  <Dropdown title="defaultMemberPermissions, bigint | number | null">
     Bitfield de permisos requeridos para ver y usar el comando. Usa `PermissionFlagsBits` de discord.js para componer el valor. Cuando se configura, Discord oculta el comando a los miembros que no tienen los permisos especificados.
     Configura `null` para hacer el comando visible a todos por defecto. Los administradores del servidor pueden sobrescribir esto por guild en la configuración del servidor.
   </Dropdown>
-  <Dropdown title="dmPermission , boolean">
+  <Dropdown title="dmPermission, boolean">
     Controla si el comando está disponible en mensajes directos. Por defecto es `true` cuando se omite. Configura `false` para comandos que requieren contexto de guild, como los que leen miembros o canales.
     Esta flag no tiene efecto en comandos específicos de guild creados mediante la propiedad *guild*.
   </Dropdown>
-  <Dropdown title="nsfw , boolean">
+  <Dropdown title="nsfw, boolean">
     Marca el comando como restringido por edad. Cuando es `true`, el comando solo aparece en canales NSFW y en DMs para usuarios que han reconocido las restricciones de edad.
     Usa esta flag para comandos que presentan contenido para adultos, en cumplimiento con las políticas de Discord.
   </Dropdown>
-  <Dropdown title="guild , string">
+  <Dropdown title="guild, string">
     ID de guild para registro específico de guild. Cuando se proporciona, el comando solo se registra en esa guild y omite el registro global. Los comandos de guild se propagan en segundos en lugar del retraso de hasta una hora de los comandos globales.
     Elimina la propiedad *guild* antes de desplegar en producción para registrar el comando globalmente.
   </Dropdown>
-  <Dropdown title="i18n , SlashI18nKeys">
+  <Dropdown title="i18n, SlashI18nKeys">
     Claves de localización para el nombre y descripción del comando, resueltas a través del módulo i18n. Proporciona un objeto *SlashI18nKeys* con las claves *name* y *description* que mapean a entradas en tus archivos de locale.
     Los campos base *name* y *description* sirven como fallback cuando no se encuentra un locale correspondiente para el idioma del cliente Discord del usuario.
   </Dropdown>
@@ -49,19 +49,12 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: 'ban',
-  description: 'Ban a member from the server.',
-  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
-})
+  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
 export class BanCommand {
   @SlashOption.User('target', { description: 'The member to ban', required: true })
   @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
   @SlashOption.Integer('days', {
-    description: 'Number of days of messages to delete',
-    required: false,
-    min: 0,
-    max: 7,
-  })
+    description: 'Number of days of messages to delete', required: false, min: 0, max: 7, })
   build() {}
 }
 ```
@@ -71,39 +64,39 @@ export class BanCommand {
 Spraxium proporciona nueve decoradores de tipo de opción a través del namespace *SlashOption*, uno para cada tipo de opción de Application Command de Discord. Cada decorador es un decorador de método aplicado al método *build()* de la clase de comando (o a un método *@SlashSubcommand* cuando la opción pertenece a un subcomando). Las opciones se apilan en el mismo método, y el orden de los decoradores determina el orden de visualización en el cliente Discord (el decorador superior aparece último en el selector).
 
 <DropdownGroup>
-  <Dropdown title="@SlashOption.String , string | null">
+  <Dropdown title="@SlashOption.String, string | null">
     Mapea al tipo STRING de Discord. El handler recibe `string` cuando el usuario proporciona un valor, o `null` cuando la opción no es obligatoria y fue omitida.
     Soporta *minLength*, *maxLength*, *choices* (lista estática) y *autocomplete* (sugerencias dinámicas). Ten en cuenta que *choices* y *autocomplete* no pueden combinarse en la misma opción.
   </Dropdown>
-  <Dropdown title="@SlashOption.Integer , number | null">
+  <Dropdown title="@SlashOption.Integer, number | null">
     Mapea al tipo INTEGER de Discord. Acepta solo números enteros. El handler recibe `number` o `null`.
     Soporta *min* y *max* para validación de rango, *choices* para un conjunto fijo de enteros y *autocomplete* para sugerencias dinámicas.
   </Dropdown>
-  <Dropdown title="@SlashOption.Number , number | null">
+  <Dropdown title="@SlashOption.Number, number | null">
     Mapea al tipo NUMBER de Discord. Acepta números de punto flotante. El handler recibe `number` o `null`.
     Soporta *min* y *max* para validación de rango y *autocomplete* para sugerencias dinámicas. Los *choices* estáticos no están disponibles para el tipo Number.
   </Dropdown>
-  <Dropdown title="@SlashOption.Boolean , boolean | null">
+  <Dropdown title="@SlashOption.Boolean, boolean | null">
     Mapea al tipo BOOLEAN de Discord. Discord lo renderiza como un toggle verdadero/falso en el selector de comandos. El handler recibe `true`, `false` o `null` cuando la opción es opcional y no fue completada.
     No hay restricciones adicionales disponibles para este tipo.
   </Dropdown>
-  <Dropdown title="@SlashOption.User , User | null">
+  <Dropdown title="@SlashOption.User, User | null">
     Mapea al tipo USER de Discord. Discord renderiza un selector de usuario. El handler recibe un objeto *User* completamente resuelto de discord.js, o `null` si la opción es opcional y no fue completada.
     No hay restricciones adicionales disponibles para este tipo.
   </Dropdown>
-  <Dropdown title="@SlashOption.Channel , Channel | null">
+  <Dropdown title="@SlashOption.Channel, Channel | null">
     Mapea al tipo CHANNEL de Discord. Discord renderiza un selector de canal. El handler recibe un objeto *Channel* o `null`.
     Soporta el array *channelTypes* para restringir qué tipos de canal puede seleccionar el usuario. Consulta la sección de filtrado de tipos de canal más abajo para la lista completa de valores aceptados.
   </Dropdown>
-  <Dropdown title="@SlashOption.Role , Role | null">
+  <Dropdown title="@SlashOption.Role, Role | null">
     Mapea al tipo ROLE de Discord. Discord renderiza un selector de rol. El handler recibe un objeto *Role* completamente resuelto de discord.js, o `null` si la opción es opcional y no fue completada.
     No hay restricciones adicionales disponibles para este tipo.
   </Dropdown>
-  <Dropdown title="@SlashOption.Mentionable , User | Role | null">
+  <Dropdown title="@SlashOption.Mentionable, User | Role | null">
     Mapea al tipo MENTIONABLE de Discord. Acepta tanto usuarios como roles. El handler recibe un objeto *User* o *Role* según lo seleccionado, o `null` si es opcional y fue omitido.
     No hay restricciones adicionales disponibles para este tipo.
   </Dropdown>
-  <Dropdown title="@SlashOption.Attachment , Attachment | null">
+  <Dropdown title="@SlashOption.Attachment, Attachment | null">
     Mapea al tipo ATTACHMENT de Discord. Discord renderiza un campo de carga de archivos. El handler recibe un objeto *Attachment* de discord.js con metadatos y URL de CDN, o `null` si la opción es opcional y no fue completada.
     No hay restricciones adicionales disponibles para este tipo.
   </Dropdown>
@@ -156,11 +149,7 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'echo', description: 'Repeat a message back to the channel.' })
 export class EchoCommand {
   @SlashOption.String('message', {
-    description: 'Text to echo',
-    required: true,
-    minLength: 1,
-    maxLength: 2000,
-  })
+    description: 'Text to echo', required: true, minLength: 1, maxLength: 2000, })
   build() {}
 }
 ```
@@ -184,14 +173,8 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'roll', description: 'Roll a dice.' })
 export class RollCommand {
   @SlashOption.Integer('sides', {
-    description: 'Number of sides on the dice',
-    required: true,
-    choices: [
-      { name: '6-sided', value: 6 },
-      { name: '12-sided', value: 12 },
-      { name: '20-sided', value: 20 },
-    ],
-  })
+    description: 'Number of sides on the dice', required: true, choices: [
+      { name: '6-sided', value: 6 }, { name: '12-sided', value: 12 }, { name: '20-sided', value: 20 }, ], })
   build() {}
 }
 ```
@@ -203,11 +186,7 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'volume', description: 'Set the playback volume.' })
 export class VolumeCommand {
   @SlashOption.Number('level', {
-    description: 'Volume level (0.0 to 2.0)',
-    required: true,
-    min: 0,
-    max: 2,
-  })
+    description: 'Volume level (0.0 to 2.0)', required: true, min: 0, max: 2, })
   build() {}
 }
 ```
@@ -225,15 +204,9 @@ import { ChannelType } from 'discord.js';
 @SlashCommand({ name: 'setup', description: 'Configure the bot for this server.' })
 export class SetupCommand {
   @SlashOption.Channel('log-channel', {
-    description: 'Channel for bot logs',
-    required: true,
-    channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
-  })
+    description: 'Channel for bot logs', required: true, channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement], })
   @SlashOption.Channel('voice-channel', {
-    description: 'Default voice channel',
-    required: false,
-    channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice],
-  })
+    description: 'Default voice channel', required: false, channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice], })
   build() {}
 }
 ```
@@ -308,26 +281,13 @@ Tanto el decorador *@SlashCommand* como todos los decoradores *@SlashOption* ace
 import { SlashCommand, SlashOption } from '@spraxium/common';
 
 @SlashCommand({
-  name: 'locale',
-  description: 'Change your preferred language.',
-  i18n: {
-    name: 'commands.locale.name',
-    description: 'commands.locale.description',
-  },
-})
+  name: 'locale', description: 'Change your preferred language.', i18n: {
+    name: 'commands.locale.name', description: 'commands.locale.description', }, })
 export class LocaleCommand {
   @SlashOption.String('language', {
-    description: 'The language to use.',
-    required: true,
-    i18n: {
-      name: 'commands.locale.options.language.name',
-      description: 'commands.locale.options.language.description',
-    },
-    choices: [
-      { name: 'English (US)', value: 'en-US' },
-      { name: 'Português (Brasil)', value: 'pt-BR' },
-    ],
-  })
+    description: 'The language to use.', required: true, i18n: {
+      name: 'commands.locale.options.language.name', description: 'commands.locale.options.language.description', }, choices: [
+      { name: 'English (US)', value: 'en-US' }, { name: 'Português (Brasil)', value: 'pt-BR' }, ], })
   build() {}
 }
 ```

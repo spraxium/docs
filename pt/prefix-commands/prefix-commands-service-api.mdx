@@ -73,17 +73,13 @@ import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 @Injectable()
 export class GuildPrefixService {
   constructor(
-    private readonly dispatcher: PrefixDispatcher,
-    private readonly repository: GuildPrefixRepository,
-  ) {}
+    private readonly dispatcher: PrefixDispatcher, private readonly repository: GuildPrefixRepository, ) {}
 
   async setForGuild(guildId: string, prefix: string, actorId: string): Promise<void> {
     await this.repository.upsert(guildId, [prefix], actorId);
 
     this.dispatcher.guildPrefixes.setGuildPrefix(guildId, prefix, {
-      updatedBy: actorId,
-      updatedAt: new Date().toISOString(),
-    });
+      updatedBy: actorId, updatedAt: new Date().toISOString(), });
   }
 }
 ```
@@ -102,17 +98,13 @@ import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 @Injectable()
 export class GuildPrefixService {
   constructor(
-    private readonly dispatcher: PrefixDispatcher,
-    private readonly repository: GuildPrefixRepository,
-  ) {}
+    private readonly dispatcher: PrefixDispatcher, private readonly repository: GuildPrefixRepository, ) {}
 
   async updateForGuild(guildId: string, prefix: string, actorId: string): Promise<void> {
     await this.repository.patch(guildId, { prefixes: [prefix], updatedBy: actorId });
 
     this.dispatcher.guildPrefixes.updateGuildPrefix(guildId, prefix, {
-      updatedBy: actorId,
-      updatedAt: new Date().toISOString(),
-    });
+      updatedBy: actorId, updatedAt: new Date().toISOString(), });
   }
 }
 ```
@@ -131,9 +123,7 @@ import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 @Injectable()
 export class GuildPrefixService {
   constructor(
-    private readonly dispatcher: PrefixDispatcher,
-    private readonly repository: GuildPrefixRepository,
-  ) {}
+    private readonly dispatcher: PrefixDispatcher, private readonly repository: GuildPrefixRepository, ) {}
 
   async removeForGuild(guildId: string): Promise<boolean> {
     await this.repository.remove(guildId);
@@ -178,21 +168,14 @@ import { GuildPrefixRepository } from './repositories/guild-prefix.repository';
 @Injectable()
 export class PrefixPrefetchService implements SpraxiumOnReady {
   constructor(
-    private readonly dispatcher: PrefixDispatcher,
-    private readonly repository: GuildPrefixRepository,
-  ) {}
+    private readonly dispatcher: PrefixDispatcher, private readonly repository: GuildPrefixRepository, ) {}
 
   async onReady(_client: Client<true>): Promise<void> {
     await this.dispatcher.guildPrefixes.loadFromProvider(async () => {
       const rows = await this.repository.findAll();
       return rows.map((row) => ({
-        guildId: row.guildId,
-        prefix: row.prefixes,
-        metadata: {
-          updatedBy: row.updatedBy,
-          updatedAt: row.updatedAt,
-        },
-      }));
+        guildId: row.guildId, prefix: row.prefixes, metadata: {
+          updatedBy: row.updatedBy, updatedAt: row.updatedAt, }, }));
     });
   }
 }

@@ -25,12 +25,7 @@ The simplest prefix command needs one command class with an argument schema and 
 import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'roll',
-  aliases: ['r', 'dice'],
-  description: 'Roll one or more dice.',
-  category: 'Fun',
-  usage: '!roll [sides] [count]',
-  cooldown: 3,
+  name: 'roll', aliases: ['r', 'dice'], description: 'Roll one or more dice.', category: 'Fun', usage: '!roll [sides] [count]', cooldown: 3,
 })
 export class RollCommand {
   @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
@@ -48,15 +43,11 @@ import { RollCommand } from '../commands/roll.command';
 @PrefixCommandHandler(RollCommand)
 export class RollHandler {
   async handle(
-    @Ctx() message: Message,
-    @PrefixArg('sides') sides: number | undefined,
-    @PrefixArg('count') count: number | undefined,
-  ): Promise<void> {
+    @Ctx() message: Message, @PrefixArg('sides') sides: number | undefined, @PrefixArg('count') count: number | undefined, ): Promise<void> {
     const faces = sides ?? 6;
     const rolls = count ?? 1;
     const results = Array.from({ length: rolls }, () =>
-      Math.floor(Math.random() * faces) + 1,
-    );
+      Math.floor(Math.random() * faces) + 1, );
     const total = results.reduce((a, b) => a + b, 0);
     await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}] = ${total}`);
   }
@@ -77,11 +68,7 @@ For command families like `!mod warn`, `!mod kick`, and `!mod ban`, use *@Prefix
 import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'mod',
-  aliases: ['m'],
-  description: 'Moderation commands.',
-  category: 'Moderation',
-  usage: '!mod <warn|kick|ban> <user> [reason]',
+  name: 'mod', aliases: ['m'], description: 'Moderation commands.', category: 'Moderation', usage: '!mod <warn|kick|ban> <user> [reason]',
 })
 export class ModCommand {
   @PrefixSubcommand({ name: 'warn', description: 'Warn a user' })
@@ -112,10 +99,7 @@ import { ModeratorGuard } from '../guards/moderator.guard';
 @PrefixCommandHandler(ModCommand, { subcommand: 'warn' })
 export class ModWarnHandler {
   async handle(
-    @Ctx() message: Message,
-    @PrefixArg('target') userId: string,
-    @PrefixArg('reason') reason: string | undefined,
-  ): Promise<void> {
+    @Ctx() message: Message, @PrefixArg('target') userId: string, @PrefixArg('reason') reason: string | undefined, ): Promise<void> {
     const text = reason ?? 'No reason provided';
     await message.reply(`Warning <@${userId}>. Reason: ${text}`);
   }
@@ -165,8 +149,7 @@ import { ModBanHandler } from './handlers/mod-ban.handler';
 import { RollHandler } from '../fun/handlers/roll.handler';
 
 @Module({
-  commands: [ModCommand, RollCommand],
-  handlers: [ModWarnHandler, ModKickHandler, ModBanHandler, RollHandler],
+  commands: [ModCommand, RollCommand], handlers: [ModWarnHandler, ModKickHandler, ModBanHandler, RollHandler],
 })
 export class ModerationModule {}
 ```
