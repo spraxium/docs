@@ -35,11 +35,11 @@ hook personalizado, o en cualquier otro punto de la secuencia de arranque.
 ## Registrando una store personalizada
 
 ```typescript filename="src/main.ts"
-import { I18nStoreRegistry } from "@spraxium/i18n";
-import { SpraxiumFactory } from "@spraxium/core";
-import { IntentPreset } from "@spraxium/common";
-import { DrizzleLocaleStore } from "./stores/drizzle-locale.store";
-import { db } from "./database/connection";
+import { I18nStoreRegistry } from '@spraxium/i18n';
+import { SpraxiumFactory } from '@spraxium/core';
+import { IntentPreset } from '@spraxium/common';
+import { DrizzleLocaleStore } from './stores/drizzle-locale.store';
+import { db } from './database/connection';
 
 async function main(): Promise<void> {
   I18nStoreRegistry.set(new DrizzleLocaleStore(db));
@@ -71,44 +71,44 @@ import type { I18nStore } from '@spraxium/i18n';
 export class DrizzleLocaleStore implements I18nStore {
   constructor(private readonly db: DrizzleDatabase) {}
 
-async init(): Promise<void> {
-await this.db.execute(sql`       CREATE TABLE IF NOT EXISTS locale_preferences (
+  async init(): Promise<void> {
+    await this.db.execute(sql`       CREATE TABLE IF NOT EXISTS locale_preferences (
         user_id TEXT PRIMARY KEY, locale  TEXT NOT NULL
       )
     `);
-}
+  }
 
-async getUser(userId: string): Promise<string | undefined> {
-const fila = await this.db
-.select()
-.from(localePreferences)
-.where(eq(localePreferences.userId, userId))
-.limit(1);
-return fila[0]?.locale ?? undefined;
-}
+  async getUser(userId: string): Promise<string | undefined> {
+    const fila = await this.db
+      .select()
+      .from(localePreferences)
+      .where(eq(localePreferences.userId, userId))
+      .limit(1);
+    return fila[0]?.locale ?? undefined;
+  }
 
-async setUser(userId: string, locale: string): Promise<void> {
-await this.db
-.insert(localePreferences)
-.values({ userId, locale })
-.onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
-}
+  async setUser(userId: string, locale: string): Promise<void> {
+    await this.db
+      .insert(localePreferences)
+      .values({ userId, locale })
+      .onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
+  }
 
-async getGuild(guildId: string): Promise<string | undefined> {
-const fila = await this.db
-.select()
-.from(guildLocalePreferences)
-.where(eq(guildLocalePreferences.guildId, guildId))
-.limit(1);
-return fila[0]?.locale ?? undefined;
-}
+  async getGuild(guildId: string): Promise<string | undefined> {
+    const fila = await this.db
+      .select()
+      .from(guildLocalePreferences)
+      .where(eq(guildLocalePreferences.guildId, guildId))
+      .limit(1);
+    return fila[0]?.locale ?? undefined;
+  }
 
-async setGuild(guildId: string, locale: string): Promise<void> {
-await this.db
-.insert(guildLocalePreferences)
-.values({ guildId, locale })
-.onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
-}
+  async setGuild(guildId: string, locale: string): Promise<void> {
+    await this.db
+      .insert(guildLocalePreferences)
+      .values({ guildId, locale })
+      .onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
+  }
 }
 
 ````
@@ -165,46 +165,50 @@ import type { I18nStore } from '@spraxium/i18n';
 
 @Entity('locale_preferences')
 class LocalePreference {
-@PrimaryColumn() userId!: string;
-@Column() locale!: string;
+  @PrimaryColumn()
+  userId!: string;
+  @Column()
+  locale!: string;
 }
 
 @Entity('guild_locale_preferences')
 class GuildLocalePreference {
-@PrimaryColumn() guildId!: string;
-@Column() locale!: string;
+  @PrimaryColumn()
+  guildId!: string;
+  @Column()
+  locale!: string;
 }
 
 export class TypeOrmLocaleStore implements I18nStore {
   private usuarios: Repository<LocalePreference>;
   private servidores: Repository<GuildLocalePreference>;
 
-constructor(private readonly dataSource: DataSource) {
-this.usuarios = dataSource.getRepository(LocalePreference);
-this.servidores = dataSource.getRepository(GuildLocalePreference);
-}
+  constructor(private readonly dataSource: DataSource) {
+    this.usuarios = dataSource.getRepository(LocalePreference);
+    this.servidores = dataSource.getRepository(GuildLocalePreference);
+  }
 
-async init(): Promise<void> {
-await this.dataSource.synchronize();
-}
+  async init(): Promise<void> {
+    await this.dataSource.synchronize();
+  }
 
-async getUser(userId: string): Promise<string | undefined> {
-const registro = await this.usuarios.findOne({ where: { userId } });
-return registro?.locale ?? undefined;
-}
+  async getUser(userId: string): Promise<string | undefined> {
+    const registro = await this.usuarios.findOne({ where: { userId } });
+    return registro?.locale ?? undefined;
+  }
 
-async setUser(userId: string, locale: string): Promise<void> {
-await this.usuarios.upsert({ userId, locale }, ['userId']);
-}
+  async setUser(userId: string, locale: string): Promise<void> {
+    await this.usuarios.upsert({ userId, locale }, ['userId']);
+  }
 
-async getGuild(guildId: string): Promise<string | undefined> {
-const registro = await this.servidores.findOne({ where: { guildId } });
-return registro?.locale ?? undefined;
-}
+  async getGuild(guildId: string): Promise<string | undefined> {
+    const registro = await this.servidores.findOne({ where: { guildId } });
+    return registro?.locale ?? undefined;
+  }
 
-async setGuild(guildId: string, locale: string): Promise<void> {
-await this.servidores.upsert({ guildId, locale }, ['guildId']);
-}
+  async setGuild(guildId: string, locale: string): Promise<void> {
+    await this.servidores.upsert({ guildId, locale }, ['guildId']);
+  }
 }
 
 ````

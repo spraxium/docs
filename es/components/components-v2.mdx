@@ -34,7 +34,7 @@ _V2Service_ es el servicio de renderizado y construcción para todo el trabajo c
 Inyecta _V2Service_ en cualquier handler o servicio que necesite renderizar contenedores V2.
 
 ```typescript filename="src/handlers/my.handler.ts"
-import { V2Service } from "@spraxium/components";
+import { V2Service } from '@spraxium/components';
 
 @SlashCommandHandler(MyCommand)
 export class MyHandler {
@@ -56,7 +56,12 @@ Los nombres de las propiedades en la clase de schema no importan en runtime. Sol
   <Tab label="Schema">
 ```typescript filename="src/schemas/user-profile.container.ts"
 import {
-  V2Container, V2Separator, V2Section, V2Text, desc, } from '@spraxium/components';
+  V2Container,
+  V2Separator,
+  V2Section,
+  V2Text,
+  desc,
+} from '@spraxium/components';
 
 export interface UserProfileData {
   username: string;
@@ -68,24 +73,31 @@ export interface UserProfileData {
 
 @V2Container({ accentColor: 0x5865f2 })
 export class UserProfileContainer {
-@V2Text((data: UserProfileData) => desc().h2(`👤 ${data.username}`))
-title!: never;
+  @V2Text((data: UserProfileData) => desc().h2(`👤 ${data.username}`))
+  title!: never;
 
-@V2Separator()
-divider!: never;
+  @V2Separator()
+  divider!: never;
 
-@V2Section({
-text: (data: UserProfileData) =>
-[
-`**ID:** \`${data.userId}\``, `**Se unió:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
-url: (data: UserProfileData) => data.avatarUrl, description: 'Avatar del usuario', }, })
-stats!: never;
+  @V2Section({
+    text: (data: UserProfileData) =>
+      [
+        `**ID:** \`${data.userId}\``,
+        `**Se uni\u00f3:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
+        `**Bio:** ${data.bio}`,
+      ].join('\n'),
+    thumbnail: {
+      url: (data: UserProfileData) => data.avatarUrl,
+      description: 'Avatar del usuario',
+    },
+  })
+  stats!: never;
 
-@V2Separator({ divider: false })
-spacer!: never;
+  @V2Separator({ divider: false })
+  spacer!: never;
 
-@V2Text((data: UserProfileData) => desc().subtext(`Perfil de ${data.username}`))
-footer!: never;
+  @V2Text((data: UserProfileData) => desc().subtext(`Perfil de ${data.username}`))
+  footer!: never;
 }
 
 ````
@@ -106,12 +118,19 @@ export class ProfileHandler {
     const user = interaction.user;
 
     const data: UserProfileData = {
-      username: user.username, userId: user.id, joinedAt: user.createdTimestamp, avatarUrl: user.displayAvatarURL({ size: 128 }), bio: 'Sin bio configurada.', };
+      username: user.username,
+      userId: user.id,
+      joinedAt: user.createdTimestamp,
+      avatarUrl: user.displayAvatarURL({ size: 128 }),
+      bio: 'Sin bio configurada.',
+    };
 
     const payload = this.v2.buildReply(UserProfileContainer, data);
 
     await interaction.reply({
-      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+      ...payload,
+      flags: payload.flags | MessageFlags.Ephemeral,
+    });
   }
 }
 ````
@@ -126,10 +145,10 @@ La API fluida es un builder encadenable vinculado a _V2Service_. Llama a _v2.con
 La API fluida no admite decorators de propiedad ni condiciones _@V2When_, ya que no hay metadatos a nivel de clase para anotar. Usa el patrón basado en clases cuando necesites renderizado condicional o cuando quieras reutilizar el mismo layout en múltiples handlers.
 
 ```typescript filename="src/handlers/greet.handler.ts"
-import { Ctx, SlashCommandHandler } from "@spraxium/common";
-import { V2Service, desc } from "@spraxium/components";
-import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
-import { GreetCommand } from "../commands/greet.command";
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { V2Service, desc } from '@spraxium/components';
+import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
+import { GreetCommand } from '../commands/greet.command';
 
 @SlashCommandHandler(GreetCommand)
 export class GreetHandler {
@@ -152,7 +171,7 @@ export class GreetHandler {
         }),
       )
       .sep({ divider: false })
-      .text(desc().subtext("Desarrollado con Spraxium V2"))
+      .text(desc().subtext('Desarrollado con Spraxium V2'))
       .toReply();
 
     await interaction.reply({
@@ -286,7 +305,7 @@ import {
   desc,
   v2sep,
   v2text,
-} from "@spraxium/components";
+} from '@spraxium/components';
 
 export interface LeaderboardEntry {
   username: string;
@@ -299,7 +318,7 @@ export interface LeaderboardData {
   entries: Array<LeaderboardEntry>;
 }
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+const MEDALS = ['🥇', '🥈', '🥉'];
 
 @V2Container({ accentColor: 0xf1c40f })
 export class LeaderboardContainer {
@@ -311,7 +330,7 @@ export class LeaderboardContainer {
 
   @V2Dynamic((data: LeaderboardData) => {
     if (data.entries.length === 0) {
-      return [v2text(desc().subtext("Sin entradas aún."))];
+      return [v2text(desc().subtext('Sin entradas aún.'))];
     }
 
     return data.entries.flatMap((entry, index) => {
@@ -347,7 +366,7 @@ export class LeaderboardHandler {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
     const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: "Top Jugadores de la Semana",
+      title: 'Top Jugadores de la Semana',
       entries,
     });
 
@@ -369,7 +388,7 @@ import {
   V2Text,
   V2When,
   desc,
-} from "@spraxium/components";
+} from '@spraxium/components';
 
 export interface MemberCardData {
   username: string;
@@ -387,7 +406,7 @@ export class MemberCardContainer {
   divider!: never;
 
   @V2When((data: MemberCardData) => data.isAdmin)
-  @V2Text("⚙️ **Administrador del Servidor**")
+  @V2Text('⚙️ **Administrador del Servidor**')
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
@@ -411,7 +430,14 @@ _@V2Row_ coloca una action row de botones o select menu directamente dentro de u
   <Tab label="Action row de botones">
 ```typescript filename="src/schemas/confirm-panel.container.ts"
 import {
-  Button, LinkButton, V2Container, V2Row, V2Separator, V2Text, desc, } from '@spraxium/components';
+  Button,
+  LinkButton,
+  V2Container,
+  V2Row,
+  V2Separator,
+  V2Text,
+  desc,
+} from '@spraxium/components';
 
 @Button({ customId: 'panel_confirm', label: 'Confirm', style: 'success', emoji: '✅' })
 export class ConfirmButton {}
@@ -421,17 +447,17 @@ export class CancelButton {}
 
 @V2Container({ accentColor: 0xed4245 })
 export class ConfirmPanelContainer {
-@V2Text((data: { action: string }) => desc().h2(`Confirmar: ${data.action}`))
-title!: never;
+  @V2Text((data: { action: string }) => desc().h2(`Confirmar: ${data.action}`))
+  title!: never;
 
-@V2Text('Esta acción no se puede deshacer. ¿Estás seguro?')
-body!: never;
+  @V2Text('Esta acci\u00f3n no se puede deshacer. \u00bfEst\u00e1s seguro?')
+  body!: never;
 
-@V2Separator({ divider: false })
-spacer!: never;
+  @V2Separator({ divider: false })
+  spacer!: never;
 
-@V2Row({ components: [ConfirmButton, CancelButton] })
-actions!: never;
+  @V2Row({ components: [ConfirmButton, CancelButton] })
+  actions!: never;
 }
 
 ````
@@ -441,7 +467,10 @@ actions!: never;
 import { LinkButton, V2Container, V2Section, V2Text, desc } from '@spraxium/components';
 
 @LinkButton({
-  label: 'Ver Docs', url: 'https://spraxium.dev/guide', emoji: '📖', })
+  label: 'Ver Docs',
+  url: 'https://spraxium.dev/guide',
+  emoji: '📖',
+})
 export class DocsLinkButton {}
 
 export interface ResourceCardData {
@@ -455,7 +484,9 @@ export class ResourceCardContainer {
   title!: never;
 
   @V2Section({
-    text: (data: ResourceCardData) => data.description, button: DocsLinkButton, })
+    text: (data: ResourceCardData) => data.description,
+    button: DocsLinkButton,
+  })
   body!: never;
 }
 ````

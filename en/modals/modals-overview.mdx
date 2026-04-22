@@ -20,27 +20,27 @@ Unlike buttons and selects where the component is a lightweight decorator on a c
 Use _@ModalComponent_ to mark a class as a modal definition. The decorator accepts an object with _id_ (the _customId_ that Discord sends back on submission) and _title_ (displayed at the top of the modal). Field decorators on the class properties define the modal's input fields.
 
 ```typescript filename="src/components/feedback.modal.ts"
-import { ModalComponent, ModalInput } from "@spraxium/components";
+import { ModalComponent, ModalInput } from '@spraxium/components';
 
-@ModalComponent({ id: "feedback-modal", title: "Send Feedback" })
+@ModalComponent({ id: 'feedback-modal', title: 'Send Feedback' })
 export class FeedbackModal {
   @ModalInput({
-    label: "Subject",
-    placeholder: "Brief summary of your feedback",
+    label: 'Subject',
+    placeholder: 'Brief summary of your feedback',
     required: true,
     minLength: 3,
     maxLength: 100,
-    style: "short",
+    style: 'short',
   })
   subject!: string;
 
   @ModalInput({
-    label: "Details",
-    placeholder: "Describe your feedback in detail...",
+    label: 'Details',
+    placeholder: 'Describe your feedback in detail...',
     required: true,
     minLength: 10,
     maxLength: 4000,
-    style: "paragraph",
+    style: 'paragraph',
   })
   details!: string;
 }
@@ -51,19 +51,19 @@ export class FeedbackModal {
 The _@ModalHandler_ decorator links a handler class to a specific modal component. The handler's _handle_ method receives the modal submission interaction and any injected parameters. Use the _@Field_ parameter decorator to extract individual field values by their property name.
 
 ```typescript filename="src/components/feedback.handler.ts"
-import { ModalHandler, Field, Ctx } from "@spraxium/components";
-import type { ModalSubmitInteraction } from "discord.js";
-import { FeedbackModal } from "./feedback.modal";
+import { ModalHandler, Field, Ctx } from '@spraxium/components';
+import type { ModalSubmitInteraction } from 'discord.js';
+import { FeedbackModal } from './feedback.modal';
 
 @ModalHandler(FeedbackModal)
 export class FeedbackModalHandler {
   async handle(
     @Ctx() interaction: ModalSubmitInteraction,
-    @Field("subject") subject: string,
-    @Field("details") details: string,
+    @Field('subject') subject: string,
+    @Field('details') details: string,
   ): Promise<void> {
     await interaction.reply({
-      content: `Thank you for your feedback on "${subject}".`,
+      content: `Thank you for your feedback on '${subject}'.`,
       ephemeral: true,
     });
   }
@@ -85,12 +85,12 @@ import { FeedbackModal } from './feedback.modal';
 
 @ButtonHandler(OpenFeedbackButton)
 export class OpenFeedbackHandler {
-constructor(private readonly modals: ModalService) {}
+  constructor(private readonly modals: ModalService) {}
 
-async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
-const modal = this.modals.build(FeedbackModal);
-await interaction.showModal(modal);
-}
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.build(FeedbackModal);
+    await interaction.showModal(modal);
+  }
 }
 
 ````
@@ -198,9 +198,9 @@ The _@Field_ decorator extracts a specific field value from the modal submission
 Register your modal handlers in the _handlers_ array of a feature module. Modal component classes decorated with _@ModalComponent_ and button classes decorated with _@Button_ are metadata-only and are never registered in any module. The system scans all registered handler instances for _@ModalHandler_ metadata during the boot lifecycle and reads the referenced modal component's metadata by class reference.
 
 ```typescript filename="src/components/components.module.ts"
-import { Module } from "@spraxium/core";
-import { FeedbackModalHandler } from "./feedback.handler";
-import { OpenFeedbackHandler } from "./open-feedback.handler";
+import { Module } from '@spraxium/core';
+import { FeedbackModalHandler } from './feedback.handler';
+import { OpenFeedbackHandler } from './open-feedback.handler';
 
 @Module({
   handlers: [FeedbackModalHandler, OpenFeedbackHandler],

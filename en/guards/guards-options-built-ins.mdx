@@ -14,8 +14,8 @@ Some guards need parameters to work. A role guard needs to know which roles to c
 The _@GuardOption_ decorator accepts a configuration object with two optional fields. The _required_ field makes the option mandatory, meaning the framework throws a configuration error at runtime if the option is not provided. The _default_ field sets a fallback value that applies when no value is passed explicitly. If neither _required_ nor _default_ is set, the option is simply optional and will be undefined if not provided.
 
 ```typescript filename="min-roles.guard.ts"
-import { Guard, GuardOption } from "@spraxium/common";
-import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
+import { Guard, GuardOption } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
 
 @Guard()
 export class MinRolesGuard implements SpraxiumGuard {
@@ -24,7 +24,7 @@ export class MinRolesGuard implements SpraxiumGuard {
 
   canActivate(ctx: ExecutionContext): boolean {
     const member = ctx.getMember();
-    if (!member || !("roles" in member)) return false;
+    if (!member || !('roles' in member)) return false;
     return member.roles.cache.size >= this.minRoles;
   }
 }
@@ -37,13 +37,13 @@ In the example above, the _minRoles_ property has a default of 1, so if you atta
 The _withOptions_ function is how you pass typed options to a guard when attaching it with _@UseGuards_. It takes the guard class as the first argument and an options object as the second. The TypeScript type system infers the shape of the options from the guard's _@GuardOption_ properties, so you get autocompletion and type errors if you pass the wrong shape.
 
 ```typescript filename="moderation.handler.ts"
-import { UseGuards, withOptions } from "@spraxium/common";
-import { PermissionGuard, RoleGuard } from "@spraxium/core";
-import { MinRolesGuard } from "../guards/min-roles.guard";
+import { UseGuards, withOptions } from '@spraxium/common';
+import { PermissionGuard, RoleGuard } from '@spraxium/core';
+import { MinRolesGuard } from '../guards/min-roles.guard';
 
 @UseGuards(
-  withOptions(RoleGuard, { roles: ["Moderator"] }),
-  withOptions(PermissionGuard, { permissions: ["BanMembers"] }),
+  withOptions(RoleGuard, { roles: ['Moderator'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
   withOptions(MinRolesGuard, { minRoles: 3 }),
 )
 export class ModerationHandler {
@@ -56,10 +56,10 @@ export class ModerationHandler {
 If you do not need to pass options because the guard has no required options or its defaults are sufficient, you can pass the guard class directly without _withOptions_. Both styles work in the same _@UseGuards_ call, so you can mix guards that need options with guards that do not.
 
 ```typescript filename="mixed-guards.handler.ts"
-import { UseGuards, withOptions } from "@spraxium/common";
-import { GuildOnly, RoleGuard } from "@spraxium/core";
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, RoleGuard } from '@spraxium/core';
 
-@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ["Admin"] }))
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Admin'] }))
 export class MixedHandler {
   async handle() {
     // GuildOnly needs no options, RoleGuard needs roles
@@ -161,7 +161,8 @@ import { UseGuards, withOptions } from '@spraxium/common';
 import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
 
 @UseGuards(
-  GuildOnly, withOptions(RoleGuard, { roles: ['Moderator', 'Admin'] }),
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Moderator', 'Admin'] }),
 )
 export class ModerationHandler {
   @UseGuards(withOptions(PermissionGuard, { permissions: ['BanMembers'] }))
@@ -219,21 +220,20 @@ import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
 
 @Guard()
 export class MinAccountAgeGuard implements SpraxiumGuard {
-@GuardOption({ required: true })
-minDays!: number;
+  @GuardOption({ required: true })
+  minDays!: number;
 
-@GuardOption({ default: false })
-allowBots!: boolean;
+  @GuardOption({ default: false })
+  allowBots!: boolean;
 
-canActivate(ctx: ExecutionContext): boolean {
-const user = ctx.getUser();
-if (user.bot && !this.allowBots) return false;
+  canActivate(ctx: ExecutionContext): boolean {
+    const user = ctx.getUser();
+    if (user.bot && !this.allowBots) return false;
 
     const createdAt = user.createdAt.getTime();
     const ageInDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     return ageInDays >= this.minDays;
-
-}
+  }
 }
 
 ````
@@ -245,7 +245,8 @@ import { GuildOnly } from '@spraxium/core';
 import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
 
 @UseGuards(
-  GuildOnly, withOptions(MinAccountAgeGuard, { minDays: 30 }),
+  GuildOnly,
+  withOptions(MinAccountAgeGuard, { minDays: 30 }),
 )
 export class GiveawayHandler {
   async handle() {
@@ -262,9 +263,9 @@ import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
 
 @UseGuards(withOptions(MinAccountAgeGuard, { minDays: 7, allowBots: true }))
 export class VerificationHandler {
-async handle() {
-// only 7 days required here, bots allowed
-}
+  async handle() {
+    // only 7 days required here, bots allowed
+  }
 }
 
 ```

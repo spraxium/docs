@@ -20,15 +20,15 @@ Quando o sharding está habilitado, o processo principal (o pai) não se conecta
 Chame _useSharding_ no builder da aplicação em `main.ts` com pelo menos um valor _totalShards_. Definir como `'auto'` permite que o Discord decida a contagem ideal de shards com base na quantidade de guilds do bot e no valor recomendado pelo endpoint `/gateway/bot`. Para bots pequenos ou desenvolvimento, defina um número fixo como `1` ou `2`.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
 
 async function main() {
   const app = await SpraxiumFactory.create({
     token: process.env.DISCORD_TOKEN,
   });
   app.useModule(AppModule);
-  app.useSharding({ totalShards: "auto" });
+  app.useSharding({ totalShards: 'auto' });
   await app.listen();
 }
 
@@ -38,8 +38,8 @@ main();
 Você também pode passar as opções de sharding condicionalmente com base em uma verificação em runtime. Isso é útil quando você quer que o mesmo arquivo de entrada rode como processo único no desenvolvimento e como processo shardado em produção.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
 
 async function main() {
   const app = await SpraxiumFactory.create({
@@ -47,8 +47,8 @@ async function main() {
   });
   app.useModule(AppModule);
 
-  if (process.env.ENABLE_SHARDING === "true") {
-    app.useSharding({ totalShards: "auto" });
+  if (process.env.ENABLE_SHARDING === 'true') {
+    app.useSharding({ totalShards: 'auto' });
   }
 
   await app.listen();
@@ -133,14 +133,14 @@ A saída do console durante o spawning é assim. Cada shard imprime seu status e
 A função utilitária _isShardChild_ retorna `true` quando o processo atual foi criado pelo _ShardingManager_. O discord.js injeta uma variável de ambiente `SHARDS` em cada processo filho, e _isShardChild_ verifica sua presença. Isso é útil para pular configurações que devem rodar apenas uma vez no pai, como imprimir um banner ou registrar slash commands globais.
 
 ```typescript filename="src/services/startup.service.ts"
-import { Injectable } from "@spraxium/core";
-import { isShardChild } from "@spraxium/core";
+import { Injectable } from '@spraxium/core';
+import { isShardChild } from '@spraxium/core';
 
 @Injectable()
 export class StartupService {
   async onApplicationBoot() {
     if (isShardChild()) return;
-    console.log("Running parent-only initialization");
+    console.log('Running parent-only initialization');
   }
 }
 ```
@@ -152,8 +152,8 @@ O framework usa _isShardChild_ internamente para pular o banner de inicializaç�
 Quando o sharding está habilitado em modo de desenvolvimento (`NODE_ENV=development`), o framework loga um aviso. Múltiplos processos de shard tornam reinicializações mais lentas, aumentam o uso de memória e têm maior probabilidade de atingir os rate limits do Discord ao reiniciar frequentemente. Para desenvolvimento, use uma instância única não definindo _sharding_ ou definindo _totalShards_ como `1`.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
 
 async function main() {
   const app = await SpraxiumFactory.create({
@@ -161,7 +161,7 @@ async function main() {
   });
   app.useModule(AppModule);
   app.useSharding({
-    totalShards: process.env.NODE_ENV === "production" ? "auto" : 1,
+    totalShards: process.env.NODE_ENV === 'production' ? 'auto' : 1,
   });
   await app.listen();
 }

@@ -119,28 +119,28 @@ Para tarefas transversais, um módulo de tasks centralizado mantém as coisas or
 Um único serviço pode ter métodos decorados com diferentes tipos de job. Isso é útil quando tarefas relacionadas têm requisitos de temporização diferentes mas compartilham as mesmas dependências. O scheduler trata cada método decorado como um job independente com seu próprio nome e ciclo de vida.
 
 ```typescript filename="src/modules/tasks/services/maintenance.service.ts"
-import { Injectable } from "@spraxium/common";
+import { Injectable } from '@spraxium/common';
 import {
   Cron,
   CronExpression,
   Interval,
   IntervalExpression,
   AfterOnline,
-} from "@spraxium/schedule";
+} from '@spraxium/schedule';
 
 @Injectable()
 export class MaintenanceService {
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: "daily-cleanup" })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'daily-cleanup' })
   async dailyCleanup(): Promise<void> {
     // Arquivar logs antigos, limpar dados tempor\u00e1rios
   }
 
-  @Interval(IntervalExpression.EVERY_10_MINUTES, { name: "health-ping" })
+  @Interval(IntervalExpression.EVERY_10_MINUTES, { name: 'health-ping' })
   async healthPing(): Promise<void> {
     // Reportar sa\u00fade do bot para servi\u00e7o de monitoramento
   }
 
-  @AfterOnline(10_000, { name: "restore-presences" })
+  @AfterOnline(10_000, { name: 'restore-presences' })
   async restorePresences(): Promise<void> {
     // Restaurar status do bot a partir do banco de dados ap\u00f3s reconex\u00e3o
   }
@@ -152,14 +152,14 @@ export class MaintenanceService {
 Às vezes você quer definir um job mas só habilitá-lo baseado em variáveis de ambiente ou condições de runtime. A opção _disabled_ nas opções do decorator permite controlar isso no momento do registro. Para controle em runtime, use os métodos _ScheduleService.pause_ e _ScheduleService.resume_.
 
 ```typescript filename="src/modules/tasks/services/analytics.service.ts"
-import { Injectable } from "@spraxium/common";
-import { Cron, CronExpression } from "@spraxium/schedule";
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
 
 @Injectable()
 export class AnalyticsService {
   @Cron(CronExpression.EVERY_HOUR, {
-    name: "hourly-analytics",
-    disabled: process.env.ENABLE_ANALYTICS !== "true",
+    name: 'hourly-analytics',
+    disabled: process.env.ENABLE_ANALYTICS !== 'true',
   })
   async collectAnalytics(): Promise<void> {
     // Coletar e agregar analytics de uso
@@ -172,10 +172,10 @@ export class AnalyticsService {
 Registre seus serviços de tarefa como providers em um módulo. O _ScheduleModule_ é global e não precisa ser importado no seu feature module. Basta adicionar seus serviços ao array de providers e o scheduler descobrirá seus métodos decorados automaticamente.
 
 ```typescript filename="src/modules/tasks/tasks.module.ts"
-import { Module } from "@spraxium/common";
-import { CleanupService } from "./services/cleanup.service";
-import { SyncService } from "./services/sync.service";
-import { MaintenanceService } from "./services/maintenance.service";
+import { Module } from '@spraxium/common';
+import { CleanupService } from './services/cleanup.service';
+import { SyncService } from './services/sync.service';
+import { MaintenanceService } from './services/maintenance.service';
 
 @Module({
   providers: [CleanupService, SyncService, MaintenanceService],

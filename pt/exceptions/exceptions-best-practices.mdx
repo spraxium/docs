@@ -12,7 +12,7 @@ category: Exceptions
 Quando as exceptions built-in não cobrem o cenário do seu domínio, você cria uma classe customizada estendendo `SpraxiumException`. Uma exception customizada define seu próprio _code_, uma _message_ com placeholders e uma interface _props_ tipada que carrega contexto de runtime para logging e rendering de layout. Isso dá ao pipeline tudo que ele precisa para produzir uma resposta significativa para o usuário e um sinal operacional sem nenhuma configuração adicional.
 
 ```typescript filename="insufficient-balance.exception.ts"
-import { SpraxiumException } from "@spraxium/core";
+import { SpraxiumException } from '@spraxium/core';
 
 interface InsufficientBalanceProps {
   required: number;
@@ -23,8 +23,8 @@ interface InsufficientBalanceProps {
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: InsufficientBalanceProps) {
     super({
-      code: "INSUFFICIENT_BALANCE",
-      message: "You need {{required}} {{currency}} but only have {{current}}.",
+      code: 'INSUFFICIENT_BALANCE',
+      message: 'You need {{required}} {{currency}} but only have {{current}}.',
       props,
     });
   }
@@ -38,13 +38,13 @@ A interface _props_ tipada é importante porque dá aos layouts e ao logging ace
 Use a exception customizada dentro de services, guards ou handlers exatamente como qualquer exception built-in. O pipeline resolve o layout, registra em log se configurado e envia a resposta automaticamente sem nenhum código extra no ponto de lançamento.
 
 ```typescript filename="shop.service.ts"
-import { InsufficientBalanceException } from "./exceptions/insufficient-balance.exception";
+import { InsufficientBalanceException } from './exceptions/insufficient-balance.exception';
 
 if (user.balance < item.price) {
   throw new InsufficientBalanceException({
     required: item.price,
     current: user.balance,
-    currency: "coins",
+    currency: 'coins',
   });
 }
 ```
@@ -54,19 +54,19 @@ if (user.balance < item.price) {
 Se a exception deve vir com uma apresentação visual padrão, vincule um layout usando o decorator `@WithLayout` de _@spraxium/common_. O layout recebe a instância da exception com acesso completo às _props_ e o contexto de execução, e retorna um payload de resposta do Discord com embeds, componentes e flags de ephemeral.
 
 ```typescript filename="insufficient-balance.exception.ts"
-import { WithLayout } from "@spraxium/common";
-import { defineExceptionLayout, SpraxiumException } from "@spraxium/core";
-import { EmbedBuilder } from "discord.js";
+import { WithLayout } from '@spraxium/common';
+import { defineExceptionLayout, SpraxiumException } from '@spraxium/core';
+import { EmbedBuilder } from 'discord.js';
 
 const BalanceLayout = defineExceptionLayout((exception) => ({
   embeds: [
     new EmbedBuilder()
       .setColor(0xff6b6b)
-      .setTitle("Saldo Insuficiente")
+      .setTitle('Saldo Insuficiente')
       .setDescription(
         `Você precisa de **${exception.props.required} ${exception.props.currency}** mas só tem **${exception.props.current}**.`,
       )
-      .setFooter({ text: "Ganhe mais completando tarefas diárias." }),
+      .setFooter({ text: 'Ganhe mais completando tarefas diárias.' }),
   ],
   ephemeral: true,
 }));
@@ -75,8 +75,8 @@ const BalanceLayout = defineExceptionLayout((exception) => ({
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: { required: number; current: number; currency: string }) {
     super({
-      code: "INSUFFICIENT_BALANCE",
-      message: "You need {{required}} {{currency}} but only have {{current}}.",
+      code: 'INSUFFICIENT_BALANCE',
+      message: 'You need {{required}} {{currency}} but only have {{current}}.',
       props,
     });
   }
@@ -91,8 +91,8 @@ Cada exception customizada pode sobrescrever se o pipeline envia uma resposta no
 export class SilentAuditException extends SpraxiumException {
   constructor(props: { action: string; actorId: string }) {
     super({
-      code: "SILENT_AUDIT",
-      message: "Audit recorded for {{action}} by {{actorId}}.",
+      code: 'SILENT_AUDIT',
+      message: 'Audit recorded for {{action}} by {{actorId}}.',
       props,
       shouldReply: false,
       shouldLog: true,

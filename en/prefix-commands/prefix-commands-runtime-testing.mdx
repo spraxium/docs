@@ -79,11 +79,11 @@ export const CommandNotFoundLayout = defineExceptionLayout(
 Register layouts in your module alongside commands and handlers. The framework picks them up during module initialization and applies them to the correct exception types automatically.
 
 ```typescript filename="src/modules/prefix/prefix.module.ts"
-import { Module } from "@spraxium/common";
-import { RollCommand } from "./commands/roll.command";
-import { RollHandler } from "./handlers/roll.handler";
-import { ArgumentExceptionLayout } from "./layouts/argument-exception.layout";
-import { CommandNotFoundLayout } from "./layouts/not-found.layout";
+import { Module } from '@spraxium/common';
+import { RollCommand } from './commands/roll.command';
+import { RollHandler } from './handlers/roll.handler';
+import { ArgumentExceptionLayout } from './layouts/argument-exception.layout';
+import { CommandNotFoundLayout } from './layouts/not-found.layout';
 
 @Module({
   commands: [RollCommand],
@@ -100,10 +100,10 @@ The _PrefixDispatcher_ exposes methods for inspecting the registered command tre
 The dispatcher also exposes _getResolved_ for the fully resolved command-handler bindings, _size_ for the total number of registered entries, _commandCount_ for distinct top-level commands, and _guildPrefixes_ for the guild prefix manager. These introspection methods are useful for admin dashboards, health checks, and debugging tools.
 
 ```typescript filename="src/modules/prefix/handlers/help-command.handler.ts"
-import { Ctx, PrefixCommandHandler } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
-import type { Message } from "discord.js";
-import { HelpCommand } from "../commands/help.command";
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { HelpCommand } from '../commands/help.command';
 
 @PrefixCommandHandler(HelpCommand)
 export class HelpHandler {
@@ -112,12 +112,12 @@ export class HelpHandler {
   async handle(@Ctx() message: Message): Promise<void> {
     const commands = this.dispatcher.getCommandInfo();
     const lines = commands.map((cmd) => {
-      const subs = cmd.subcommands?.map((s) => s.name).join(", ");
+      const subs = cmd.subcommands?.map((s) => s.name).join(', ');
       return subs
         ? `**${cmd.name}** - subcommands: ${subs}`
         : `**${cmd.name}**`;
     });
-    await message.reply(lines.join("\n") || "No commands registered.");
+    await message.reply(lines.join("\n') || 'No commands registered.");
   }
 }
 ```
@@ -153,11 +153,14 @@ import { ModCommand } from '../commands/mod.command';
 @UseGuards(ModeratorGuard)
 @PrefixCommandHandler(ModCommand, { subcommand: 'ban' })
 export class BanHandler {
-async handle(
-@Ctx() message: Message, @PrefixArg('target') targetId: string, @PrefixArg('reason') reason: string | undefined, ): Promise<void> {
-await message.guild?.members.ban(targetId, { reason: reason ?? 'No reason provided' });
-await message.reply(`Banned <@${targetId}>.`);
-}
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('target') targetId: string,
+    @PrefixArg('reason') reason: string | undefined,
+  ): Promise<void> {
+    await message.guild?.members.ban(targetId, { reason: reason ?? 'No reason provided' });
+    await message.reply(`Banned <@${targetId}>.`);
+  }
 }
 
 ```

@@ -12,7 +12,7 @@ category: i18n
 O primeiro instinto ao lidar com texto no plural é escrever algo como:
 
 ```typescript filename="plural-ingênuo.ts"
-const mensagem = total === 1 ? "Um item" : `${total} itens`;
+const mensagem = total === 1 ? 'Um item' : `${total} itens`;
 ```
 
 Isso funciona para inglês. Falha para polonês, onde "2 itens" é `2 elementy`, "5 itens" é
@@ -35,10 +35,10 @@ _t()_. A categoria é um dos seis nomes CLDR acrescentado com um separador de su
 
 ```json filename="locales/commands/pt-BR/itens.json"
 {
-  "itens": {
-    "_zero": "Nenhum item no seu inventário",
-    "_one": "Um item no seu inventário",
-    "_other": "{{count}} itens no seu inventário"
+  'itens': {
+    '_zero': 'Nenhum item no seu inventário',
+    '_one': 'Um item no seu inventário',
+    '_other': '{{count}} itens no seu inventário'
   }
 }
 ```
@@ -164,16 +164,16 @@ import { InventarioCommand } from '../commands/inventario.command';
 
 @SlashCommandHandler(InventarioCommand)
 export class InventarioHandler {
-constructor(private readonly i18n: I18nService) {}
+  constructor(private readonly i18n: I18nService) {}
 
-async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-const total = await contarItens(interaction.user.id);
-const locale = interaction.locale;
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const total = await contarItens(interaction.user.id);
+    const locale = interaction.locale;
 
     const mensagem = this.i18n.tp('commands.itens', locale, total, { count: total });
     await interaction.reply(mensagem);
 
-}
+  }
 }
 
 ````
@@ -213,20 +213,20 @@ export class InventarioHandler {
 ## Regras de plural customizadas para casos especiais
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from "@spraxium/i18n";
+import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: "pt-BR",
-  references: [{ name: "commands", path: "./locales/commands" }],
+  defaultLocale: 'pt-BR',
+  references: [{ name: 'commands', path: './locales/commands' }],
   pluralRules: {
-    "pt-BR": (count) => (count === 1 ? "one" : "other"),
+    'pt-BR': (count) => (count === 1 ? 'one' : 'other'),
     ru: (count) => {
       const mod10 = count % 10;
       const mod100 = count % 100;
-      if (mod10 === 1 && mod100 !== 11) return "one";
+      if (mod10 === 1 && mod100 !== 11) return 'one';
       if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
-        return "few";
-      return "many";
+        return 'few';
+      return 'many';
     },
   },
 });
@@ -239,9 +239,9 @@ traduzida. Você não precisa passá-lo explicitamente no objeto de vars. O moto
 
 ```json filename="itens com count na tradução"
 {
-  "itens": {
-    "_one": "Você tem um item restante",
-    "_other": "Você tem {{count}} itens restantes"
+  'itens': {
+    '_one': 'Você tem um item restante',
+    '_other': 'Você tem {{count}} itens restantes'
   }
 }
 ```
@@ -250,9 +250,9 @@ Se você passar variáveis adicionais, elas são mescladas com `count` e todas f
 placeholders `{{nomeDaVar}}`:
 
 ```typescript filename="usando vars extras com count"
-i18n.tp("commands.itens", "pt-BR", 5, { maxCapacidade: 10 });
-// Tradução: "Você está usando {{count}} de {{maxCapacidade}} slots de itens"
-// Resultado: "Você está usando 5 de 10 slots de itens"
+i18n.tp('commands.itens', 'pt-BR', 5, { maxCapacidade: 10 });
+// Tradução: 'Você está usando {{count}} de {{maxCapacidade}} slots de itens'
+// Resultado: 'Você está usando 5 de 10 slots de itens'
 ```
 
 ## Próximo estudo

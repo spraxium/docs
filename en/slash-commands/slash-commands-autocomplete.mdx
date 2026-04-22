@@ -20,15 +20,15 @@ The autocomplete system integrates with the same DI container, module registrati
 Autocomplete is enabled on the command definition side by setting `autocomplete: true` in the option config. This flag tells Discord to send autocomplete interactions when the user focuses the option input. Only _String_, _Integer_, and _Number_ options support autocomplete. When _autocomplete_ is `true`, the _choices_ property is ignored because Discord does not allow static choices and dynamic autocomplete on the same option.
 
 ```typescript filename="commands/search.command.ts"
-import { SlashCommand, SlashOption } from "@spraxium/common";
+import { SlashCommand, SlashOption } from '@spraxium/common';
 
 @SlashCommand({
-  name: "search",
-  description: "Search for an item in the database.",
+  name: 'search',
+  description: 'Search for an item in the database.',
 })
 export class SearchCommand {
-  @SlashOption.String("query", {
-    description: "Search query",
+  @SlashOption.String('query', {
+    description: 'Search query',
     required: true,
     autocomplete: true,
   })
@@ -41,11 +41,11 @@ export class SearchCommand {
 The _@SlashAutocompleteHandler_ decorator marks a class as the autocomplete provider for a specific option on a specific command. It accepts two arguments: the _@SlashCommand_ class that owns the option, and the option name as a string. The class must expose a _handle_ method that receives the focused value and the interaction, processes the input, and responds with suggestions.
 
 ```typescript filename="handlers/search.autocomplete.ts"
-import { Ctx, SlashAutocompleteHandler, SlashFocused } from "@spraxium/common";
-import type { AutocompleteInteraction } from "discord.js";
-import { SearchCommand } from "../commands/search.command";
+import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
+import type { AutocompleteInteraction } from 'discord.js';
+import { SearchCommand } from '../commands/search.command';
 
-@SlashAutocompleteHandler(SearchCommand, "query")
+@SlashAutocompleteHandler(SearchCommand, 'query')
 export class SearchAutocomplete {
   async handle(
     @SlashFocused() query: string,
@@ -59,8 +59,8 @@ export class SearchAutocomplete {
 
   private async fetchSuggestions(query: string) {
     return [
-      { label: "Item One", id: "item-1" },
-      { label: "Item Two", id: "item-2" },
+      { label: 'Item One', id: 'item-1' },
+      { label: 'Item Two', id: 'item-2' },
     ].filter((item) => item.label.toLowerCase().includes(query.toLowerCase()));
   }
 }
@@ -117,24 +117,24 @@ import type { AutocompleteInteraction } from 'discord.js';
 import { PingCommand } from '../commands/ping.command';
 
 const SERVICES = [
-{ name: 'Gateway', value: 'gateway' },
-{ name: 'REST API', value: 'rest-api' },
-{ name: 'Voice', value: 'voice' },
-{ name: 'CDN', value: 'cdn' },
-{ name: 'Database', value: 'database' },
+  { name: 'Gateway', value: 'gateway' },
+  { name: 'REST API', value: 'rest-api' },
+  { name: 'Voice', value: 'voice' },
+  { name: 'CDN', value: 'cdn' },
+  { name: 'Database', value: 'database' },
 ];
 
 @SlashAutocompleteHandler(PingCommand, 'service')
 export class PingServiceAutocomplete {
-async handle(
-@SlashFocused() focused: string,
-@Ctx() interaction: AutocompleteInteraction,
-): Promise<void> {
-const filtered = SERVICES.filter((s) =>
-s.name.toLowerCase().includes(String(focused).toLowerCase()),
-);
-await interaction.respond(filtered.slice(0, 25));
-}
+  async handle(
+    @SlashFocused() focused: string,
+    @Ctx() interaction: AutocompleteInteraction,
+  ): Promise<void> {
+    const filtered = SERVICES.filter((s) =>
+      s.name.toLowerCase().includes(String(focused).toLowerCase()),
+    );
+    await interaction.respond(filtered.slice(0, 25));
+  }
 }
 
 ````
@@ -171,12 +171,12 @@ export class TagSearchAutocomplete {
 Autocomplete handlers are instantiated through the DI container, so they can inject services exactly like command handlers. This enables patterns where autocomplete suggestions come from a database, cache, or external API. The handler class declares constructor parameters, and the DI container resolves them from the module providers during module loading.
 
 ```typescript filename="handlers/song-search.autocomplete.ts"
-import { Ctx, SlashAutocompleteHandler, SlashFocused } from "@spraxium/common";
-import type { AutocompleteInteraction } from "discord.js";
-import { PlayCommand } from "../commands/play.command";
-import { MusicService } from "../../services/music.service";
+import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
+import type { AutocompleteInteraction } from 'discord.js';
+import { PlayCommand } from '../commands/play.command';
+import { MusicService } from '../../services/music.service';
 
-@SlashAutocompleteHandler(PlayCommand, "song")
+@SlashAutocompleteHandler(PlayCommand, 'song')
 export class SongSearchAutocomplete {
   constructor(private readonly music: MusicService) {}
 
@@ -200,10 +200,10 @@ export class SongSearchAutocomplete {
 Autocomplete handlers are registered in the _handlers_ array of the module alongside command handlers. The framework detects the _@SlashAutocompleteHandler_ metadata during module loading and wires the handler to its command and option automatically. You do not need separate arrays or special configuration for autocomplete handlers.
 
 ```typescript filename="modules/slash/slash.module.ts"
-import { Module } from "@spraxium/common";
-import { PingCommand } from "./commands/ping.command";
-import { PingHandler } from "./handlers/ping.handler";
-import { PingServiceAutocomplete } from "./handlers/ping-service.autocomplete";
+import { Module } from '@spraxium/common';
+import { PingCommand } from './commands/ping.command';
+import { PingHandler } from './handlers/ping.handler';
+import { PingServiceAutocomplete } from './handlers/ping-service.autocomplete';
 
 @Module({
   commands: [PingCommand],

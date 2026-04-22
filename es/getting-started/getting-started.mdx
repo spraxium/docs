@@ -36,10 +36,10 @@ La forma más rápida de comenzar es a través del comando oficial de creación,
   <Tab label="npm" language="bash">
     ```bash npx spraxium@latest new mi-bot ```
   </Tab>
-  <Tab label="pnpm" language="bash">
+  <Tab label='pnpm' language='bash'>
     ```bash pnpm create spraxium@latest mi-bot ```
   </Tab>
-  <Tab label="bun" language="bash">
+  <Tab label='bun' language='bash'>
     ```bash bunx spraxium@latest new mi-bot ```
   </Tab>
 </CodeTabs>
@@ -48,19 +48,19 @@ La forma más rápida de comenzar es a través del comando oficial de creación,
 
 El proyecto generado por el scaffold sigue una convención que Spraxium mantiene durante todo el ciclo de vida del bot. Cada archivo tiene un rol arquitectural específico, y entender esta organización desde el principio facilita mucho agregar features, depurar problemas e incorporar a otros desarrolladores al proyecto.
 
-<FolderStructure title="Estructura mínima">
-  <Folder name="src" open>
-    <File name="main.ts" comment="Bootstrap e inicio de la aplicación" />
-    <File name="app.env.ts" comment="Schema tipado de variables de entorno" />
-    <File name="app.module.ts" comment="Módulo raíz que compone features" />
-    <Folder name="modules" open>
-      <Folder name="default" open>
-        <File name="default.module.ts" comment="Primer módulo de feature" />
+<FolderStructure title='Estructura mínima'>
+  <Folder name='src' open>
+    <File name='main.ts' comment='Bootstrap e inicio de la aplicación' />
+    <File name='app.env.ts' comment='Schema tipado de variables de entorno' />
+    <File name='app.module.ts' comment='Módulo raíz que compone features' />
+    <Folder name='modules' open>
+      <Folder name='default' open>
+        <File name='default.module.ts' comment='Primer módulo de feature' />
       </Folder>
     </Folder>
   </Folder>
-  <File name="spraxium.config.ts" />
-  <File name=".env" />
+  <File name='spraxium.config.ts' />
+  <File name='.env' />
 </FolderStructure>
 
 La separación aquí es intencional y arquitectural. El archivo _main.ts_ controla el flujo de startup y nada más, sirviendo como el punto de entrada único que valida variables de entorno y arranca el framework. El archivo _app.env.ts_ define un schema tipado para variables de entorno que se validan al inicio antes de que el bot se conecte a Discord, capturando tokens faltantes o URLs malformadas inmediatamente. El archivo _app.module.ts_ sirve como la raíz de composición que importa módulos de feature pero no contiene lógica de negocio, manteniendo el módulo de nivel superior limpio y legible sin importar el tamaño del bot. Cada módulo de feature bajo la carpeta _modules_ es responsable de exactamente un dominio, haciendo sencillo localizar, probar o eliminar cualquier comportamiento sin afectar el resto de la base de código.
@@ -69,11 +69,11 @@ La separación aquí es intencional y arquitectural. El archivo _main.ts_ contro
 
 El archivo de entrada _main.ts_ es responsable de validar variables de entorno, crear la instancia de la aplicación, cargar el grafo de módulos e iniciar la conexión con Discord. Este es el único archivo que interactúa directamente con la factory del framework, y su estructura debe permanecer mínima y predecible.
 
-```typescript filename="src/main.ts"
-import { IntentPreset, SpraxiumFactory } from "@spraxium/core";
-import { EnvValidator } from "@spraxium/env";
-import { AppEnv } from "./app.env";
-import { AppModule } from "./app.module";
+```typescript filename='src/main.ts'
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
 
 async function main(): Promise<void> {
   const env = EnvValidator.validate(AppEnv);
@@ -94,8 +94,8 @@ La llamada _EnvValidator.validate_ lee tu archivo _.env_, valida cada campo cont
 El módulo raíz es tu punto de entrada arquitectural y el único lugar donde todos los módulos de feature se encuentran. Importa módulos de feature pero no posee providers ni listeners directamente, manteniendo el archivo pequeño y legible sin importar cuántas features tenga el bot. A medida que el bot crece, simplemente agregas más imports de módulos de feature aquí sin tocar _main.ts_ ni cambiar cómo el contenedor de DI resuelve dependencias.
 
 ```typescript filename="src/app.module.ts"
-import { Module } from "@spraxium/common";
-import { DefaultModule } from "./modules/default/default.module";
+import { Module } from '@spraxium/common';
+import { DefaultModule } from './modules/default/default.module';
 
 @Module({
   imports: [DefaultModule],

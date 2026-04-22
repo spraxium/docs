@@ -20,8 +20,8 @@ The practical benefit is consistency. Every guard denial in your entire bot goes
 You have two options inside a guard: return false for a standard denial, or throw a custom exception for a specific scenario. The default approach should be returning false because it is simpler, keeps the guard class minimal, and lets the framework handle the rest through _GuardDeniedException_. Most guards you write will simply return false when the check fails.
 
 ```typescript filename="guild-only.guard.ts"
-import { Guard } from "@spraxium/common";
-import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
 
 @Guard()
 export class GuildOnlyGuard implements SpraxiumGuard {
@@ -35,24 +35,24 @@ export class GuildOnlyGuard implements SpraxiumGuard {
 However, sometimes a generic "access denied" response is not enough. When you need to tell the user exactly why they were blocked, include domain-specific data in the denial, or render a custom layout for a particular failure scenario, throw a custom exception instead of returning false. The thrown exception bypasses the automatic _GuardDeniedException_ wrapping and goes directly through the exception pipeline with its own class identity, code, message, and props.
 
 ```typescript filename="moderator.guard.ts"
-import { Guard } from "@spraxium/common";
-import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
-import { PermissionDeniedException } from "@spraxium/core";
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { PermissionDeniedException } from '@spraxium/core';
 
 @Guard()
 export class ModeratorGuard implements SpraxiumGuard {
   canActivate(ctx: ExecutionContext): boolean {
     const member = ctx.getMember();
-    if (!member || !("roles" in member)) {
+    if (!member || !('roles' in member)) {
       throw new PermissionDeniedException({
-        reason: "Could not resolve your server membership.",
+        reason: 'Could not resolve your server membership.',
       });
     }
 
-    const hasRole = member.roles.cache.some((r) => r.name === "Moderator");
+    const hasRole = member.roles.cache.some((r) => r.name === 'Moderator');
     if (!hasRole) {
       throw new PermissionDeniedException({
-        reason: "You need the Moderator role to use this command.",
+        reason: 'You need the Moderator role to use this command.',
       });
     }
 
@@ -68,10 +68,10 @@ The choice between the two approaches comes down to how specific the denial resp
 To control what users see when a guard denies execution, map exception classes to layouts in your _spraxium.config.ts_ file. The framework checks the exception class name against the layout mapping and uses the matching layout to render the response. If no specific mapping exists, the default layout applies.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from "@spraxium/core";
-import { DefaultLayout } from "./layouts/default.layout";
-import { AccessDeniedLayout } from "./layouts/access-denied.layout";
-import { PermissionDeniedLayout } from "./layouts/permission-denied.layout";
+import { defineConfig } from '@spraxium/core';
+import { DefaultLayout } from './layouts/default.layout';
+import { AccessDeniedLayout } from './layouts/access-denied.layout';
+import { PermissionDeniedLayout } from './layouts/permission-denied.layout';
 
 export default defineConfig({
   exceptions: {
@@ -101,39 +101,44 @@ import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
 import { SpraxiumException } from '@spraxium/core';
 
 class PremiumRequiredException extends SpraxiumException {
-constructor(props: { requiredTier: string; currentTier: string }) {
-super({
-code: 'PREMIUM_REQUIRED', message: 'This feature requires the {{requiredTier}} plan.', props, });
-}
+  constructor(props: { requiredTier: string; currentTier: string }) {
+    super({
+      code: 'PREMIUM_REQUIRED',
+      message: 'This feature requires the {{requiredTier}} plan.',
+      props,
+    });
+  }
 }
 
 @Guard()
 export class PremiumGuard implements SpraxiumGuard {
-@GuardOption({ required: true })
-requiredTier!: string;
+  @GuardOption({ required: true })
+  requiredTier!: string;
 
-async canActivate(ctx: ExecutionContext): Promise<boolean> {
-const userId = ctx.getUserId();
-const currentTier = await this.lookupTier(userId);
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
+    const userId = ctx.getUserId();
+    const currentTier = await this.lookupTier(userId);
 
     if (!this.meetsRequirement(currentTier, this.requiredTier)) {
       throw new PremiumRequiredException({
-        requiredTier: this.requiredTier, currentTier: currentTier ?? 'free', });
+        requiredTier: this.requiredTier,
+        currentTier: currentTier ?? 'free',
+      });
     }
 
     return true;
 
-}
+  }
 
-private async lookupTier(userId: string): Promise<string | null> {
-// replace with actual database or API lookup
-return null;
-}
+  private async lookupTier(userId: string): Promise<string | null> {
+    // replace with actual database or API lookup
+    return null;
+  }
 
-private meetsRequirement(current: string | null, required: string): boolean {
-const tierOrder = ['free', 'basic', 'pro', 'enterprise'];
-return tierOrder.indexOf(current ?? 'free') >= tierOrder.indexOf(required);
-}
+  private meetsRequirement(current: string | null, required: string): boolean {
+    const tierOrder = ['free', 'basic', 'pro', 'enterprise'];
+    return tierOrder.indexOf(current ?? 'free') >= tierOrder.indexOf(required);
+  }
 }
 
 ````

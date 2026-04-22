@@ -16,14 +16,14 @@ Al apilar validadores, coloca decorators de transform antes de decorators de val
 También puedes combinar validadores de tipo incorporados con verificaciones personalizadas. Por ejemplo, _IsPort_ ya valida que el valor es un entero entre 1 y 65535. Agregar un _Validate_ encima permite restringir aún más el rango, como rechazar puertos por debajo de 1024 para forzar binding no privilegiado.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsPort, Validate } from "@spraxium/env";
+import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv {
-  @Env("HTTP_PORT", { secret: false })
+  @Env('HTTP_PORT', { secret: false })
   @IsPort()
   @Validate((value) =>
-    (value as number) >= 1024 ? true : "Port must be 1024 or higher",
+    (value as number) >= 1024 ? true : 'Port must be 1024 or higher',
   )
   HTTP_PORT!: number;
 }
@@ -90,8 +90,8 @@ En modo desarrollo, el framework entra en un ciclo de hot-reload en lugar de sal
 Cuando necesitas validar un schema sin imprimir la tabla de inicio, pasa la opción _silent_. Esto es útil en entornos de test donde la salida de consola contamina los resultados, o en procesos worker que deben validar sin loguear. El schema aún ejecuta cada validador y aún lanza errores, solo omite la tabla de éxito.
 
 ```typescript filename="src/test/setup.ts"
-import { EnvValidator } from "@spraxium/env";
-import { AppEnv } from "../app.env";
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from '../app.env';
 
 const env = EnvValidator.validate(AppEnv, { silent: true });
 ```
@@ -141,42 +141,40 @@ import {
   Default,
   Transform,
   Validate,
-} from "@spraxium/env";
+} from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv extends SpraxiumBaseEnv {
-  @Env("MONGO_URI")
+  @Env('MONGO_URI')
   @IsMongoUri()
   MONGO_URI!: string;
 
-  @Env("REDIS_URI")
+  @Env('REDIS_URI')
   @IsRedisUri()
   @IsOptional()
   REDIS_URI?: string;
 
-  @Env("API_PORT", { default: "3000", secret: false })
+  @Env('API_PORT', { default: '3000', secret: false })
   @IsPort()
   API_PORT!: number;
 
-  @Env("ENABLE_METRICS", { default: "false", secret: false })
+  @Env('ENABLE_METRICS', { default: 'false', secret: false })
   @IsBoolean()
   ENABLE_METRICS!: boolean;
 
-  @Env("LOG_LEVEL", { default: "info", secret: false })
-  @IsEnum(["debug", "info", "warn", "error"])
+  @Env('LOG_LEVEL', { default: 'info', secret: false })
+  @IsEnum(['debug', 'info', 'warn', 'error'])
   LOG_LEVEL!: string;
 
-  @Env("WEBHOOK_SECRET")
+  @Env('WEBHOOK_SECRET')
   @IsOptional()
   @Secret()
   WEBHOOK_SECRET?: string;
 
-  @Env("CORS_ORIGINS", { default: "http://localhost:3000", secret: false })
-  @Transform((raw) => raw.split(",").map((s) => s.trim()))
+  @Env('CORS_ORIGINS', { default: 'http://localhost:3000', secret: false })
+  @Transform((raw) => raw.split(',').map((s) => s.trim()))
   @Validate((value) =>
-    Array.isArray(value) && value.length > 0
-      ? true
-      : "Need at least one origin",
+    Array.isArray(value) && value.length > 0 ? true : 'Need at least one origin',
   )
   CORS_ORIGINS!: string[];
 }

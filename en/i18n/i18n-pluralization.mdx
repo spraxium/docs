@@ -12,7 +12,7 @@ category: i18n
 The first instinct when handling plural text is to write something like:
 
 ```typescript filename="naive-plural.ts"
-const message = count === 1 ? "One item" : `${count} items`;
+const message = count === 1 ? 'One item' : `${count} items`;
 ```
 
 This works for English. It fails for Polish, where "2 items" is `2 elementy`, "5 items" is
@@ -36,10 +36,10 @@ _t()_. The category is one of the six CLDR names appended with an underscore sep
 
 ```json filename="locales/commands/en-US/items.json"
 {
-  "items": {
-    "_zero": "No items in your inventory",
-    "_one": "One item in your inventory",
-    "_other": "{{count}} items in your inventory"
+  'items': {
+    '_zero': 'No items in your inventory',
+    '_one': 'One item in your inventory',
+    '_other': '{{count}} items in your inventory'
   }
 }
 ```
@@ -170,21 +170,21 @@ to `_other` for those counts, which may be grammatically incorrect for your spec
 
 ```json filename="locales/commands/ru/items.json"
 {
-  "items": {
-    "_one": "{{count}} предмет",
-    "_few": "{{count}} предмета",
-    "_many": "{{count}} предметов",
-    "_other": "{{count}} предмета"
+  'items': {
+    '_one': '{{count}} предмет',
+    '_few': '{{count}} предмета',
+    '_many': '{{count}} предметов',
+    '_other': '{{count}} предмета'
   }
 }
 ```
 
 ```typescript filename="test the russian plural"
-i18n.tp("commands.items", "ru", 1); // "1 предмет"    (one)
-i18n.tp("commands.items", "ru", 2); // "2 предмета"   (few)
-i18n.tp("commands.items", "ru", 5); // "5 предметов"  (many)
-i18n.tp("commands.items", "ru", 11); // "11 предметов" (many, teen numbers are always many in Russian)
-i18n.tp("commands.items", "ru", 21); // "21 предмет"   (one, 21 ends in 1)
+i18n.tp('commands.items', 'ru', 1); // '1 предмет'    (one)
+i18n.tp('commands.items', 'ru', 2); // '2 предмета'   (few)
+i18n.tp('commands.items', 'ru', 5); // '5 предметов'  (many)
+i18n.tp('commands.items', 'ru', 11); // '11 предметов' (many, teen numbers are always many in Russian)
+i18n.tp('commands.items', 'ru', 21); // '21 предмет'   (one, 21 ends in 1)
 ```
 
 ## Using pluralization in handlers
@@ -199,16 +199,16 @@ import { InventoryCommand } from '../commands/inventory.command';
 
 @SlashCommandHandler(InventoryCommand)
 export class InventoryHandler {
-constructor(private readonly i18n: I18nService) {}
+  constructor(private readonly i18n: I18nService) {}
 
-async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-const count = await getInventoryCount(interaction.user.id);
-const locale = interaction.locale;
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const count = await getInventoryCount(interaction.user.id);
+    const locale = interaction.locale;
 
     const message = this.i18n.tp('commands.items', locale, count, { count });
     await interaction.reply(message);
 
-}
+  }
 }
 
 ````
@@ -253,20 +253,20 @@ can happen with custom locale strings or locale variants not covered by the CLDR
 Node.js version), you can override the rule at config time:
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from "@spraxium/i18n";
+import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: "en-US",
-  references: [{ name: "commands", path: "./locales/commands" }],
+  defaultLocale: 'en-US',
+  references: [{ name: 'commands', path: './locales/commands' }],
   pluralRules: {
-    "pt-BR": (count) => (count === 1 ? "one" : "other"),
+    'pt-BR': (count) => (count === 1 ? 'one' : 'other'),
     ar: (count) => {
-      if (count === 0) return "zero";
-      if (count === 1) return "one";
-      if (count === 2) return "two";
-      if (count % 100 >= 3 && count % 100 <= 10) return "few";
-      if (count % 100 >= 11 && count % 100 <= 99) return "many";
-      return "other";
+      if (count === 0) return 'zero';
+      if (count === 1) return 'one';
+      if (count === 2) return 'two';
+      if (count % 100 >= 3 && count % 100 <= 10) return 'few';
+      if (count % 100 >= 11 && count % 100 <= 99) return 'many';
+      return 'other';
     },
   },
 });
@@ -284,9 +284,9 @@ in automatically so that every plural variant can reference the count without ex
 
 ```json filename="items translation showing count use"
 {
-  "items": {
-    "_one": "You have one item remaining",
-    "_other": "You have {{count}} items remaining"
+  'items': {
+    '_one': 'You have one item remaining',
+    '_other': 'You have {{count}} items remaining'
   }
 }
 ```
@@ -295,9 +295,9 @@ If you pass additional vars, they are merged with `count` and all are available 
 placeholders:
 
 ```typescript filename="using extra vars with count"
-i18n.tp("commands.items", "en-US", 5, { maxCapacity: 10 });
-// Translation: "You have {{count}} of {{maxCapacity}} item slots used"
-// Result:      "You have 5 of 10 item slots used"
+i18n.tp('commands.items', 'en-US', 5, { maxCapacity: 10 });
+// Translation: 'You have {{count}} of {{maxCapacity}} item slots used'
+// Result:      'You have 5 of 10 item slots used'
 ```
 
 ## Next study

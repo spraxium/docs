@@ -50,7 +50,7 @@ import { CommandNotFoundException } from '@spraxium/core/prefix';
 
 function handleNotFound(error: CommandNotFoundException): string {
 const { commandName, code } = error;
-return `Command "${commandName}" not found (${code})`;
+return `Command '${commandName}' not found (${code})`;
 }
 
 ````
@@ -61,7 +61,7 @@ import { ArgumentException } from '@spraxium/core/prefix';
 
 function handleArgError(error: ArgumentException): string {
   const { argumentName, expected, received, code } = error;
-  return `Argument "${argumentName}": expected ${expected}, got ${received} (${code})`;
+  return `Argument '${argumentName}': expected ${expected}, got ${received} (${code})`;
 }
 ````
 
@@ -73,13 +73,13 @@ function handleArgError(error: ArgumentException): string {
 Los prefix commands se descubren automáticamente cuando están dentro de la estructura de módulos del proyecto. El framework escanea todas las clases decoradas con _@PrefixCommand_ y _@PrefixCommandHandler_, resuelve sus metadatos y vincula cada handler a su definición de comando. Solo necesitas asegurarte de que tus archivos estén dentro de la carpeta del módulo y exportados correctamente.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from "@spraxium/core";
-import { prefixModule } from "@spraxium/core/prefix";
+import { defineConfig } from '@spraxium/core';
+import { prefixModule } from '@spraxium/core/prefix';
 
 export default defineConfig({
   modules: [
     prefixModule({
-      prefix: "!",
+      prefix: '!',
       defaultCooldown: 3,
     }),
   ],
@@ -91,10 +91,10 @@ export default defineConfig({
 El servicio _PrefixDispatcher_ te da acceso de solo lectura a todos los comandos registrados y sus metadatos en tiempo de ejecución. Esto es útil para construir comandos de ayuda, herramientas de depuración o dashboards de administración. Puedes inyectar el dispatcher en cualquier handler o servicio y consultar su estado.
 
 ```typescript filename="src/modules/admin/handlers/help-command.handler.ts"
-import { Ctx, PrefixCommandHandler } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core/prefix";
-import type { Message } from "discord.js";
-import { HelpCommand } from "../commands/help.command";
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core/prefix';
+import type { Message } from 'discord.js';
+import { HelpCommand } from '../commands/help.command';
 
 @PrefixCommandHandler(HelpCommand)
 export class HelpHandler {
@@ -105,7 +105,7 @@ export class HelpHandler {
     const names = this.dispatcher
       .getResolved()
       .map((r) => r.command.name)
-      .join(", ");
+      .join(', ');
     await message.reply(`${count} commands registered: ${names}`);
   }
 }
@@ -139,10 +139,12 @@ import { SetPrefixCommand } from '../commands/set-prefix.command';
 @UseGuards(AdminOnlyGuard)
 @PrefixCommandHandler(SetPrefixCommand)
 export class SetPrefixHandler {
-async handle(
-@Ctx() message: Message, @PrefixArg('newPrefix') newPrefix: string, ): Promise<void> {
-await message.reply(`Prefix updated to \`${newPrefix}\``);
-}
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('newPrefix') newPrefix: string,
+  ): Promise<void> {
+    await message.reply(`Prefix updated to \`${newPrefix}\``);
+  }
 }
 
 ```

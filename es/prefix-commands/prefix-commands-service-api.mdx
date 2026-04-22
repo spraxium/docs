@@ -24,8 +24,8 @@ _getGuildPrefix_ retorna el array de strings de prefijo activos para un servidor
 Usa este método en métodos de service de solo lectura y constructores de embeds, no directamente en handlers. Encapsular la lectura en un método de service permite añadir lógica de fallback, wrappers de caché o telemetría sin cambiar los puntos de llamada. El patrón de abajo retorna un array vacío en lugar de `undefined` para simplificar a los consumidores.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
-import { Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
 
 @Injectable()
 export class GuildPrefixService {
@@ -44,8 +44,8 @@ _hasGuildPrefix_ retorna un `boolean` que indica si un servidor tiene una sobres
 Un caso de uso frecuente es en guards que deben aplicar comportamiento distinto para servidores con prefijo personalizado versus servidores que usan el valor global por defecto. El guard puede inyectar el service, llamar _hasGuildPrefix_ y hacer short-circuit según el resultado. Evita usar este método como atajo para saltarse operaciones normales de CRUD.
 
 ```typescript filename="src/modules/prefix/guards/custom-prefix.guard.ts"
-import { CanActivate, ExecutionContext, Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
+import { CanActivate, ExecutionContext, Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
 
 @Injectable()
 export class CustomPrefixGuard implements CanActivate {
@@ -66,9 +66,9 @@ _setGuildPrefix_ crea o reemplaza completamente la sobrescritura de prefijo de u
 Siempre persiste el nuevo valor en la base de datos antes de llamar a _setGuildPrefix_ en memoria. Si la escritura en base de datos falla después de la mutación en memoria, el estado en memoria diverge del estado durable y la sincronización se pierde hasta el próximo reload. El patrón persist-first que se muestra abajo mantiene ambas capas consistentes ante fallos parciales.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
-import { Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
-import { GuildPrefixRepository } from "../repositories/guild-prefix.repository";
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 
 @Injectable()
 export class GuildPrefixService {
@@ -99,9 +99,9 @@ _updateGuildPrefix_ aplica un merge parcial sobre la entrada existente en lugar 
 Este método es útil en escenarios como un panel de administración que envía actualizaciones por campo en lugar de reenviar todo el registro. Si tu capa de almacenamiento también soporta actualizaciones parciales, combina ambas llamadas para mantener la base de datos y el estado en memoria consistentes con la misma semántica.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
-import { Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
-import { GuildPrefixRepository } from "../repositories/guild-prefix.repository";
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 
 @Injectable()
 export class GuildPrefixService {
@@ -135,9 +135,9 @@ _removeGuildPrefix_ elimina la sobrescritura en memoria de un servidor y retorna
 Sigue el patrón persist-first aquí también: elimina de la base de datos antes de llamar a _removeGuildPrefix_ en memoria. Esto garantiza que un reinicio del proceso no rehidrate la entrada eliminada desde el provider. El ejemplo de abajo retorna un boolean al llamador para que el handler pueda confirmar si la eliminación realmente ocurrió.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
-import { Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
-import { GuildPrefixRepository } from "../repositories/guild-prefix.repository";
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import { GuildPrefixRepository } from '../repositories/guild-prefix.repository';
 
 @Injectable()
 export class GuildPrefixService {
@@ -160,8 +160,8 @@ _getAllGuildIds_ retorna un array con todos los IDs de servidor que actualmente 
 Un patrón frecuente es llamar a _getAllGuildIds_ en un job programado que cruza memoria con registros de la base de datos y repara cualquier desfase. También puedes usarlo para construir una lista paginada para una API de gestión sin realizar escaneos amplios en la base. Mantén la llamada dentro de la capa de service para que los consumidores no dependan directamente del dispatcher.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
-import { Injectable } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
+import { Injectable } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
 
 @Injectable()
 export class GuildPrefixService {
@@ -180,11 +180,11 @@ _loadFromProvider_ acepta una función provider asíncrona, la espera y reemplaz
 El hook _onReady_ de _SpraxiumOnReady_ se ejecuta una vez después de que el cliente Discord hace login y está listo, que es exactamente el momento en que los datos iniciales deben cargarse en memoria. Implementa el hook en una clase de service dedicada, inyecta _PrefixDispatcher_ junto con el repositorio y llama a _loadFromProvider_ allí. También puedes llamar a _loadFromProvider_ desde un job programado cuando necesites una re-sincronización controlada tras cambios masivos en la base de datos.
 
 ```typescript filename="src/modules/prefix/prefix-prefetch.service.ts"
-import { Injectable } from "@spraxium/common";
-import type { SpraxiumOnReady } from "@spraxium/common";
-import { PrefixDispatcher } from "@spraxium/core";
-import type { Client } from "discord.js";
-import { GuildPrefixRepository } from "./repositories/guild-prefix.repository";
+import { Injectable } from '@spraxium/common';
+import type { SpraxiumOnReady } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Client } from 'discord.js';
+import { GuildPrefixRepository } from './repositories/guild-prefix.repository';
 
 @Injectable()
 export class PrefixPrefetchService implements SpraxiumOnReady {

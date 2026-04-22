@@ -70,7 +70,11 @@ Selects de string são o tipo mais flexível porque você controla as opções d
 import { StringSelect, SelectOption } from '@spraxium/components';
 
 @StringSelect({
-customId: 'color-picker', placeholder: 'Choose a color', minValues: 1, maxValues: 1, })
+  customId: 'color-picker',
+  placeholder: 'Choose a color',
+  minValues: 1,
+  maxValues: 1,
+})
 export class ColorPickerSelect {
 @SelectOption({ label: 'Red', value: 'red', description: 'A warm color' })
 @SelectOption({ label: 'Blue', value: 'blue', description: 'A cool color' })
@@ -89,9 +93,13 @@ import { ColorPickerSelect } from './color-picker.select';
 @StringSelectHandler(ColorPickerSelect)
 export class ColorPickerHandler {
   async handle(
-    @Ctx() interaction: StringSelectMenuInteraction, @Selected() color: string, ): Promise<void> {
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @Selected() color: string,
+  ): Promise<void> {
     await interaction.reply({
-      content: `You picked ${color}.`, ephemeral: true, });
+      content: `You picked ${color}.`,
+      ephemeral: true,
+    });
   }
 }
 ````
@@ -163,11 +171,11 @@ Quando as opções do select dependem de dados de runtime, como registros de ban
 </Callout>
 
 ```typescript filename="src/components/role-list.select.ts"
-import { StringSelect } from "@spraxium/components";
+import { StringSelect } from '@spraxium/components';
 
 @StringSelect({
-  customId: "role-list",
-  placeholder: "Pick a role",
+  customId: 'role-list',
+  placeholder: 'Pick a role',
   dynamicOptions: (roles: Array<{ id: string; name: string }>) =>
     roles.map((r) => ({
       label: r.name,
@@ -187,7 +195,9 @@ Os selects de entidade usam os seletores nativos do Discord que exibem avatares 
 import { UserSelect } from '@spraxium/components';
 
 @UserSelect({
-customId: 'assign-user', placeholder: 'Select a team member', })
+  customId: 'assign-user',
+  placeholder: 'Select a team member',
+})
 export class AssignUserSelect {}
 
 ````
@@ -197,7 +207,9 @@ export class AssignUserSelect {}
 import { RoleSelect } from '@spraxium/components';
 
 @RoleSelect({
-  customId: 'assign-role', placeholder: 'Select a role', })
+  customId: 'assign-role',
+  placeholder: 'Select a role',
+})
 export class AssignRoleSelect {}
 ````
 
@@ -208,7 +220,10 @@ import { ChannelSelect } from '@spraxium/components';
 import { ChannelType } from 'discord.js';
 
 @ChannelSelect({
-customId: 'pick-channel', placeholder: 'Select a channel', channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice], })
+  customId: 'pick-channel',
+  placeholder: 'Select a channel',
+  channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice],
+})
 export class PickChannelSelect {}
 
 ````
@@ -227,9 +242,13 @@ import { AssignUserSelect } from './assign-user.select';
 @UserSelectHandler(AssignUserSelect)
 export class AssignUserHandler {
   async handle(
-    @Ctx() interaction: UserSelectMenuInteraction, @SelectedValues() userIds: string[], ): Promise<void> {
+    @Ctx() interaction: UserSelectMenuInteraction,
+    @SelectedValues() userIds: string[],
+  ): Promise<void> {
     await interaction.reply({
-      content: `Selected ${userIds.length} user(s).`, ephemeral: true, });
+      content: `Selected ${userIds.length} user(s).`,
+      ephemeral: true,
+    });
   }
 }
 ````
@@ -239,11 +258,11 @@ export class AssignUserHandler {
 O _SelectService_ transforma metadados de decorator em action rows do discord.js. O método _build_ aceita a classe do select e dados opcionais (para _dynamicOptions_). O método _buildWithContext_ anexa um ID de flow context ao _customId_ do select.
 
 ```typescript filename="src/commands/pick-color.command-handler.ts"
-import { Ctx, SlashCommandHandler } from "@spraxium/common";
-import { SelectService } from "@spraxium/components";
-import type { ChatInputCommandInteraction } from "discord.js";
-import { ColorPickerSelect } from "../components/color-picker.select";
-import { PickColorCommand } from "./pick-color.command";
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { SelectService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ColorPickerSelect } from '../components/color-picker.select';
+import { PickColorCommand } from './pick-color.command';
 
 @SlashCommandHandler(PickColorCommand)
 export class PickColorCommandHandler {
@@ -253,7 +272,7 @@ export class PickColorCommandHandler {
     const row = await this.selects.build(ColorPickerSelect);
 
     await interaction.reply({
-      content: "Pick your favorite color:",
+      content: 'Pick your favorite color:',
       components: [row],
     });
   }
@@ -265,11 +284,11 @@ export class PickColorCommandHandler {
 Para cenários onde você precisa construir definições de select programaticamente, use o construtor fluente _Selects.string()_. Esse construtor produz a mesma saída que os decorators, mas através de uma API de encadeamento de métodos. É útil em funções utilitárias ou quando a configuração do select depende inteiramente de dados de runtime.
 
 ```typescript filename="src/utils/select-factory.ts"
-import { Selects } from "@spraxium/components";
+import { Selects } from '@spraxium/components';
 
 export function buildCategorySelect(categories: string[]) {
-  return Selects.string("category-select")
-    .placeholder("Pick a category")
+  return Selects.string('category-select')
+    .placeholder('Pick a category')
     .options(categories.map((c) => ({ label: c, value: c.toLowerCase() })))
     .build();
 }
@@ -280,9 +299,9 @@ export function buildCategorySelect(categories: string[]) {
 Apenas os handlers precisam ser registrados, no array _handlers_ de um módulo de feature. Classes de componente de select decoradas com _@StringSelect_, _@UserSelect_ ou similares são somente metadados e nunca são adicionadas a nenhum módulo. O scanner de instâncias identifica selects pelo metadado do decorator no handler e os registra no _SelectDispatcher_ durante a fase de boot.
 
 ```typescript filename="src/components/components.module.ts"
-import { Module } from "@spraxium/core";
-import { ColorPickerHandler } from "./color-picker.handler";
-import { AssignUserHandler } from "./assign-user.handler";
+import { Module } from '@spraxium/core';
+import { ColorPickerHandler } from './color-picker.handler';
+import { AssignUserHandler } from './assign-user.handler';
 
 @Module({
   handlers: [ColorPickerHandler, AssignUserHandler],

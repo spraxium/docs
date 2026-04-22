@@ -16,8 +16,8 @@ Uma resposta 429 (Too Many Requests) acontece quando você reinicia o bot com mu
 Qualquer outro erro HTTP (401, 403, etc.) é capturado e impresso com o código de status e uma dica para verificar o token do bot. Erros não-HTTP mostram a mensagem bruta. Todos os erros de spawn são fatais, o processo encerra após imprimir porque um bot sem shards não pode funcionar.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import { AppModule } from './app.module';
 
 async function main() {
   const app = await SpraxiumFactory.create({
@@ -38,13 +38,13 @@ O processo pai registra handlers de shutdown para `SIGINT`, `SIGTERM` e `SIGHUP`
 A sequência de shutdown é intencionalmente simples. Ela chama `shard.kill()` em cada shard sem esperar por desconexões graciosas, porque conexões de gateway do Discord fecham imediatamente quando o processo morre. Se você precisa de lógica de limpeza personalizada antes do shutdown, registre seu próprio handler antes do handler do framework.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
+import { SpraxiumFactory } from '@spraxium/core';
 
 const app = await SpraxiumFactory.create();
-app.useSharding({ totalShards: "auto" });
+app.useSharding({ totalShards: 'auto' });
 
-process.once("SIGINT", async () => {
-  console.log("Custom cleanup before shutdown");
+process.once('SIGINT', async () => {
+  console.log('Custom cleanup before shutdown');
   process.exit(0);
 });
 
@@ -58,7 +58,7 @@ O _ParentHookRegistry_ permite registrar funções que rodam no processo pai ap�
 Cada hook recebe a instância do _ShardingManager_ do discord.js, que você pode usar para chamar _broadcastEval_ ou inspecionar o estado dos shards. Os hooks rodam sequencialmente na ordem de registro.
 
 ```typescript filename="src/main.ts"
-import { ParentHookRegistry, SpraxiumFactory } from "@spraxium/core";
+import { ParentHookRegistry, SpraxiumFactory } from '@spraxium/core';
 
 ParentHookRegistry.register(async (manager) => {
   const guilds = await manager.broadcastEval((c) => c.guilds.cache.size);
@@ -67,7 +67,7 @@ ParentHookRegistry.register(async (manager) => {
 });
 
 const app = await SpraxiumFactory.create();
-app.useSharding({ totalShards: "auto" });
+app.useSharding({ totalShards: 'auto' });
 await app.listen();
 ```
 
@@ -78,7 +78,7 @@ O método _broadcastEval_ no _ShardingManager_ executa uma função em cada proc
 Mantenha callbacks de broadcastEval simples e serializáveis. Eles não podem referenciar variáveis do escopo do pai porque são serializados, enviados para cada filho e avaliados lá. Se você precisa passar dados para o callback, use a opção _context_.
 
 ```typescript filename="src/services/stats.service.ts"
-import { ParentHookRegistry } from "@spraxium/core";
+import { ParentHookRegistry } from '@spraxium/core';
 
 ParentHookRegistry.register(async (manager) => {
   const memberCounts = await manager.broadcastEval((c) =>
@@ -104,16 +104,16 @@ O sistema de presença funciona perfeitamente com sharding. Cada filho de shard 
 Overrides de presença por shard (tanto no boot quanto em runtime) permitem atribuir atividades distintas a shards específicos. A página de visão geral na categoria _Presence_ cobre a API completa. Ao combinar sharding com rotação de presença, cada shard rotaciona independentemente em seu próprio temporizador.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import type { PresenceOptions } from "@spraxium/core";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import type { PresenceOptions } from '@spraxium/core';
+import { AppModule } from './app.module';
 
 const presenceConfig: PresenceOptions = {
-  status: "online",
+  status: 'online',
   activities: [
     {
-      name: "Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds",
-      type: "Watching",
+      name: 'Shard {{shardNumber}}/{{totalShards}} · {{totalServers}} guilds',
+      type: 'Watching',
     },
   ],
 };
@@ -123,7 +123,7 @@ async function main() {
     token: process.env.DISCORD_TOKEN,
   });
   app.useModule(AppModule);
-  app.useSharding({ totalShards: "auto" });
+  app.useSharding({ totalShards: 'auto' });
   app.initPresence(presenceConfig);
   await app.listen();
 }
@@ -138,15 +138,15 @@ O _ConsoleTransport_ no sistema de logger inclui um indicador de shard nas linha
 O processo pai usa o logger para reportar eventos de ciclo de vida dos shards: progresso do spawn, desconexões, reconexões, mortes e sinais de shutdown. Esses logs do nível pai não incluem dados de guild por shard porque o pai não se conecta ao gateway.
 
 ```typescript filename="src/listeners/ready.listener.ts"
-import { Logger, Listener, On } from "@spraxium/core";
+import { Logger, Listener, On } from '@spraxium/core';
 
-const logger = new Logger("ReadyListener");
+const logger = new Logger('ReadyListener');
 
 @Listener()
 export class ReadyListener {
-  @On("clientReady")
+  @On('clientReady')
   onReady() {
-    logger.info("Shard is ready and accepting events");
+    logger.info('Shard is ready and accepting events');
   }
 }
 ```

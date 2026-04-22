@@ -63,8 +63,12 @@ export default defineSchedule({
 import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
 
 export default defineSchedule({
-  timezone: 'UTC', defaultLockTtlMs: 30_000, driver: new RedisScheduleDriver({
-    host: process.env.REDIS_HOST ?? 'localhost', port: Number(process.env.REDIS_PORT ?? 6379), }),
+  timezone: 'UTC',
+  defaultLockTtlMs: 30_000,
+  driver: new RedisScheduleDriver({
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  }),
 });
 ```
   </Tab>
@@ -123,10 +127,10 @@ Todo método recebe o _name_ do job conforme definido nas opções do decorator.
 Um caso de uso prático para o _ScheduleService_ é construir comandos admin que permitem donos de servidor ou administradores do bot controlar tarefas em segundo plano sem reiniciar o bot. O exemplo abaixo mostra um handler de prefix command que pausa ou retoma um job por nome. O mesmo padrão funciona com slash commands ou endpoints de dashboard.
 
 ```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler } from "@spraxium/common";
-import { ScheduleService } from "@spraxium/schedule";
-import type { Message } from "discord.js";
-import { ScheduleAdminCommand } from "../commands/schedule-admin.command";
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import { ScheduleService } from '@spraxium/schedule';
+import type { Message } from 'discord.js';
+import { ScheduleAdminCommand } from '../commands/schedule-admin.command';
 
 @PrefixCommandHandler(ScheduleAdminCommand)
 export class ScheduleAdminHandler {
@@ -134,8 +138,8 @@ export class ScheduleAdminHandler {
 
   async handle(
     @Ctx() message: Message,
-    @PrefixArg("action") action: string,
-    @PrefixArg("jobName") jobName: string,
+    @PrefixArg('action') action: string,
+    @PrefixArg('jobName') jobName: string,
   ): Promise<void> {
     const job = this.scheduleService.get(jobName);
     if (!job) {
@@ -143,13 +147,13 @@ export class ScheduleAdminHandler {
       return;
     }
 
-    if (action === "pause") {
+    if (action === 'pause') {
       this.scheduleService.pause(jobName);
       await message.reply(`Job \`${jobName}\` pausado.`);
-    } else if (action === "resume") {
+    } else if (action === 'resume') {
       this.scheduleService.resume(jobName);
       await message.reply(`Job \`${jobName}\` retomado.`);
-    } else if (action === "run") {
+    } else if (action === 'run') {
       await this.scheduleService.runNow(jobName);
       await message.reply(`Job \`${jobName}\` acionado manualmente.`);
     }

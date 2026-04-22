@@ -82,12 +82,12 @@ El nivel _debug_ está controlado por una flag. Los mensajes enviados por _debug
 Creas un logger instanciando la clase _Logger_ con una string de contexto opcional. El contexto aparece en cada línea de log entre el nivel y el mensaje, facilitando filtrar logs por origen. Un patrón típico es crear un logger por servicio o módulo.
 
 ```typescript filename="src/services/music.service.ts"
-import { Injectable } from "@spraxium/core";
-import { Logger } from "@spraxium/core";
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
 
 @Injectable()
 export class MusicService {
-  private readonly logger = new Logger("MusicService");
+  private readonly logger = new Logger('MusicService');
 
   async play(guildId: string, trackUrl: string) {
     this.logger.info(`Playing track in guild ${guildId}`);
@@ -104,12 +104,12 @@ export class MusicService {
 El método _child_ crea un nuevo logger que hereda la configuración de transport del padre pero usa un nombre de contexto diferente. Esto es útil dentro de métodos que necesitan su propia identidad en la salida de log sin crear un logger separado a nivel de clase.
 
 ```typescript filename="src/services/queue.service.ts"
-import { Logger } from "@spraxium/core";
+import { Logger } from '@spraxium/core';
 
-const parentLogger = new Logger("QueueService");
-const importLogger = parentLogger.child("QueueImport");
+const parentLogger = new Logger('QueueService');
+const importLogger = parentLogger.child('QueueImport');
 
-importLogger.info("Starting playlist import");
+importLogger.info('Starting playlist import');
 ```
 
 ## Niveles de log personalizados
@@ -117,13 +117,13 @@ importLogger.info("Starting playlist import");
 El método _extend_ crea una función de log nombrada vinculada a un nivel personalizado. Especificas el nombre del nivel y un color opcional. Una vez extendida, la función trabaja como cualquier método incorporado y rutea a través de todos los transports. Esto es útil para niveles específicos del dominio como `audit`, `payment` o `moderation` que quieres filtrar por separado.
 
 ```typescript filename="src/services/audit.service.ts"
-import { Injectable } from "@spraxium/core";
-import { Logger } from "@spraxium/core";
+import { Injectable } from '@spraxium/core';
+import { Logger } from '@spraxium/core';
 
 @Injectable()
 export class AuditService {
-  private readonly logger = new Logger("AuditService");
-  private readonly audit = this.logger.extend("audit", "blueBright");
+  private readonly logger = new Logger('AuditService');
+  private readonly audit = this.logger.extend('audit', 'blueBright');
 
   logAction(userId: string, action: string) {
     this.audit(`User ${userId} performed ${action}`);
@@ -138,14 +138,14 @@ El parámetro de color acepta cualquier nombre de color de chalk como `'red'`, `
 El método _log_ es la válvula de escape de bajo nivel para emitir en cualquier nivel por nombre de string. Acepta el nivel, el mensaje y un objeto `metadata` opcional. A diferencia de los métodos nombrados, _log_ permite adjuntar datos estructurados de clave-valor directamente a la entrada de log sin crear una función tipada vía _extend_. Es el método que _CommandLogger_ usa internamente para adjuntar datos de ejecución de comandos.
 
 ```typescript filename="src/services/payment.service.ts"
-import { Logger } from "@spraxium/core";
+import { Logger } from '@spraxium/core';
 
-const logger = new Logger("PaymentService");
+const logger = new Logger('PaymentService');
 
-logger.log("payment", "Cobro procesado", {
-  userId: "123456789",
+logger.log('payment', 'Cobro procesado', {
+  userId: '123456789',
   amount: 4999,
-  currency: "USD",
+  currency: 'USD',
 });
 ```
 
@@ -156,12 +156,12 @@ Las claves de metadata quedan disponibles como placeholders `{{key}}` en templat
 Cuando necesitas imprimir un mensaje sin ningún formato, timestamps o prefijo de nivel, usa el método _raw_. Llama al `console.log` nativo directamente, salteando todos los transports y el token masker. Esto es útil para imprimir banners ASCII, líneas separadoras o salida estructurada que no debe envolvarse en el formato de log estándar.
 
 ```typescript filename="src/main.ts"
-import { Logger } from "@spraxium/core";
+import { Logger } from '@spraxium/core';
 
 const logger = new Logger();
-logger.raw("");
-logger.raw("  Spraxium Bot v2.0.0");
-logger.raw("");
+logger.raw('');
+logger.raw('  Spraxium Bot v2.0.0');
+logger.raw('');
 ```
 
 ## Formato de salida en consola

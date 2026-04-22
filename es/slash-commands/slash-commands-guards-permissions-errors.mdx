@@ -72,26 +72,26 @@ La propiedad _defaultMemberPermissions_ en la configuración de _@SlashCommand_ 
 </Table>
 
 ```typescript filename="commands/ban.command.ts"
-import { SlashCommand, SlashOption } from "@spraxium/common";
-import { PermissionFlagsBits } from "discord.js";
+import { SlashCommand, SlashOption } from '@spraxium/common';
+import { PermissionFlagsBits } from 'discord.js';
 
 @SlashCommand({
-  name: "ban",
-  description: "Ban a member from the server.",
+  name: 'ban',
+  description: 'Ban a member from the server.',
   defaultMemberPermissions: PermissionFlagsBits.BanMembers,
 })
 export class BanCommand {
-  @SlashOption.User("target", {
-    description: "The member to ban",
+  @SlashOption.User('target', {
+    description: 'The member to ban',
     required: true,
   })
-  @SlashOption.String("reason", {
-    description: "Reason for the ban",
+  @SlashOption.String('reason', {
+    description: 'Reason for the ban',
     required: false,
     maxLength: 512,
   })
-  @SlashOption.Integer("days", {
-    description: "Number of days of messages to delete",
+  @SlashOption.Integer('days', {
+    description: 'Number of days of messages to delete',
     required: false,
     min: 0,
     max: 7,
@@ -146,14 +146,14 @@ El _GuardExecutor_ evalúa guards en un orden estricto: guards globales primero,
 Una clase guard se decora con _@Injectable()_ (implícito a través del sistema DI) e implementa un método _canActivate_. El contexto de ejecución proporciona _getInteraction()_ para la interacción Discord cruda y _getCommandName()_ para el nombre del comando correspondido. Desde la interacción, puedes acceder al usuario, guild, canal, miembro y cualquier otro dato de Discord necesario para la decisión de autorización.
 
 ```typescript filename="guards/moderator.guard.ts"
-import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
-import type { ChatInputCommandInteraction } from "discord.js";
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
 
 export class ModeratorGuard implements SpraxiumGuard {
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const interaction = ctx.getInteraction() as ChatInputCommandInteraction;
     if (!interaction.memberPermissions) return false;
-    return interaction.memberPermissions.has("ModerateMembers");
+    return interaction.memberPermissions.has('ModerateMembers');
   }
 }
 ```
@@ -175,11 +175,15 @@ import { BanCommand } from '../commands/ban.command';
 @UseGuards(ModeratorGuard)
 @SlashCommandHandler(BanCommand)
 export class BanHandler {
-async handle(
-@Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, @SlashOpt('reason') reason: string | null, @SlashOpt('days') days: number | null, ): Promise<void> {
-const reasonText = reason ?? 'No reason provided';
-await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
-}
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+    @SlashOpt('reason') reason: string | null,
+    @SlashOpt('days') days: number | null,
+  ): Promise<void> {
+    const reasonText = reason ?? 'No reason provided';
+    await interaction.reply(`${target} has been banned. Reason: ${reasonText}`);
+  }
 }
 
 ````
@@ -213,8 +217,8 @@ import {
   GuardOption,
   type ExecutionContext,
   type SpraxiumGuard,
-} from "@spraxium/common";
-import type { ChatInputCommandInteraction } from "discord.js";
+} from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
 
 export class CooldownGuard implements SpraxiumGuard {
   @GuardOption({ default: 5000, required: false })
@@ -248,7 +252,7 @@ export class CooldownGuard implements SpraxiumGuard {
 El comportamiento del exception handler se configura a través de la propiedad _exceptions_ en la configuración de Spraxium. Las opciones clave son _logUnhandled_ (si registrar errores que no son del framework en la consola) y _layouts_ (un mapa de clases de excepción a clases de layout para respuestas de error personalizadas).
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from "@spraxium/core";
+import { defineConfig } from '@spraxium/core';
 
 export default defineConfig({
   exceptions: {
@@ -299,13 +303,19 @@ export class BanHandler {
     @SlashOpt('reason') reason: string | null,
   ): Promise<void> {
     if (!interaction.guild) {
-      await interaction.reply({ content: 'This command can only be used in a server.', flags: 'Ephemeral' });
+      await interaction.reply({
+        content: 'This command can only be used in a server.',
+        flags: 'Ephemeral',
+      });
       return;
     }
 
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
     if (!member) {
-      await interaction.reply({ content: `Could not find member ${target}.`, flags: 'Ephemeral' });
+      await interaction.reply({
+        content: `Could not find member ${target}.`,
+        flags: 'Ephemeral',
+      });
       return;
     }
 

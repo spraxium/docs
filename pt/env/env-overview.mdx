@@ -27,19 +27,19 @@ import {
   IsPort,
   IsBoolean,
   IsOptional,
-} from "@spraxium/env";
+} from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv {
-  @Env("DATABASE_URL")
+  @Env('DATABASE_URL')
   @IsString()
   DATABASE_URL!: string;
 
-  @Env("PORT")
+  @Env('PORT')
   @IsPort()
   PORT!: number;
 
-  @Env("ENABLE_CACHE")
+  @Env('ENABLE_CACHE')
   @IsBoolean()
   @IsOptional()
   ENABLE_CACHE?: boolean;
@@ -55,16 +55,16 @@ Cada propriedade deve ter pelo menos um validador de tipo. Validadores executam 
 A classe _SpraxiumBaseEnv_ já vem com três campos pré-configurados que praticamente todo bot precisa: `DISCORD_TOKEN` com _IsDiscordToken_, `DISCORD_CLIENT_ID` com _IsDiscordId_ e _IsOptional_, e `NODE_ENV` com _IsEnum_ restrito a cinco valores. Estender essa classe evita duplicar essas declarações em cada projeto.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsMongoUri, IsPort } from "@spraxium/env";
-import { SpraxiumBaseEnv } from "@spraxium/env";
+import { EnvSchema, Env, IsMongoUri, IsPort } from '@spraxium/env';
+import { SpraxiumBaseEnv } from '@spraxium/env';
 
 @EnvSchema()
 export class AppEnv extends SpraxiumBaseEnv {
-  @Env("MONGO_URI")
+  @Env('MONGO_URI')
   @IsMongoUri()
   MONGO_URI!: string;
 
-  @Env("API_PORT")
+  @Env('API_PORT')
   @IsPort()
   API_PORT!: number;
 }
@@ -75,10 +75,10 @@ A classe filha herda os campos de token, client ID e node environment automatica
 Você acessa o schema validado injetando-o em qualquer provider. Antes de o framework conseguir resolver a injeção, é necessário registrar a instância validada no container DI raiz a partir do `main.ts`. O framework não pode fazer isso automaticamente porque chamar `new AppEnv()` diretamente ignoraria o pipeline de validação e deixaria todos os campos como `undefined`. O método _app.provide_ faz essa ponte: ele aceita qualquer token e uma instância pré-construída, armazenando-a no container raiz para que todo provider que declara _AppEnv_ no construtor receba o mesmo objeto validado.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from "@spraxium/core";
-import { EnvValidator } from "@spraxium/env";
-import { AppEnv } from "./app.env";
-import { AppModule } from "./app.module";
+import { SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
 
 async function main() {
   const env = EnvValidator.validate(AppEnv);
@@ -96,8 +96,8 @@ main();
 Todo valor já está parseado e tipado, então você nunca precisa chamar `parseInt` ou comparar strings manualmente. Uma vez registrado, qualquer provider em qualquer módulo pode injetar _AppEnv_ pelo construtor e acessar o mesmo singleton validado. O padrão singleton garante que todos os providers compartilhem os mesmos valores validados, eliminando o risco de ler configuração desatualizada ou inconsistente em módulos diferentes.
 
 ```typescript filename="src/services/database.service.ts"
-import { Injectable } from "@spraxium/core";
-import { AppEnv } from "../app.env";
+import { Injectable } from '@spraxium/core';
+import { AppEnv } from '../app.env';
 
 @Injectable()
 export class DatabaseService {

@@ -119,34 +119,34 @@ Los nombres de job deben ser únicos dentro de toda la aplicación, no solo dent
 Cuando un servicio tiene múltiples jobs, puedes controlarlos independientemente a través del _ScheduleService_. Pausar un job no afecta a los demás jobs en el mismo servicio. Esta granularidad te permite deshabilitar jobs específicos en runtime sin afectar a otros jobs.
 
 ```typescript filename="src/modules/moderation/services/moderation-jobs.service.ts"
-import { Injectable } from "@spraxium/common";
+import { Injectable } from '@spraxium/common';
 import {
   AfterOnline,
   Cron,
   CronExpression,
   Interval,
   IntervalExpression,
-} from "@spraxium/schedule";
+} from '@spraxium/schedule';
 
 @Injectable()
 export class ModerationJobsService {
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
-    name: "moderation:cleanup",
-    timezone: "America/New_York",
+    name: 'moderation:cleanup',
+    timezone: 'America/New_York',
   })
   async cleanupExpiredBans(): Promise<void> {
     // Eliminar bans expirados de la base de datos
   }
 
   @Interval(IntervalExpression.EVERY_10_SECONDS, {
-    name: "moderation:spam-check",
+    name: 'moderation:spam-check',
   })
   async checkSpamQueues(): Promise<void> {
     // Procesar mensajes en cola para detecci\u00f3n de spam
   }
 
   @AfterOnline(5000, {
-    name: "moderation:load-config",
+    name: 'moderation:load-config',
   })
   async loadModerationConfig(): Promise<void> {
     // Cargar configuraci\u00f3n de moderaci\u00f3n al estar online
@@ -163,14 +163,14 @@ Puedes vincular las opciones _disabled_ a variables de entorno para controlar qu
 El campo _disableAll_ en la configuración actúa como un interruptor maestro que impide que cualquier job sea planificado al inicio. Esto es diferente a pausar jobs individualmente con _ScheduleService.pause_, porque _disableAll_ previene completamente que los jobs se creen en el registro.
 
 ```typescript filename="src/modules/analytics/services/analytics-jobs.service.ts"
-import { Injectable } from "@spraxium/common";
-import { Cron, CronExpression } from "@spraxium/schedule";
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
 
 @Injectable()
 export class AnalyticsJobsService {
   @Cron(CronExpression.EVERY_HOUR, {
-    name: "analytics:hourly",
-    disabled: process.env.DISABLE_ANALYTICS === "true",
+    name: 'analytics:hourly',
+    disabled: process.env.DISABLE_ANALYTICS === 'true',
   })
   async hourlyReport(): Promise<void> {
     // Generar reporte por hora
@@ -183,8 +183,8 @@ export class AnalyticsJobsService {
 La configuración final registra el módulo de schedule en el array de plugins del config raíz. El orden de los plugins no afecta a la ejecución de jobs, los jobs siempre se planifican después de que todos los módulos hayan completado su inicialización. Esto garantiza que la inyección de dependencias esté completamente resuelta antes de que cualquier job se ejecute.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from "@spraxium/core";
-import schedule from "./config/schedule.config";
+import { defineConfig } from '@spraxium/core';
+import schedule from './config/schedule.config';
 
 export default defineConfig({
   plugins: [schedule],

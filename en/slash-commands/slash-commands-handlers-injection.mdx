@@ -14,15 +14,15 @@ A handler class is a standalone class decorated with _@SlashCommandHandler_ that
 The handler must expose a _handle_ method. When an interaction arrives that matches the command name (and optionally the subcommand and group), the _SlashInvoker_ calls this method after the guard pipeline passes. The parameter list of _handle_ is built dynamically from metadata: _@Ctx()_ injects the raw interaction, _@SlashOpt(name)_ injects a resolved option value, and any parameter without a decorator receives `undefined`.
 
 ```typescript filename="handlers/ping.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt } from "@spraxium/common";
-import type { ChatInputCommandInteraction } from "discord.js";
-import { PingCommand } from "../commands/ping.command";
+import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
 
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
   async handle(
     @Ctx() interaction: ChatInputCommandInteraction,
-    @SlashOpt("service") service: string | null,
+    @SlashOpt('service') service: string | null,
   ): Promise<void> {
     const ws = interaction.client.ws.ping;
     if (service) {
@@ -90,10 +90,10 @@ import { InfoCommand } from '../commands/info.command';
 
 @SlashCommandHandler(InfoCommand)
 export class InfoHandler {
-async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-const ws = interaction.client.ws.ping;
-await interaction.reply(`Bot latency: ${ws}ms`);
-}
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ws = interaction.client.ws.ping;
+    await interaction.reply(`Bot latency: ${ws}ms`);
+  }
 }
 
 ````
@@ -121,10 +121,13 @@ import { ConfigCommand } from '../commands/config.command';
 
 @SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
 export class ConfigAutomodHandler {
-async handle(
-@Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
-await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
-}
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('enabled') enabled: boolean,
+    @SlashOpt('filter') filter: string | null,
+  ): Promise<void> {
+    await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
+  }
 }
 
 ````
@@ -214,11 +217,15 @@ export class LocaleHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('language') language: string, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('language') language: string,
+  ): Promise<void> {
     const userId = interaction.user.id;
     if (!this.i18n.has(language)) {
       const msg = await this.i18n.tUser(userId, 'commands.locale.invalid', {
-        locale: language, available: this.i18n.locales().join(', '), });
+        locale: language,
+        available: this.i18n.locales().join(', '),
+      });
       await interaction.reply({ content: msg, flags: 'Ephemeral' });
       return;
     }
@@ -243,10 +250,12 @@ import { SecretCommand } from '../commands/secret.command';
 
 @SlashCommandHandler(SecretCommand)
 export class SecretHandler {
-async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-await interaction.reply({
-content: 'This message is only visible to you.', flags: 'Ephemeral', });
-}
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    await interaction.reply({
+      content: 'This message is only visible to you.',
+      flags: 'Ephemeral',
+    });
+  }
 }
 
 ````
@@ -280,16 +289,17 @@ import { InfoCommand } from '../commands/info.command';
 
 @SlashCommandHandler(InfoCommand)
 export class InfoHandler {
-async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-const embed = new EmbedBuilder()
-.setColor(0x5865f2)
-.setTitle('Bot Info')
-.addFields(
-{ name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true }, { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true }, );
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('Bot Info')
+      .addFields(
+        { name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true },
+        { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true },
+      );
 
     await interaction.reply({ embeds: [embed] });
-
-}
+  }
 }
 
 ```

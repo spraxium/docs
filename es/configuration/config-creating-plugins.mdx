@@ -28,11 +28,11 @@ export interface MyPluginConfig {
     Importa *definePlugin* desde `@spraxium/core` e invócalo con el string literal del namespace y la interfaz de config como parámetros genéricos. El namespace debe ser único entre todos los plugins del proyecto. Exporta el resultado para que los consumidores puedan importarlo en sus archivos de configuración.
 
 ```typescript filename="src/my-plugin.config.ts"
-import { definePlugin } from "@spraxium/core";
-import type { MyPluginConfig } from "./interfaces/my-plugin-config.interface";
+import { definePlugin } from '@spraxium/core';
+import type { MyPluginConfig } from './interfaces/my-plugin-config.interface';
 
-export const defineMyPlugin = definePlugin<"my-plugin", MyPluginConfig>(
-  "my-plugin",
+export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>(
+  'my-plugin',
 );
 ```
 
@@ -41,14 +41,14 @@ export const defineMyPlugin = definePlugin<"my-plugin", MyPluginConfig>(
     Los consumidores importan la factory e invocan en el array *plugins*. El payload de config está tipado, así que el editor autocompletará cada opción y advertirá sobre formas inválidas en tiempo de compilación.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from "@spraxium/core";
-import { defineMyPlugin } from "@acme/my-plugin";
+import { defineConfig } from '@spraxium/core';
+import { defineMyPlugin } from '@acme/my-plugin';
 
 export default defineConfig({
   plugins: [
     defineMyPlugin({
       enabled: true,
-      apiUrl: "https://api.example.com",
+      apiUrl: 'https://api.example.com',
       timeout: 5000,
     }),
   ],
@@ -60,9 +60,9 @@ export default defineConfig({
     Dentro de tu paquete, usa *ConfigStore.getPluginConfig(factory)* para obtener la config tipada. El método acepta la función factory y usa su propiedad *namespace* para encontrar la entrada coincidente en el array *plugins*. El tipo de retorno se infiere automáticamente como `MyPluginConfig | undefined`, lo que te obliga a verificar si el plugin fue registrado antes de usarlo.
 
 ```typescript filename="src/my-plugin.service.ts"
-import { Injectable } from "@spraxium/common";
-import { ConfigStore } from "@spraxium/core";
-import { defineMyPlugin } from "./my-plugin.config";
+import { Injectable } from '@spraxium/common';
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from './my-plugin.config';
 
 @Injectable()
 export class MyPluginService {
@@ -82,8 +82,8 @@ export class MyPluginService {
 Un guardia de habilitación es el patrón más común para proteger lógica de plugin que solo debe ejecutarse cuando el plugin está configurado. El guardia lee la config a través de la factory y retorna `false` si la entrada no existe o si el campo _enabled_ es `false`. Esto evita errores de runtime causados por consumir config no presente.
 
 ```typescript filename="src/guards/my-plugin-enabled.guard.ts"
-import { ConfigStore } from "@spraxium/core";
-import { defineMyPlugin } from "../my-plugin.config";
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from '../my-plugin.config';
 
 export class MyPluginEnabledGuard {
   canActivate(): boolean {

@@ -46,17 +46,17 @@ This is an important detail to keep in mind when designing your listeners. If yo
 For events that go through the full pipeline, you can attach guards at the class level or method level using _@UseGuards_, exactly like you would on a command handler. The guards run before the listener method executes, and if any guard denies, the method is skipped and the denial goes through the exception pipeline.
 
 ```typescript filename="protected-message.listener.ts"
-import { Events, Listener, On, UseGuards, withOptions } from "@spraxium/common";
-import { GuildOnly, RoleGuard } from "@spraxium/core";
-import type { Message } from "discord.js";
+import { Events, Listener, On, UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, RoleGuard } from '@spraxium/core';
+import type { Message } from 'discord.js';
 
 @Listener(Events.MessageCreate)
-@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ["Verified"] }))
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Verified'] }))
 export class ProtectedMessageListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    await message.reply("You are verified and in a server.");
+    await message.reply('You are verified and in a server.');
   }
 }
 ```
@@ -70,15 +70,15 @@ You can also use method-level guards for fine-grained control when a listener cl
 For events in the full pipeline, you can throw domain-specific exceptions from listener methods and the exception layer handles them the same way it handles command exceptions. This means your layouts, reply behavior, and logging configuration apply to listener exceptions without any extra setup.
 
 ```typescript filename="account-policy.listener.ts"
-import { Events, Listener, On } from "@spraxium/common";
-import type { Message } from "discord.js";
-import { SpraxiumException } from "@spraxium/core";
+import { Events, Listener, On } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { SpraxiumException } from '@spraxium/core';
 
 class AccountSuspendedException extends SpraxiumException {
   constructor(props: { reason: string; userId: string }) {
     super({
-      code: "ACCOUNT_SUSPENDED",
-      message: "Your account has been suspended: {{reason}}.",
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'Your account has been suspended: {{reason}}.',
       props,
     });
   }
@@ -93,7 +93,7 @@ export class AccountPolicyListener {
     const isSuspended = await this.checkSuspension(message.author.id);
     if (isSuspended) {
       throw new AccountSuspendedException({
-        reason: "Policy violation",
+        reason: 'Policy violation',
         userId: message.author.id,
       });
     }
@@ -109,9 +109,9 @@ export class AccountPolicyListener {
 For events that go through direct invocation instead of the full pipeline, thrown errors are caught and logged but not processed through the exception layer. This means you do not get layout rendering or structured replies for those events. If you need reliable error handling on direct-invocation events like _GuildMemberAdd_, handle errors explicitly inside the method with try-catch and your own logging.
 
 ```typescript filename="member-join.listener.ts"
-import { Events, Listener, On } from "@spraxium/common";
-import { Logger } from "@spraxium/core";
-import type { GuildMember } from "discord.js";
+import { Events, Listener, On } from '@spraxium/common';
+import { Logger } from '@spraxium/core';
+import type { GuildMember } from 'discord.js';
 
 @Listener(Events.GuildMemberAdd)
 export class MemberJoinListener {
@@ -120,7 +120,7 @@ export class MemberJoinListener {
   @On()
   async onJoin(member: GuildMember): Promise<void> {
     try {
-      const channel = await member.guild.channels.fetch("1234567890");
+      const channel = await member.guild.channels.fetch('1234567890');
       if (channel?.isTextBased()) {
         await channel.send(`Welcome to the server, ${member}!`);
       }

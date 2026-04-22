@@ -20,11 +20,11 @@ El sistema de contexto de flujo es compartido entre todos los tipos de component
 Inyecta _ContextService_ en tu comando o servicio y llama a _create_ con el objeto de datos que deseas enlazar a través del flujo. El método retorna un _SpraxiumContext_ con un UUID generado, los datos, timestamps y el TTL. Luego pasas este contexto al método build del servicio de componentes.
 
 ```typescript filename="src/commands/setup-wizard.command-handler.ts"
-import { Ctx, SlashCommandHandler } from "@spraxium/common";
-import { ContextService, ButtonService } from "@spraxium/components";
-import type { ChatInputCommandInteraction } from "discord.js";
-import { NextStepButton } from "../components/next-step.button";
-import { SetupWizardCommand } from "./setup-wizard.command";
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ContextService, ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { NextStepButton } from '../components/next-step.button';
+import { SetupWizardCommand } from './setup-wizard.command';
 
 @SlashCommandHandler(SetupWizardCommand)
 export class SetupWizardCommandHandler {
@@ -42,7 +42,7 @@ export class SetupWizardCommandHandler {
     const row = this.buttons.rowWithContext(ctx, NextStepButton);
 
     await interaction.reply({
-      content: "Welcome to the setup wizard. Click Next to begin.",
+      content: 'Welcome to the setup wizard. Click Next to begin.',
       components: [row],
     });
   }
@@ -116,10 +116,10 @@ El objeto _SpraxiumContext_ transporta tanto tus datos personalizados como metad
 Usa el decorator de parámetro _@FlowContext()_ en el método _handle_ de tu handler para recibir el contexto resuelto. El dispatcher extrae el ID de contexto del _customId_, recupera el contexto del adaptador de almacenamiento, valida la expiración y restricciones de usuario, e inyecta el objeto resuelto. Si el contexto ha expirado o el usuario está restringido, el dispatcher responde con el mensaje de error configurado y no invoca el handler.
 
 ```typescript filename="src/components/next-step.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
-import type { ButtonInteraction } from "discord.js";
-import type { SpraxiumContext } from "@spraxium/components";
-import { NextStepButton } from "./next-step.button";
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { NextStepButton } from './next-step.button';
 
 interface WizardData {
   step: number;
@@ -147,11 +147,11 @@ export class NextStepButtonHandler {
 El método _ContextService.update_ aplica un parche a los datos del contexto sin reemplazar el objeto completo. Esto es útil en flujos multi-paso donde cada handler agrega o modifica un subconjunto de los datos. El método retorna un booleano indicando si la actualización fue exitosa (contexto encontrado y no expirado).
 
 ```typescript filename="src/components/step-two.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
-import { ContextService } from "@spraxium/components";
-import type { ButtonInteraction } from "discord.js";
-import type { SpraxiumContext } from "@spraxium/components";
-import { StepTwoButton } from "./step-two.button";
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import { ContextService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { StepTwoButton } from './step-two.button';
 
 interface WizardData {
   step: number;
@@ -169,11 +169,11 @@ export class StepTwoButtonHandler {
   ): Promise<void> {
     await this.context.update<WizardData>(ctx.id, {
       step: 2,
-      settings: { ...ctx.data.settings, language: "en" },
+      settings: { ...ctx.data.settings, language: 'en' },
     });
 
     await interaction.reply({
-      content: "Step 2 complete. Proceeding to step 3.",
+      content: 'Step 2 complete. Proceeding to step 3.',
       ephemeral: true,
     });
   }
@@ -185,11 +185,11 @@ export class StepTwoButtonHandler {
 Llama a _ContextService.delete_ cuando el flujo se completa o se cancela. Esto elimina inmediatamente el contexto del adaptador de almacenamiento. Aunque los contextos expiran automáticamente según el TTL, la eliminación explícita es buena práctica para flujos que se completan normalmente, ya que libera almacenamiento y evita que datos obsoletos se lean en casos extremos.
 
 ```typescript filename="src/components/finish-wizard.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
-import { ContextService } from "@spraxium/components";
-import type { ButtonInteraction } from "discord.js";
-import type { SpraxiumContext } from "@spraxium/components";
-import { FinishButton } from "./finish.button";
+import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
+import { ContextService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { SpraxiumContext } from '@spraxium/components';
+import { FinishButton } from './finish.button';
 
 @ButtonHandler(FinishButton)
 export class FinishWizardHandler {
@@ -200,7 +200,7 @@ export class FinishWizardHandler {
     @FlowContext() ctx: SpraxiumContext<unknown>,
   ): Promise<void> {
     await this.context.delete(ctx.id);
-    await interaction.reply({ content: "Setup complete!", ephemeral: true });
+    await interaction.reply({ content: 'Setup complete!', ephemeral: true });
   }
 }
 ```
@@ -252,11 +252,11 @@ El sistema de contexto usa un adaptador de almacenamiento pluggable configurado 
 </Table>
 
 ```typescript filename="config/components.config.ts"
-import { defineComponents } from "@spraxium/components";
+import { defineComponents } from '@spraxium/components';
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: "redis",
+    storage: 'redis',
     defaultTtl: 600,
   },
 });
@@ -314,11 +314,11 @@ El TTL por defecto se establece en la configuración de _defineComponents_. Los 
 La opción _restrictedTo_ limita el acceso al contexto a un ID de usuario específico. Cuando se establece, solo las interacciones de ese ID de usuario se despachan al handler. Otros usuarios que hagan clic en el componente reciben el mensaje _errorMessages.restricted_ configurado. Esto es esencial para flujos donde el componente es visible para todos en un canal pero solo debe ser accionable por el usuario que inició el comando.
 
 ```typescript filename="src/commands/verification.command-handler.ts"
-import { Ctx, SlashCommandHandler } from "@spraxium/common";
-import { ContextService, ButtonService } from "@spraxium/components";
-import type { ChatInputCommandInteraction } from "discord.js";
-import { VerifyButton } from "../components/verify.button";
-import { VerificationCommand } from "./verification.command";
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ContextService, ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { VerifyButton } from '../components/verify.button';
+import { VerificationCommand } from './verification.command';
 
 @SlashCommandHandler(VerificationCommand)
 export class VerificationCommandHandler {
@@ -336,7 +336,7 @@ export class VerificationCommandHandler {
     const row = this.buttons.rowWithContext(ctx, VerifyButton);
 
     await interaction.reply({
-      content: "Click the button to verify your identity.",
+      content: 'Click the button to verify your identity.',
       components: [row],
     });
   }
