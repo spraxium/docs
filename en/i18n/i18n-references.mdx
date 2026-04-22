@@ -29,11 +29,17 @@ traversal at request time.
 ## Declaring multiple references
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from '@spraxium/i18n';
+import { defineI18n } from "@spraxium/i18n";
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US', references: [
-    { name: 'slash', path: './locales/slash'    }, { name: 'ui', path: './locales/ui'       }, { name: 'errors', path: './locales/errors'   }, { name: 'embeds', path: './locales/embeds'   }, ], });
+  defaultLocale: "en-US",
+  references: [
+    { name: "slash", path: "./locales/slash" },
+    { name: "ui", path: "./locales/ui" },
+    { name: "errors", path: "./locales/errors" },
+    { name: "embeds", path: "./locales/embeds" },
+  ],
+});
 ```
 
 There is no limit on the number of references. Each one loads independently and is merged into the
@@ -57,7 +63,9 @@ name is the locale identifier and its content is the translation object for that
 
 ```json filename="locales/errors/en-US.json"
 {
-  "notFound": "Resource not found", "forbidden": "You do not have permission to do this", "timeout": "The operation timed out after {{seconds}} seconds"
+  "notFound": "Resource not found",
+  "forbidden": "You do not have permission to do this",
+  "timeout": "The operation timed out after {{seconds}} seconds"
 }
 ```
 
@@ -96,9 +104,12 @@ multiple JSON files. The file name (without `.json`) becomes an additional names
 
 ```json filename="locales/slash/en-US/ping.json"
 {
-  "name": "ping", "description": "Check the bot's response time", "options": {
+  "name": "ping",
+  "description": "Check the bot's response time",
+  "options": {
     "target": {
-      "name": "target", "description": "The server or service to ping"
+      "name": "target",
+      "description": "The server or service to ping"
     }
   }
 }
@@ -125,13 +136,18 @@ You can freely mix flat and nested layouts across different references in the sa
 entries inside the reference directory are files or subdirectories.
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from '@spraxium/i18n';
+import { defineI18n } from "@spraxium/i18n";
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US', references: [
+  defaultLocale: "en-US",
+  references: [
     // Nested layout: many files per locale, organized by feature
-    { name: 'slash', path: './locales/slash' }, // Flat layout: simple key-value pairs in a single file per locale
-    { name: 'errors', path: './locales/errors' }, { name: 'system', path: './locales/system' }, ], });
+    { name: "slash", path: "./locales/slash" },
+    // Flat layout: simple key-value pairs in a single file per locale
+    { name: "errors", path: "./locales/errors" },
+    { name: "system", path: "./locales/system" },
+  ],
+});
 ```
 
 ## Accessing keys across references
@@ -140,28 +156,33 @@ All references are accessible through the same service API without specifying wh
 belongs to. The reference name is part of the key itself.
 
 ```typescript filename="multi-ref.handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { I18nService } from '@spraxium/i18n';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { StatusCommand } from '../commands/status.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { I18nService } from "@spraxium/i18n";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { StatusCommand } from "../commands/status.command";
 
 @SlashCommandHandler(StatusCommand)
 export class StatusHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const locale  = interaction.locale;
-    const userId  = interaction.user.id;
+    const locale = interaction.locale;
+    const userId = interaction.user.id;
     const guildId = interaction.guildId ?? undefined;
 
     // Keys from 'slash' reference
-    const title = this.i18n.t('slash.status.embed.title', locale);
+    const title = this.i18n.t("slash.status.embed.title", locale);
 
     // Keys from 'errors' reference, used when an upstream check fails
-    const permError = this.i18n.t('errors.forbidden', locale);
+    const permError = this.i18n.t("errors.forbidden", locale);
 
     // Async resolution through user/guild preference chain
-    const footer = await this.i18n.tUser(userId, 'slash.status.embed.footer', {}, guildId);
+    const footer = await this.i18n.tUser(
+      userId,
+      "slash.status.embed.footer",
+      {},
+      guildId,
+    );
 
     await interaction.reply({ content: `${title}: ${footer}` });
   }
@@ -170,15 +191,20 @@ export class StatusHandler {
 
 ## Using reference keys in slash decorators
 
-When you add an *i18n* field to a slash decorator, the key paths point into the loaded flat map.
-They use the reference name as their first segment, exactly as they would in a *t()* call.
+When you add an _i18n_ field to a slash decorator, the key paths point into the loaded flat map.
+They use the reference name as their first segment, exactly as they would in a _t()_ call.
 
 ```typescript filename="settings.command.ts"
-import { SlashCommand } from '@spraxium/common';
+import { SlashCommand } from "@spraxium/common";
 
 @SlashCommand({
-  name: 'settings', description: 'Manage bot settings', i18n: {
-    name: 'slash.settings.name', description: 'slash.settings.description', }, })
+  name: "settings",
+  description: "Manage bot settings",
+  i18n: {
+    name: "slash.settings.name",
+    description: "slash.settings.description",
+  },
+})
 export class SettingsCommand {}
 ```
 

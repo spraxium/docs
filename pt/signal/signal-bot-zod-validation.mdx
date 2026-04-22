@@ -4,19 +4,19 @@ description: |
   Valide payloads Signal com schemas Zod antes que seus handlers de domínio executem.
   Aprenda padrões de design de schema, mecanica do fluxo de validação, extração de payload tipado e tratamento de erros para envelopes rejeitados.
 order: 3
-category: '@spraxium/signal'
+category: "@spraxium/signal"
 ---
 
 ## Por que Zod pertence a fronteira Signal
 
 Listeners do bot são onde eventos externos se tornam efeitos colaterais internos. Mudanças de cargo, atualizações de configuração, ações de moderação e mutações de billing todas começam com um payload recebido. Usar Zod nessa fronteira permite rejeitar dados malformados antes que cheguem aos serviços de negócio. Isso não e opcional para bots em produção porque o payload origina de sistemas externos que podem evoluir independentemente, enviar formatos inesperados ou conter valores inválidos devido a bugs no código emissor.
 
-O decorator *@OnSignal* aceita uma opção `schema` que recebe qualquer schema Zod. Quando presente, o *SignalProcessor* chama *safeParse* no payload do envelope antes de invocar o handler. Se a validação falhar, o handler nunca e chamado e um log diagnóstico e emitido quando o modo debug esta ativado. Se nenhum schema for configurado, o payload bruto e passado sem alteração, o que e útil para handlers que fazem sua própria lógica de parsing.
+O decorator _@OnSignal_ aceita uma opção `schema` que recebe qualquer schema Zod. Quando presente, o _SignalProcessor_ chama _safeParse_ no payload do envelope antes de invocar o handler. Se a validação falhar, o handler nunca e chamado e um log diagnóstico e emitido quando o modo debug esta ativado. Se nenhum schema for configurado, o payload bruto e passado sem alteração, o que e útil para handlers que fazem sua própria lógica de parsing.
 
 <Callout tone="success" title="Valide na fronteira, não dentro dos handlers">
-  Anexar o schema ao <code>@OnSignal</code> garante que toda invocação do handler
-  receba dados validados e tipados. Isso elimina verificações defensivas dentro do código de negócio
-  e torna as assinaturas dos handlers confiáveis.
+  Anexar o schema ao <code>@OnSignal</code> garante que toda invocação do
+  handler receba dados validados e tipados. Isso elimina verificações defensivas
+  dentro do código de negócio e torna as assinaturas dos handlers confiáveis.
 </Callout>
 
 ## Design de schema e configuração de listener
@@ -29,7 +29,10 @@ O padrão recomendado e definir schemas em arquivos dedicados e importa-los nas 
 import { z } from 'zod';
 
 export const ConfigUpdateSchema = z.object({
-  prefix: z.string().min(1).max(5), language: z.enum(['en', 'pt', 'es']).optional(), updatedBy: z.string().min(17).max(20), });
+  prefix: z.string().min(1).max(5),
+  language: z.enum(["en", "pt", "es"]).optional(),
+  updatedBy: z.string().min(17).max(20),
+});
 
 export type ConfigUpdatePayload = z.infer<typeof ConfigUpdateSchema>;
 ```
@@ -39,18 +42,23 @@ export type ConfigUpdatePayload = z.infer<typeof ConfigUpdateSchema>;
 import { SignalListener, OnSignal } from '@spraxium/signal';
 import type { SignalEnvelope } from '@spraxium/signal';
 import {
-  ConfigUpdateSchema, type ConfigUpdatePayload, } from '../schemas/config-update.schema';
+  ConfigUpdateSchema,
+  type ConfigUpdatePayload,
+} from '../schemas/config-update.schema';
 
 @SignalListener()
 export class GuildConfigSignal {
-  @OnSignal('config.update', { schema: ConfigUpdateSchema })
-  async onConfigUpdate(
-    payload: ConfigUpdatePayload, envelope: SignalEnvelope, ): Promise<void> {
-    // payload esta validado e fortemente tipado
-    // envelope.guildId fornece contexto de tenant
-  }
+@OnSignal('config.update', { schema: ConfigUpdateSchema })
+async onConfigUpdate(
+payload: ConfigUpdatePayload,
+envelope: SignalEnvelope,
+): Promise<void> {
+// payload esta validado e fortemente tipado
+// envelope.guildId fornece contexto de tenant
 }
-```
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -85,26 +93,33 @@ import type { SignalEnvelope } from '@spraxium/signal';
 import { z } from 'zod';
 
 const PrefixSchema = z.object({
-  prefix: z.string().min(1).max(5), });
+  prefix: z.string().min(1).max(5),
+});
 
 const LanguageSchema = z.object({
-  language: z.enum(['en', 'pt', 'es']), updatedBy: z.string(), });
+  language:  z.enum(['en', 'pt', 'es']),
+  updatedBy: z.string(),
+});
 
 @SignalListener()
 export class GuildConfigSignal {
   @OnSignal('config.prefix.update', { schema: PrefixSchema })
   async onPrefixUpdate(
-    payload: z.infer<typeof PrefixSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof PrefixSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Trata mudancas de prefixo
   }
 
   @OnSignal('config.language.update', { schema: LanguageSchema })
   async onLanguageUpdate(
-    payload: z.infer<typeof LanguageSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof LanguageSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Trata mudancas de idioma
   }
 }
-```
+````
 
 ## Diretrizes para modelagem de schema
 
@@ -121,28 +136,50 @@ Schemas duráveis seguem um conjunto de principios que minimizam breaking change
   <TableBody>
     <TableRow>
       <TableCell>Mudanças aditivas</TableCell>
-      <TableCell>Adicione novos campos como `.optional()` antes de torna-los obrigatórios.</TableCell>
-      <TableCell>Permite rollout gradual entre deploys do emissor e bot.</TableCell>
+      <TableCell>
+        Adicione novos campos como `.optional()` antes de torna-los
+        obrigatórios.
+      </TableCell>
+      <TableCell>
+        Permite rollout gradual entre deploys do emissor e bot.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Payloads enxutos</TableCell>
-      <TableCell>Inclua apenas campos que o bot realmente precisa para tomar decisões.</TableCell>
-      <TableCell>Reduz acoplamento e facilita a manutenção dos schemas ao longo do tempo.</TableCell>
+      <TableCell>
+        Inclua apenas campos que o bot realmente precisa para tomar decisões.
+      </TableCell>
+      <TableCell>
+        Reduz acoplamento e facilita a manutenção dos schemas ao longo do tempo.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Limites estritos</TableCell>
-      <TableCell>Use `.min()`, `.max()`, `.enum()` e `.regex()` para strings e números.</TableCell>
-      <TableCell>Captura dados inválidos cedo e previne erros de lógica downstream.</TableCell>
+      <TableCell>
+        Use `.min()`, `.max()`, `.enum()` e `.regex()` para strings e números.
+      </TableCell>
+      <TableCell>
+        Captura dados inválidos cedo e previne erros de lógica downstream.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Nomes de evento versionados</TableCell>
-      <TableCell>Use `config.update.v2` para breaking changes de payload em vez de modificar o schema original.</TableCell>
-      <TableCell>Preserva compatibilidade durante periodos de transição.</TableCell>
+      <TableCell>
+        Use `config.update.v2` para breaking changes de payload em vez de
+        modificar o schema original.
+      </TableCell>
+      <TableCell>
+        Preserva compatibilidade durante periodos de transição.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Enums explicitos</TableCell>
-      <TableCell>Use `z.enum()` para conjuntos fixos de valores em vez de strings livres.</TableCell>
-      <TableCell>Previne typos e valores não documentados de chegar aos handlers.</TableCell>
+      <TableCell>
+        Use `z.enum()` para conjuntos fixos de valores em vez de strings livres.
+      </TableCell>
+      <TableCell>
+        Previne typos e valores não documentados de chegar aos handlers.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -157,13 +194,22 @@ Para eventos de domínio complexos, Zod suporta padrões poderosos de composiç�
 import { z } from 'zod';
 
 const ActivatedSchema = z.object({
-  action: z.literal('activated'), planId: z.string(), userId: z.string(), expiresAt: z.number(), });
+action: z.literal('activated'),
+planId: z.string(),
+userId: z.string(),
+expiresAt: z.number(),
+});
 
 const CancelledSchema = z.object({
-  action: z.literal('cancelled'), userId: z.string(), reason: z.string().optional(), });
+action: z.literal('cancelled'),
+userId: z.string(),
+reason: z.string().optional(),
+});
 
-export const BillingEventSchema = z.discriminatedUnion('action', [
-  ActivatedSchema, CancelledSchema, ]);
+export const BillingEventSchema = z.discriminatedUnion("action", [
+  ActivatedSchema,
+  CancelledSchema,
+]);
 
 export type BillingEventPayload = z.infer<typeof BillingEventSchema>;
 ```
@@ -173,38 +219,51 @@ export type BillingEventPayload = z.infer<typeof BillingEventSchema>;
 import { z } from 'zod';
 
 const BaseModerationSchema = z.object({
-  moderatorId: z.string(), targetUserId: z.string(), reason: z.string().min(1), });
+moderatorId: z.string(),
+targetUserId: z.string(),
+reason: z.string().min(1),
+});
 
 export const BanSchema = BaseModerationSchema.extend({
-  duration: z.number().positive().optional(), });
+  duration: z.number().positive().optional(),
+});
 
 export const MuteSchema = BaseModerationSchema.extend({
-  duration: z.number().positive(), channelIds: z.array(z.string()).optional(), });
+  duration:   z.number().positive(),
+  channelIds: z.array(z.string()).optional(),
+});
 ```
   </Tab>
 </CodeTabs>
 
 ## Responsabilidades de retry
 
-O pacote bot-side *@spraxium/signal* não inclui fila de retry interna ou worker. Se uma validação Zod falhar, o envelope e descartado e nenhuma tentativa automática e feita. Isso e por design porque o bot deve permanecer um consumidor deterministico de eventos. A lógica de retry pertence ao lado emissor, onde o pacote *@spraxium/signal-client* fornece persistencia de fallback com backoff exponencial.
+O pacote bot-side _@spraxium/signal_ não inclui fila de retry interna ou worker. Se uma validação Zod falhar, o envelope e descartado e nenhuma tentativa automática e feita. Isso e por design porque o bot deve permanecer um consumidor deterministico de eventos. A lógica de retry pertence ao lado emissor, onde o pacote _@spraxium/signal-client_ fornece persistencia de fallback com backoff exponencial.
 
 Essa separação mantém cada lado focado em sua responsabilidade. O bot valida e despacha envelopes confiáveis. O emissor cuida de confiabilidade de entrega, agendamento de retries e monitoramento de dead-letter. Se você precisar reprocessar um envelope que falhou, o emissor deve corrigir o formato do payload e reenvia-lo, em vez de o bot tolerar dados inválidos.
 
 <Callout tone="warning" title="A responsabilidade de retry e do lado produtor">
-  O bot-side <code>@spraxium/signal</code> intencionalmente não faz retry de payloads que falharam. Se
-  retries de entrega são necessarios, configure-os no lado emissor usando as configurações de fallback
-  do <code>@spraxium/signal-client</code> com store de arquivo ou Redis.
+  O bot-side <code>@spraxium/signal</code> intencionalmente não faz retry de
+  payloads que falharam. Se retries de entrega são necessarios, configure-os no
+  lado emissor usando as configurações de fallback do{" "}
+  <code>@spraxium/signal-client</code> com store de arquivo ou Redis.
 </Callout>
 
 ## Testando com createSignalPayload
 
-O pacote `@spraxium/signal` exporta um helper *createSignalPayload* que constrói envelopes não assinados para fins de teste. Esse helper gera um UUID nonce e um timestamp atual, retornando um *UnsignedEnvelope* que pode ser usado em testes unitarios para verificar comportamento dos handlers sem montar o pipeline Signal completo.
+O pacote `@spraxium/signal` exporta um helper _createSignalPayload_ que constrói envelopes não assinados para fins de teste. Esse helper gera um UUID nonce e um timestamp atual, retornando um _UnsignedEnvelope_ que pode ser usado em testes unitarios para verificar comportamento dos handlers sem montar o pipeline Signal completo.
 
 ```typescript filename="test/guild-config.signal.test.ts"
-import { createSignalPayload } from '@spraxium/signal';
+import { createSignalPayload } from "@spraxium/signal";
 
-const testEnvelope = createSignalPayload('config.update', '123456789012345678', {
-  prefix: '!', language: 'en', });
+const testEnvelope = createSignalPayload(
+  "config.update",
+  "123456789012345678",
+  {
+    prefix: "!",
+    language: "en",
+  },
+);
 
 // testEnvelope possui: v, event, guildId, nonce, sentAt, payload
 // Sem campo signature (nao assinado, apenas para testes)

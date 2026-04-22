@@ -4,7 +4,7 @@ description: |
   Organiza archivos HTTP con fronteras de transporte claras y crecimiento mantenible.
   Mantén AppModule como dueño único de metadata separando controllers, services, DTOs y middleware.
 order: 3
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Por qué estructurar temprano
@@ -19,33 +19,69 @@ Esto importa más en módulos HTTP que en código típico de comandos de Discord
 
 <FolderStructure title="Arquitectura HTTP sugerida">
   <Folder name="src" open>
-    <File name="app.module.ts" comment="Importa HttpModule, hospeda @HttpClientModule con controllers/services/guards/middleware" />
-    <File name="main.ts" comment="Punto de entrada de bootstrap de la aplicación" />
+    <File
+      name="app.module.ts"
+      comment="Importa HttpModule, hospeda @HttpClientModule con controllers/services/guards/middleware"
+    />
+    <File
+      name="main.ts"
+      comment="Punto de entrada de bootstrap de la aplicación"
+    />
     <Folder name="http" open>
       <Folder name="controllers" open>
-        <File name="guild-http.controller.ts" comment="Contratos de ruta, mapeo de parámetros y shaping de respuesta" />
-        <File name="moderation-http.controller.ts" comment="Endpoints de ban, kick, timeout y gestión de roles" />
+        <File
+          name="guild-http.controller.ts"
+          comment="Contratos de ruta, mapeo de parámetros y shaping de respuesta"
+        />
+        <File
+          name="moderation-http.controller.ts"
+          comment="Endpoints de ban, kick, timeout y gestión de roles"
+        />
       </Folder>
       <Folder name="services" open>
-        <File name="guild-http.service.ts" comment="Operaciones de negocio compartidas por rutas de guild" />
-        <File name="moderation-http.service.ts" comment="Lógica de moderación consumiendo BotBridge" />
+        <File
+          name="guild-http.service.ts"
+          comment="Operaciones de negocio compartidas por rutas de guild"
+        />
+        <File
+          name="moderation-http.service.ts"
+          comment="Lógica de moderación consumiendo BotBridge"
+        />
       </Folder>
       <Folder name="dto" open>
-        <File name="update-guild-config.dto.ts" comment="Contrato de validación para PATCH de config de guild" />
-        <File name="ban-member.dto.ts" comment="Contrato de validación para POST de ban" />
+        <File
+          name="update-guild-config.dto.ts"
+          comment="Contrato de validación para PATCH de config de guild"
+        />
+        <File
+          name="ban-member.dto.ts"
+          comment="Contrato de validación para POST de ban"
+        />
       </Folder>
       <Folder name="middleware" open>
-        <File name="request-audit.middleware.ts" comment="Middleware de ruta para logging de auditoría" />
+        <File
+          name="request-audit.middleware.ts"
+          comment="Middleware de ruta para logging de auditoría"
+        />
       </Folder>
       <Folder name="errors" open>
-        <File name="guild-locked.error.ts" comment="Subclase personalizada de ForbiddenError para guilds bloqueadas" />
+        <File
+          name="guild-locked.error.ts"
+          comment="Subclase personalizada de ForbiddenError para guilds bloqueadas"
+        />
       </Folder>
     </Folder>
   </Folder>
   <Folder name="config" open>
-    <File name="http.config.ts" comment="Entrada única defineHttp exportada como httpPlugin" />
+    <File
+      name="http.config.ts"
+      comment="Entrada única defineHttp exportada como httpPlugin"
+    />
   </Folder>
-  <File name="spraxium.config.ts" comment="Registra httpPlugin en plugins de defineConfig" />
+  <File
+    name="spraxium.config.ts"
+    comment="Registra httpPlugin en plugins de defineConfig"
+  />
 </FolderStructure>
 
 ## Rol de cada carpeta
@@ -58,15 +94,24 @@ Entender qué posee cada directorio previene fugas de responsabilidad a través 
 </Dropdown>
 
 <Dropdown title="services/: Reglas de negocio y lógica de dominio">
-  Clases decoradas con *@Injectable*. Contienen reglas de negocio, llamadas a *BotBridge* y transformaciones de datos. Se resuelven por *RouteRegistry* antes que controllers. Decláralos en *HttpClientModule({ services })* e inyéctalos vía constructor.
+  Clases decoradas con *@Injectable*. Contienen reglas de negocio, llamadas a
+  *BotBridge* y transformaciones de datos. Se resuelven por *RouteRegistry*
+  antes que controllers. Decláralos en *HttpClientModule({services})* e
+  inyéctalos vía constructor.
 </Dropdown>
 
 <Dropdown title="dto/: Contratos de validación de input">
-  Clases con decorators de *class-validator*. Consumidas por *@HttpBody(DtoClass)* en métodos de controller. Un DTO por shape de mutación. Los DTOs no deben contener lógica de negocio, solo reglas estructurales y de restricción.
+  Clases con decorators de *class-validator*. Consumidas por
+  *@HttpBody(DtoClass)* en métodos de controller. Un DTO por shape de mutación.
+  Los DTOs no deben contener lógica de negocio, solo reglas estructurales y de
+  restricción.
 </Dropdown>
 
 <Dropdown title="middleware/: Comportamiento transversal por ruta">
-  Clases que implementan *HttpMiddleware*. Usadas como middleware global o resueltas a través de *middlewareProviders*. Mantén middleware stateless cuando sea posible. Estado como contadores de rate-limit debe aislarse por instancia.
+  Clases que implementan *HttpMiddleware*. Usadas como middleware global o
+  resueltas a través de *middlewareProviders*. Mantén middleware stateless
+  cuando sea posible. Estado como contadores de rate-limit debe aislarse por
+  instancia.
 </Dropdown>
 
 <Dropdown title="errors/: Subclases de error específicas del dominio">
@@ -86,23 +131,26 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
 export class GuildHttpController {
-  constructor(private readonly service: GuildHttpService) {}
+constructor(private readonly service: GuildHttpService) {}
 
-  @HttpGet('/:guildId')
-  async getGuild(@HttpParam('guildId') guildId: string) {
-    const guild = await this.service.getGuildSummary(guildId);
-    if (!guild) throw new NotFoundError('Guild not found');
-    return { ok: true, ...guild };
-  }
-
-  @HttpPatch('/:guildId/config')
-  @HttpStatus(200)
-  async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
-    return this.service.updateConfig(guildId, body);
-  }
+@HttpGet('/:guildId')
+async getGuild(@HttpParam('guildId') guildId: string) {
+const guild = await this.service.getGuildSummary(guildId);
+if (!guild) throw new NotFoundError('Guild not found');
+return { ok: true, ...guild };
 }
-```
+
+@HttpPatch('/:guildId/config')
+@HttpStatus(200)
+async updateConfig(
+  @HttpParam('guildId') guildId: string,
+  @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+) {
+return this.service.updateConfig(guildId, body);
+}
+}
+
+````
   </Tab>
   <Tab label="http/services/guild-http.service.ts" language="typescript">
 ```typescript filename="http/services/guild-http.service.ts"
@@ -126,7 +174,8 @@ export class GuildHttpService {
     return { ok: true, guildId, applied: dto };
   }
 }
-```
+````
+
   </Tab>
   <Tab label="http/dto/update-guild-config.dto.ts" language="typescript">
 ```typescript filename="http/dto/update-guild-config.dto.ts"
@@ -137,10 +186,11 @@ export class UpdateGuildConfigDto {
   @Length(1, 5)
   prefix!: string;
 
-  @IsOptional()
-  @IsBoolean()
-  maintenanceMode?: boolean;
+@IsOptional()
+@IsBoolean()
+maintenanceMode?: boolean;
 }
+
 ```
   </Tab>
 </CodeTabs>
@@ -206,3 +256,4 @@ Cuando la superficie API crece más allá de unos pocos controllers, las carpeta
 ## Página siguiente
 
 Continúa con [Pipeline de Rutas y Decorators](/guide/http-routing-runtime-pipeline).
+```

@@ -4,18 +4,18 @@ description: |
   Opera Signal Client de forma segura bajo tráfico de producción con fallback persistente.
   Configura stores de archivo o Redis, backoff exponencial, manejo de dead-letter y shutdown graceful.
 order: 2
-category: '@spraxium/signal-client'
+category: "@spraxium/signal-client"
 ---
 
 ## Modelo de confiabilidad
 
-*Signal Client* combina rotación de webhooks con persistencia opcional de fallback para que el tráfico en ráfagas y las fallas temporales no se conviertan en actualizaciones perdidas del lado del bot. El diseño es intencionalmente en capas: primero intenta entrega en vivo a través del pool, luego encola los envelopes fallidos y los reintenta con backoff exponencial. Esto le da a los equipos de bot un camino práctico hacia la confiabilidad sin forzar a cada servicio productor a implementar su propio scheduler de reintentos.
+_Signal Client_ combina rotación de webhooks con persistencia opcional de fallback para que el tráfico en ráfagas y las fallas temporales no se conviertan en actualizaciones perdidas del lado del bot. El diseño es intencionalmente en capas: primero intenta entrega en vivo a través del pool, luego encola los envelopes fallidos y los reintenta con backoff exponencial. Esto le da a los equipos de bot un camino práctico hacia la confiabilidad sin forzar a cada servicio productor a implementar su propio scheduler de reintentos.
 
-El *FallbackWorker* es la primitiva central de confiabilidad. Cuando el sistema de fallback está habilitado y una llamada a *send* falla, el worker persiste el envelope en un *FallbackStore* y lo reintenta en lotes en segundo plano. Después de agotar el número máximo de intentos, el envelope se mueve a una partición dead-letter para inspección manual.
+El _FallbackWorker_ es la primitiva central de confiabilidad. Cuando el sistema de fallback está habilitado y una llamada a _send_ falla, el worker persiste el envelope en un _FallbackStore_ y lo reintenta en lotes en segundo plano. Después de agotar el número máximo de intentos, el envelope se mueve a una partición dead-letter para inspección manual.
 
 ## Referencia de configuración de fallback
 
-El objeto *FallbackConfig* controla cada aspecto del sistema de retry. Todos los campos excepto *enabled* y *store* tienen valores por defecto sensatos, así que una configuración mínima solo necesita activar la funcionalidad y elegir un backend de persistencia.
+El objeto _FallbackConfig_ controla cada aspecto del sistema de retry. Todos los campos excepto _enabled_ y _store_ tienen valores por defecto sensatos, así que una configuración mínima solo necesita activar la funcionalidad y elegir un backend de persistencia.
 
 <Table>
   <TableHead>
@@ -31,56 +31,82 @@ El objeto *FallbackConfig* controla cada aspecto del sistema de retry. Todos los
       <TableCell>*enabled*</TableCell>
       <TableCell>`boolean`</TableCell>
       <TableCell>requerido</TableCell>
-      <TableCell>Activa el sistema de fallback. Cuando es `true`, el worker se inicia en la construcción y comienza a procesar inmediatamente.</TableCell>
+      <TableCell>
+        Activa el sistema de fallback. Cuando es `true`, el worker se inicia en
+        la construcción y comienza a procesar inmediatamente.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*store*</TableCell>
       <TableCell>`'file' | 'redis'`</TableCell>
       <TableCell>requerido</TableCell>
-      <TableCell>Backend de persistencia. File usa un archivo JSON local, Redis usa claves compartidas con prefijo `spraxium:signal:fallback:`.</TableCell>
+      <TableCell>
+        Backend de persistencia. File usa un archivo JSON local, Redis usa
+        claves compartidas con prefijo `spraxium:signal:fallback:`.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*retryIntervalMs*</TableCell>
       <TableCell>`number`</TableCell>
       <TableCell>`5000`</TableCell>
-      <TableCell>Intervalo base entre ciclos de procesamiento de lotes de retry. También se usa como base para la fórmula de backoff exponencial.</TableCell>
+      <TableCell>
+        Intervalo base entre ciclos de procesamiento de lotes de retry. También
+        se usa como base para la fórmula de backoff exponencial.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*maxAttempts*</TableCell>
       <TableCell>`number`</TableCell>
       <TableCell>`10`</TableCell>
-      <TableCell>Máximo de intentos de retry antes de mover un envelope a dead-letter. Después de este umbral, se requiere intervención manual.</TableCell>
+      <TableCell>
+        Máximo de intentos de retry antes de mover un envelope a dead-letter.
+        Después de este umbral, se requiere intervención manual.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*batchSize*</TableCell>
       <TableCell>`number`</TableCell>
       <TableCell>`20`</TableCell>
-      <TableCell>Máximo de envelopes reclamados por ciclo de procesamiento. Lotes más grandes mejoran el throughput al costo de presión en ráfagas.</TableCell>
+      <TableCell>
+        Máximo de envelopes reclamados por ciclo de procesamiento. Lotes más
+        grandes mejoran el throughput al costo de presión en ráfagas.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*events*</TableCell>
       <TableCell>`string[]`</TableCell>
       <TableCell>`undefined`</TableCell>
-      <TableCell>Filtro opcional de nombres de evento. Cuando se establece, solo los eventos en esta lista se encolan en caso de falla. Todos los demás eventos fallan normalmente.</TableCell>
+      <TableCell>
+        Filtro opcional de nombres de evento. Cuando se establece, solo los
+        eventos en esta lista se encolan en caso de falla. Todos los demás
+        eventos fallan normalmente.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*filePath*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>`'.spraxium-signal-fallback.json'`</TableCell>
-      <TableCell>Ruta al archivo JSON de fallback. Solo se usa cuando *store* es `'file'`. El directorio se crea automáticamente si no existe.</TableCell>
+      <TableCell>
+        Ruta al archivo JSON de fallback. Solo se usa cuando *store* es
+        `'file'`. El directorio se crea automáticamente si no existe.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*redisUrl*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>`undefined`</TableCell>
-      <TableCell>URL de conexión para Redis. Solo se referencia para documentación. Debes proporcionar una instancia de *RedisFallbackStore* como segundo argumento del constructor.</TableCell>
+      <TableCell>
+        URL de conexión para Redis. Solo se referencia para documentación. Debes
+        proporcionar una instancia de *RedisFallbackStore* como segundo
+        argumento del constructor.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Elegir un fallback store
 
-La interfaz *FallbackStore* define un contrato de persistencia con ocho métodos: *enqueue*, *claimBatch*, *markProcessed*, *reschedule*, *moveToDeadLetter*, *has*, *pendingCount* y *deadLetterCount*. Dos implementaciones integradas cubren los escenarios de despliegue más comunes. También puedes implementar la interfaz tú mismo para backends personalizados.
+La interfaz _FallbackStore_ define un contrato de persistencia con ocho métodos: _enqueue_, _claimBatch_, _markProcessed_, _reschedule_, _moveToDeadLetter_, _has_, _pendingCount_ y _deadLetterCount_. Dos implementaciones integradas cubren los escenarios de despliegue más comunes. También puedes implementar la interfaz tú mismo para backends personalizados.
 
 <CodeTabs>
   <Tab label="Store de Archivo">
@@ -88,9 +114,21 @@ La interfaz *FallbackStore* define un contrato de persistencia con ocho métodos
     import { SignalClient } from '@spraxium/signal-client';
 
     const client = new SignalClient({
-      webhookUrls: [process.env.SIGNAL_WEBHOOK_URL_1!], hmacSecret: process.env.SIGNAL_HMAC_SECRET!, rateLimitStrategy: 'wait', fallback: {
-        enabled: true, store: 'file', filePath: '.spraxium-signal-fallback.json', retryIntervalMs: 5_000, maxAttempts: 10, batchSize: 20, events: ['config.update', 'billing.status.changed'], }, });
+      webhookUrls: [process.env.SIGNAL_WEBHOOK_URL_1!],
+      hmacSecret: process.env.SIGNAL_HMAC_SECRET!,
+      rateLimitStrategy: 'wait',
+      fallback: {
+        enabled: true,
+        store: 'file',
+        filePath: '.spraxium-signal-fallback.json',
+        retryIntervalMs: 5_000,
+        maxAttempts: 10,
+        batchSize: 20,
+        events: ['config.update', 'billing.status.changed'],
+      },
+    });
     ```
+
   </Tab>
   <Tab label="Store Redis">
     ```typescript filename="signal-client-redis.ts"
@@ -102,21 +140,32 @@ La interfaz *FallbackStore* define un contrato de persistencia con ocho métodos
 
     const client = new SignalClient(
       {
-        webhookUrls: [process.env.SIGNAL_WEBHOOK_URL_1!], hmacSecret: process.env.SIGNAL_HMAC_SECRET!, rateLimitStrategy: 'wait', fallback: {
-          enabled: true, store: 'redis', retryIntervalMs: 5_000, maxAttempts: 10, }, }, new RedisFallbackStore(redis), );
+        webhookUrls: [process.env.SIGNAL_WEBHOOK_URL_1!],
+        hmacSecret: process.env.SIGNAL_HMAC_SECRET!,
+        rateLimitStrategy: 'wait',
+        fallback: {
+          enabled: true,
+          store: 'redis',
+          retryIntervalMs: 5_000,
+          maxAttempts: 10,
+        },
+      },
+      new RedisFallbackStore(redis),
+    );
     ```
+
   </Tab>
 </CodeTabs>
 
-*FileFallbackStore* mantiene entradas pendientes, dead-letter y procesadas en un solo archivo JSON. Carga el archivo de forma lazy en el primer acceso y escribe después de cada mutación. La lista de procesados se recorta automáticamente a las últimas 5000 entradas cuando excede 10000, previniendo crecimiento ilimitado. Este store funciona bien para desarrollo local y servicios pequeños de instancia única.
+_FileFallbackStore_ mantiene entradas pendientes, dead-letter y procesadas en un solo archivo JSON. Carga el archivo de forma lazy en el primer acceso y escribe después de cada mutación. La lista de procesados se recorta automáticamente a las últimas 5000 entradas cuando excede 10000, previniendo crecimiento ilimitado. Este store funciona bien para desarrollo local y servicios pequeños de instancia única.
 
-*RedisFallbackStore* persiste entradas como claves individuales de Redis bajo el prefijo `spraxium:signal:fallback:pending:`, con entradas dead-letter bajo `spraxium:signal:fallback:deadletter:` e IDs procesados en un set en `spraxium:signal:fallback:processed`. Redis es preferible para emisores de múltiples instancias porque el estado de fallback se comparte entre réplicas sin coordinación del sistema de archivos.
+_RedisFallbackStore_ persiste entradas como claves individuales de Redis bajo el prefijo `spraxium:signal:fallback:pending:`, con entradas dead-letter bajo `spraxium:signal:fallback:deadletter:` e IDs procesados en un set en `spraxium:signal:fallback:processed`. Redis es preferible para emisores de múltiples instancias porque el estado de fallback se comparte entre réplicas sin coordinación del sistema de archivos.
 
 ## Backoff exponencial y jitter
 
 Cuando un intento de retry falla, el worker reprograma el envelope usando una fórmula de backoff exponencial con jitter aditivo. La fórmula previene tormentas de retry al distribuir los intentos en intervalos progresivamente más largos, mientras el componente de jitter previene que múltiples envelopes reintenten en el mismo instante.
 
-La fórmula exacta es: `retryIntervalMs * 2^min(attempt, 8) + random() * retryIntervalMs * 0.3`. El exponente tiene un tope en 8 para prevenir retrasos absurdamente largos en conteos de intentos altos. Con el *retryIntervalMs* por defecto de `5000` y *maxAttempts* de `10`, el backoff máximo antes del jitter es aproximadamente 1280 segundos (unos 21 minutos) al octavo intento.
+La fórmula exacta es: `retryIntervalMs * 2^min(attempt, 8) + random() * retryIntervalMs * 0.3`. El exponente tiene un tope en 8 para prevenir retrasos absurdamente largos en conteos de intentos altos. Con el _retryIntervalMs_ por defecto de `5000` y _maxAttempts_ de `10`, el backoff máximo antes del jitter es aproximadamente 1280 segundos (unos 21 minutos) al octavo intento.
 
 <Table>
   <TableHead>
@@ -163,21 +212,25 @@ La fórmula exacta es: `retryIntervalMs * 2^min(attempt, 8) + random() * retryIn
 
 ## Manejo de dead-letter
 
-Cuando un envelope agota los *maxAttempts* configurados, el worker lo mueve a la partición dead-letter vía *moveToDeadLetter*. La entrada original se remueve de la cola pendiente y se almacena con la última razón de error adjunta. Los envelopes dead-letter nunca se reintentan automáticamente, por lo que requieren investigación manual.
+Cuando un envelope agota los _maxAttempts_ configurados, el worker lo mueve a la partición dead-letter vía _moveToDeadLetter_. La entrada original se remueve de la cola pendiente y se almacena con la última razón de error adjunta. Los envelopes dead-letter nunca se reintentan automáticamente, por lo que requieren investigación manual.
 
-En el store de archivo, las entradas dead-letter se acumulan en el array `deadLetter` del archivo JSON. En el store Redis, se mueven a claves individuales bajo `spraxium:signal:fallback:deadletter:`. Ambos stores rastrean el conteo vía *deadLetterCount*, que deberías monitorear como parte de tus verificaciones de salud operacional.
+En el store de archivo, las entradas dead-letter se acumulan en el array `deadLetter` del archivo JSON. En el store Redis, se mueven a claves individuales bajo `spraxium:signal:fallback:deadletter:`. Ambos stores rastrean el conteo vía _deadLetterCount_, que deberías monitorear como parte de tus verificaciones de salud operacional.
 
-El método *stats* en el *FallbackWorker* retorna tanto los conteos de *pending* como de *deadLetter* en una sola llamada. Exponer estos datos a tu sistema de monitoreo es la forma más simple de detectar fallas de entrega persistentes antes de que afecten el comportamiento del bot visible para los usuarios.
+El método _stats_ en el _FallbackWorker_ retorna tanto los conteos de _pending_ como de _deadLetter_ en una sola llamada. Exponer estos datos a tu sistema de monitoreo es la forma más simple de detectar fallas de entrega persistentes antes de que afecten el comportamiento del bot visible para los usuarios.
 
 ```typescript filename="fallback-monitoring.ts"
 const { pending, deadLetter } = await client.fallback!.stats();
 
 if (deadLetter > 0) {
-  logger.warn(`Signal fallback: ${deadLetter} envelopes dead-letter requieren investigación`);
+  logger.warn(
+    `Signal fallback: ${deadLetter} envelopes dead-letter requieren investigación`,
+  );
 }
 
 if (pending > 100) {
-  logger.warn(`Signal fallback: ${pending} envelopes pendientes, posible falla de entrega sostenida`);
+  logger.warn(
+    `Signal fallback: ${pending} envelopes pendientes, posible falla de entrega sostenida`,
+  );
 }
 ```
 
@@ -185,16 +238,33 @@ if (pending > 100) {
 
 <Steps>
   <Step title="Enqueue del envelope en caso de falla">
-    Cuando una llamada a *send* lanza una excepción y el fallback está habilitado, el worker verifica si el evento coincide con el filtro *events* (o si no hay filtro establecido, todos los eventos califican). Luego deduplica por nonce para prevenir doble-enqueue y crea una *FallbackEntry* con el envelope, nombre de evento, ID de guild, cero intentos y un *nextAttemptAt* establecido a ahora más *retryIntervalMs*.
+    Cuando una llamada a *send* lanza una excepción y el fallback está
+    habilitado, el worker verifica si el evento coincide con el filtro *events*
+    (o si no hay filtro establecido, todos los eventos califican). Luego
+    deduplica por nonce para prevenir doble-enqueue y crea una *FallbackEntry*
+    con el envelope, nombre de evento, ID de guild, cero intentos y un
+    *nextAttemptAt* establecido a ahora más *retryIntervalMs*.
   </Step>
   <Step title="Reclamo de lote y retry">
-    En cada ciclo de procesamiento (cada *retryIntervalMs*), el worker llama a *claimBatch* para extraer hasta *batchSize* entradas cuyo *nextAttemptAt* haya pasado. Para cada entrada, llama a *send* en el client con `skipFallback: true` para prevenir loops de re-enqueue. Si el envío tiene éxito, la entrada se marca como procesada.
+    En cada ciclo de procesamiento (cada *retryIntervalMs*), el worker llama a
+    *claimBatch* para extraer hasta *batchSize* entradas cuyo *nextAttemptAt*
+    haya pasado. Para cada entrada, llama a *send* en el client con
+    `skipFallback: true` para prevenir loops de re-enqueue. Si el envío tiene
+    éxito, la entrada se marca como procesada.
   </Step>
   <Step title="Reprogramación exponencial en caso de falla">
-    Cuando un intento de retry falla, el worker computa el próximo tiempo de intento usando la fórmula de backoff exponencial con jitter. El conteo de intentos de la entrada se incrementa, la razón de error se almacena en *lastError*, y la entrada se reprograma vía *reschedule*. Esto continúa hasta que la entrega tenga éxito o el límite de intentos se alcance.
+    Cuando un intento de retry falla, el worker computa el próximo tiempo de
+    intento usando la fórmula de backoff exponencial con jitter. El conteo de
+    intentos de la entrada se incrementa, la razón de error se almacena en
+    *lastError*, y la entrada se reprograma vía *reschedule*. Esto continúa
+    hasta que la entrega tenga éxito o el límite de intentos se alcance.
   </Step>
   <Step title="Dead-letter al agotar intentos">
-    Cuando el conteo de intentos alcanza *maxAttempts*, el worker llama a *moveToDeadLetter* con la razón del error final. La entrada se remueve permanentemente de la cola pendiente y se coloca en la partición dead-letter. Desde este punto, solo intervención manual o un script personalizado puede reprocesarla.
+    Cuando el conteo de intentos alcanza *maxAttempts*, el worker llama a
+    *moveToDeadLetter* con la razón del error final. La entrada se remueve
+    permanentemente de la cola pendiente y se coloca en la partición
+    dead-letter. Desde este punto, solo intervención manual o un script
+    personalizado puede reprocesarla.
   </Step>
 </Steps>
 
@@ -210,39 +280,70 @@ if (pending > 100) {
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>Eventos de bajo volumen con tolerancia a recuperación manual</TableCell>
+      <TableCell>
+        Eventos de bajo volumen con tolerancia a recuperación manual
+      </TableCell>
       <TableCell>Estrategia `'skip'`, fallback deshabilitado</TableCell>
-      <TableCell>Menor complejidad. El productor debe poseer la lógica de retry o aceptar pérdida ocasional.</TableCell>
+      <TableCell>
+        Menor complejidad. El productor debe poseer la lógica de retry o aceptar
+        pérdida ocasional.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Ráfagas moderadas donde se espera throttle temporal</TableCell>
-      <TableCell>Estrategia `'wait'`, pool multi-webhook, fallback deshabilitado</TableCell>
-      <TableCell>Absorbe picos cortos de rate-limit automáticamente. Latencia ligeramente mayor bajo presión.</TableCell>
+      <TableCell>
+        Estrategia `'wait'`, pool multi-webhook, fallback deshabilitado
+      </TableCell>
+      <TableCell>
+        Absorbe picos cortos de rate-limit automáticamente. Latencia ligeramente
+        mayor bajo presión.
+      </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Eventos críticos de negocio con baja tolerancia a pérdida</TableCell>
-      <TableCell>Estrategia `'wait'`, fallback habilitado con store de archivo</TableCell>
-      <TableCell>Retry persistente con monitoreo de dead-letter. Bueno para despliegues de instancia única.</TableCell>
+      <TableCell>
+        Eventos críticos de negocio con baja tolerancia a pérdida
+      </TableCell>
+      <TableCell>
+        Estrategia `'wait'`, fallback habilitado con store de archivo
+      </TableCell>
+      <TableCell>
+        Retry persistente con monitoreo de dead-letter. Bueno para despliegues
+        de instancia única.
+      </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Servicios multi-instancia con requisitos de estado compartido</TableCell>
-      <TableCell>Estrategia `'wait'`, fallback habilitado con store Redis</TableCell>
-      <TableCell>Estado de fallback compartido entre réplicas. Requiere infraestructura Redis.</TableCell>
+      <TableCell>
+        Servicios multi-instancia con requisitos de estado compartido
+      </TableCell>
+      <TableCell>
+        Estrategia `'wait'`, fallback habilitado con store Redis
+      </TableCell>
+      <TableCell>
+        Estado de fallback compartido entre réplicas. Requiere infraestructura
+        Redis.
+      </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Eventos mixtos de alto throughput con confiabilidad selectiva</TableCell>
-      <TableCell>Fallback habilitado con filtro *events* solo para nombres críticos</TableCell>
-      <TableCell>Enfoca recursos de retry en eventos importantes. Eventos no críticos fallan rápido sin sobrecarga de cola.</TableCell>
+      <TableCell>
+        Eventos mixtos de alto throughput con confiabilidad selectiva
+      </TableCell>
+      <TableCell>
+        Fallback habilitado con filtro *events* solo para nombres críticos
+      </TableCell>
+      <TableCell>
+        Enfoca recursos de retry en eventos importantes. Eventos no críticos
+        fallan rápido sin sobrecarga de cola.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Shutdown graceful
 
-Llama a *destroy* en el client durante la secuencia de shutdown de tu aplicación para detener el *FallbackWorker* limpiamente. Esto limpia el timer interno de `setInterval` y previene loops de retry parciales durante despliegues rolling. El worker usa `timer.unref()` para evitar mantener el proceso de Node.js vivo, pero destruir explícitamente el client asegura una limpieza determinista.
+Llama a _destroy_ en el client durante la secuencia de shutdown de tu aplicación para detener el _FallbackWorker_ limpiamente. Esto limpia el timer interno de `setInterval` y previene loops de retry parciales durante despliegues rolling. El worker usa `timer.unref()` para evitar mantener el proceso de Node.js vivo, pero destruir explícitamente el client asegura una limpieza determinista.
 
 ```typescript filename="graceful-shutdown.ts"
-process.on('SIGTERM', () => {
+process.on("SIGTERM", () => {
   client.destroy();
   process.exit(0);
 });
@@ -254,18 +355,40 @@ Si omites la llamada a destroy, los ciclos de retry pendientes pueden ejecutarse
 
 <Steps>
   <Step title="Observar el comportamiento del pool continuamente">
-    Rastrea el estado del pool vía `client.pool.status()` para entender qué endpoints de webhook están sanos, throttled o indisponibles. Correlaciona patrones de rate-limit con la carga de webhooks del lado de Discord para determinar si necesitas agregar más webhooks o reducir la frecuencia de envío.
+    Rastrea el estado del pool vía `client.pool.status()` para entender qué
+    endpoints de webhook están sanos, throttled o indisponibles. Correlaciona
+    patrones de rate-limit con la carga de webhooks del lado de Discord para
+    determinar si necesitas agregar más webhooks o reducir la frecuencia de
+    envío.
   </Step>
   <Step title="Monitorear el crecimiento de la cola de fallback">
-    Cuando el fallback está habilitado, conteos de *pending* crecientes son tu alerta temprana de fallas de transporte sostenidas. Expón la salida del método *stats* a tu sistema de monitoreo y establece alertas para umbrales apropiados a tu volumen de eventos. Un conteo de pending que se mantiene por encima de cero por más de unos minutos usualmente indica un problema sistémico.
+    Cuando el fallback está habilitado, conteos de *pending* crecientes son tu
+    alerta temprana de fallas de transporte sostenidas. Expón la salida del
+    método *stats* a tu sistema de monitoreo y establece alertas para umbrales
+    apropiados a tu volumen de eventos. Un conteo de pending que se mantiene por
+    encima de cero por más de unos minutos usualmente indica un problema
+    sistémico.
   </Step>
   <Step title="Investigar la acumulación de dead-letter">
-    El crecimiento de dead-letter debe activar investigación inmediata. Revisa el *lastError* almacenado en cada entrada dead-letter para determinar si las fallas son transitorias (rate limits, errores de red) o permanentes (URL de webhook inválida, secreto cambiado). Para el store de archivo, inspecciona el array `deadLetter` en el archivo JSON directamente. Para Redis, escanea claves bajo `spraxium:signal:fallback:deadletter:*`.
+    El crecimiento de dead-letter debe activar investigación inmediata. Revisa
+    el *lastError* almacenado en cada entrada dead-letter para determinar si las
+    fallas son transitorias (rate limits, errores de red) o permanentes (URL de
+    webhook inválida, secreto cambiado). Para el store de archivo, inspecciona
+    el array `deadLetter` en el archivo JSON directamente. Para Redis, escanea
+    claves bajo `spraxium:signal:fallback:deadletter:*`.
   </Step>
   <Step title="Ajustar ventanas de retry por criticidad">
-    Eventos de alto impacto como billing o escalamiento de moderación justifican más *maxAttempts* y menor *retryIntervalMs* para reintentos iniciales más rápidos. Eventos de bajo impacto deben usar configuraciones más ligeras para prevenir que la presión de cola ahogue el tráfico crítico. Usa el filtro *events* para aplicar fallback solo a los nombres de evento que lo ameriten.
+    Eventos de alto impacto como billing o escalamiento de moderación justifican
+    más *maxAttempts* y menor *retryIntervalMs* para reintentos iniciales más
+    rápidos. Eventos de bajo impacto deben usar configuraciones más ligeras para
+    prevenir que la presión de cola ahogue el tráfico crítico. Usa el filtro
+    *events* para aplicar fallback solo a los nombres de evento que lo ameriten.
   </Step>
   <Step title="Destruir emisores durante el shutdown">
-    Siempre llama a `client.destroy()` en tu handler de SIGTERM o shutdown graceful. Esto detiene el timer del fallback worker y previene procesamiento duplicado durante despliegues rolling. En entornos serverless donde el proceso puede congelarse en lugar de terminarse, considera hacer flush del estado pendiente antes de que el handler retorne.
+    Siempre llama a `client.destroy()` en tu handler de SIGTERM o shutdown
+    graceful. Esto detiene el timer del fallback worker y previene procesamiento
+    duplicado durante despliegues rolling. En entornos serverless donde el
+    proceso puede congelarse en lugar de terminarse, considera hacer flush del
+    estado pendiente antes de que el handler retorne.
   </Step>
 </Steps>

@@ -9,104 +9,156 @@ category: Slash Commands
 
 ## The command definition class
 
-A slash command definition is a class decorated with *@SlashCommand* that declares what Discord should show in the command picker. The class itself contains no execution logic. Its purpose is to hold metadata that the *SlashRegistrar* reads at startup to build the JSON payload pushed to the Discord REST API. Options are declared as method decorators on a *build()* method, and subcommands are declared on named methods. The class can be imported by handlers, autocomplete handlers, and test fixtures without pulling in service dependencies.
+A slash command definition is a class decorated with _@SlashCommand_ that declares what Discord should show in the command picker. The class itself contains no execution logic. Its purpose is to hold metadata that the _SlashRegistrar_ reads at startup to build the JSON payload pushed to the Discord REST API. Options are declared as method decorators on a _build()_ method, and subcommands are declared on named methods. The class can be imported by handlers, autocomplete handlers, and test fixtures without pulling in service dependencies.
 
-The *@SlashCommand* decorator accepts a *SlashCommandConfig* object with the following properties. Every command must provide *name* and *description* at minimum. The remaining properties control permission defaults, DM availability, NSFW flagging, guild-specific registration, and localization.
+The _@SlashCommand_ decorator accepts a _SlashCommandConfig_ object with the following properties. Every command must provide _name_ and _description_ at minimum. The remaining properties control permission defaults, DM availability, NSFW flagging, guild-specific registration, and localization.
 
 <DropdownGroup>
   <Dropdown title="name, string (required)">
-    The command name shown in the Discord picker. Must be lowercase, between 1 and 32 characters, with no spaces. This is the identifier Discord uses to route the interaction to your bot.
-    Changing a command name after registration creates a new entry in Discord's registry; the old name is not automatically removed until you force a re-registration.
+    The command name shown in the Discord picker. Must be lowercase, between 1
+    and 32 characters, with no spaces. This is the identifier Discord uses to
+    route the interaction to your bot. Changing a command name after
+    registration creates a new entry in Discord's registry; the old name is not
+    automatically removed until you force a re-registration.
   </Dropdown>
   <Dropdown title="description, string (required)">
-    The description shown below the command name in the Discord picker. Accepts -00 characters. Write a concise, action-oriented description so users understand the command's purpose before invoking it.
-    Descriptions are indexed by Discord for search, so clear writing improves command discoverability.
+    The description shown below the command name in the Discord picker. Accepts
+    -00 characters. Write a concise, action-oriented description so users
+    understand the command's purpose before invoking it. Descriptions are
+    indexed by Discord for search, so clear writing improves command
+    discoverability.
   </Dropdown>
   <Dropdown title="defaultMemberPermissions, bigint | number | null">
-    Bitfield of permissions required to see and use the command. Use `PermissionFlagsBits` from discord.js to compose the value. When set, Discord hides the command from members who lack the specified permissions.
-    Set to `null` to make the command visible to everyone by default. Guild administrators can override this per-guild in server settings.
+    Bitfield of permissions required to see and use the command. Use
+    `PermissionFlagsBits` from discord.js to compose the value. When set,
+    Discord hides the command from members who lack the specified permissions.
+    Set to `null` to make the command visible to everyone by default. Guild
+    administrators can override this per-guild in server settings.
   </Dropdown>
   <Dropdown title="dmPermission, boolean">
-    Controls whether the command is available in direct messages. Defaults to `true` when omitted. Set to `false` for commands that require a guild context, such as those reading guild members or channels.
-    This flag has no effect on guild-only commands registered via the *guild* property.
+    Controls whether the command is available in direct messages. Defaults to
+    `true` when omitted. Set to `false` for commands that require a guild
+    context, such as those reading guild members or channels. This flag has no
+    effect on guild-only commands registered via the *guild* property.
   </Dropdown>
   <Dropdown title="nsfw, boolean">
-    Marks the command as age-restricted. When `true`, the command only appears in NSFW-designated channels and in DMs for users who have acknowledged age restrictions.
-    Use this flag for commands presenting adult-only content to comply with Discord's policies.
+    Marks the command as age-restricted. When `true`, the command only appears
+    in NSFW-designated channels and in DMs for users who have acknowledged age
+    restrictions. Use this flag for commands presenting adult-only content to
+    comply with Discord's policies.
   </Dropdown>
   <Dropdown title="guild, string">
-    Guild ID for guild-specific command registration. When provided, the command is registered only to that guild and bypasses global registration. Guild commands propagate in seconds instead of the up-to-one-hour delay of global commands.
-    Remove the *guild* property before deploying to production to register the command globally.
+    Guild ID for guild-specific command registration. When provided, the command
+    is registered only to that guild and bypasses global registration. Guild
+    commands propagate in seconds instead of the up-to-one-hour delay of global
+    commands. Remove the *guild* property before deploying to production to
+    register the command globally.
   </Dropdown>
   <Dropdown title="i18n, SlashI18nKeys">
-    Localization keys for the command name and description, resolved through the i18n module. Provide a *SlashI18nKeys* object with *name* and *description* string keys that map to entries in your locale files.
-    The base *name* and *description* fields serve as the fallback when no matching locale is found for the user's Discord client language.
+    Localization keys for the command name and description, resolved through the
+    i18n module. Provide a *SlashI18nKeys* object with *name* and *description*
+    string keys that map to entries in your locale files. The base *name* and
+    *description* fields serve as the fallback when no matching locale is found
+    for the user's Discord client language.
   </Dropdown>
 </DropdownGroup>
 
 ```typescript filename="commands/ban.command.ts"
-import { SlashCommand, SlashOption } from '@spraxium/common';
-import { PermissionFlagsBits } from 'discord.js';
+import { SlashCommand, SlashOption } from "@spraxium/common";
+import { PermissionFlagsBits } from "discord.js";
 
 @SlashCommand({
-  name: 'ban', description: 'Ban a member from the server.', defaultMemberPermissions: PermissionFlagsBits.BanMembers, })
+  name: "ban",
+  description: "Ban a member from the server.",
+  defaultMemberPermissions: PermissionFlagsBits.BanMembers,
+})
 export class BanCommand {
-  @SlashOption.User('target', { description: 'The member to ban', required: true })
-  @SlashOption.String('reason', { description: 'Reason for the ban', required: false, maxLength: 512 })
-  @SlashOption.Integer('days', {
-    description: 'Number of days of messages to delete', required: false, min: 0, max: 7, })
+  @SlashOption.User("target", {
+    description: "The member to ban",
+    required: true,
+  })
+  @SlashOption.String("reason", {
+    description: "Reason for the ban",
+    required: false,
+    maxLength: 512,
+  })
+  @SlashOption.Integer("days", {
+    description: "Number of days of messages to delete",
+    required: false,
+    min: 0,
+    max: 7,
+  })
   build() {}
 }
 ```
 
 ## Option types
 
-Spraxium provides nine option type decorators through the *SlashOption* namespace, one for each Discord application command option type. Each decorator is a method decorator applied to the *build()* method of the command class (or to a *@SlashSubcommand* method when the option belongs to a subcommand). Options are stacked on the same method, and the order of decorators determines the display order in the Discord client (top decorator appears last in the picker).
+Spraxium provides nine option type decorators through the _SlashOption_ namespace, one for each Discord application command option type. Each decorator is a method decorator applied to the _build()_ method of the command class (or to a _@SlashSubcommand_ method when the option belongs to a subcommand). Options are stacked on the same method, and the order of decorators determines the display order in the Discord client (top decorator appears last in the picker).
 
 <DropdownGroup>
   <Dropdown title="@SlashOption.String, string | null">
-    Maps to Discord's STRING option type. The handler receives a `string` when the user provides a value, or `null` when the option is not required and was omitted.
-    Supports *minLength*, *maxLength*, *choices* (static dropdown list), and *autocomplete* (dynamic suggestions). Note that *choices* and *autocomplete* cannot be combined on the same option.
+    Maps to Discord's STRING option type. The handler receives a `string` when
+    the user provides a value, or `null` when the option is not required and was
+    omitted. Supports *minLength*, *maxLength*, *choices* (static dropdown
+    list), and *autocomplete* (dynamic suggestions). Note that *choices* and
+    *autocomplete* cannot be combined on the same option.
   </Dropdown>
   <Dropdown title="@SlashOption.Integer, number | null">
-    Maps to Discord's INTEGER option type. Accepts only whole numbers. The handler receives a `number` or `null`.
-    Supports *min* and *max* for value range validation, *choices* for a fixed set of integers, and *autocomplete* for dynamic suggestions.
+    Maps to Discord's INTEGER option type. Accepts only whole numbers. The
+    handler receives a `number` or `null`. Supports *min* and *max* for value
+    range validation, *choices* for a fixed set of integers, and *autocomplete*
+    for dynamic suggestions.
   </Dropdown>
   <Dropdown title="@SlashOption.Number, number | null">
-    Maps to Discord's NUMBER option type. Accepts floating-point numbers. The handler receives a `number` or `null`.
-    Supports *min* and *max* for range validation and *autocomplete* for dynamic suggestions. Static *choices* are not available for the Number type.
+    Maps to Discord's NUMBER option type. Accepts floating-point numbers. The
+    handler receives a `number` or `null`. Supports *min* and *max* for range
+    validation and *autocomplete* for dynamic suggestions. Static *choices* are
+    not available for the Number type.
   </Dropdown>
   <Dropdown title="@SlashOption.Boolean, boolean | null">
-    Maps to Discord's BOOLEAN option type. Discord renders this as a true/false toggle in the command picker. The handler receives `true`, `false`, or `null` when the option is optional and was not provided.
-    No additional constraints are available for this type.
+    Maps to Discord's BOOLEAN option type. Discord renders this as a true/false
+    toggle in the command picker. The handler receives `true`, `false`, or
+    `null` when the option is optional and was not provided. No additional
+    constraints are available for this type.
   </Dropdown>
   <Dropdown title="@SlashOption.User, User | null">
-    Maps to Discord's USER option type. Discord renders a user picker. The handler receives a fully resolved discord.js *User* object, or `null` if the option is optional and was not filled.
-    No additional constraints are available for this type.
+    Maps to Discord's USER option type. Discord renders a user picker. The
+    handler receives a fully resolved discord.js *User* object, or `null` if the
+    option is optional and was not filled. No additional constraints are
+    available for this type.
   </Dropdown>
   <Dropdown title="@SlashOption.Channel, Channel | null">
-    Maps to Discord's CHANNEL option type. Discord renders a channel picker. The handler receives a *Channel* object or `null`.
-    Supports the *channelTypes* array to restrict which channel types the user can select. See the channel type filtering section below for the full list of accepted values.
+    Maps to Discord's CHANNEL option type. Discord renders a channel picker. The
+    handler receives a *Channel* object or `null`. Supports the *channelTypes*
+    array to restrict which channel types the user can select. See the channel
+    type filtering section below for the full list of accepted values.
   </Dropdown>
   <Dropdown title="@SlashOption.Role, Role | null">
-    Maps to Discord's ROLE option type. Discord renders a role picker. The handler receives a fully resolved discord.js *Role* object, or `null` if the option is optional and was not filled.
-    No additional constraints are available for this type.
+    Maps to Discord's ROLE option type. Discord renders a role picker. The
+    handler receives a fully resolved discord.js *Role* object, or `null` if the
+    option is optional and was not filled. No additional constraints are
+    available for this type.
   </Dropdown>
   <Dropdown title="@SlashOption.Mentionable, User | Role | null">
-    Maps to Discord's MENTIONABLE option type. Accepts both users and roles. The handler receives either a *User* or a *Role* object depending on what was selected, or `null` if optional and omitted.
-    No additional constraints are available for this type.
+    Maps to Discord's MENTIONABLE option type. Accepts both users and roles. The
+    handler receives either a *User* or a *Role* object depending on what was
+    selected, or `null` if optional and omitted. No additional constraints are
+    available for this type.
   </Dropdown>
   <Dropdown title="@SlashOption.Attachment, Attachment | null">
-    Maps to Discord's ATTACHMENT option type. Discord renders a file upload field. The handler receives a discord.js *Attachment* object with metadata and a CDN URL, or `null` if the option is optional and was not filled.
-    No additional constraints are available for this type.
+    Maps to Discord's ATTACHMENT option type. Discord renders a file upload
+    field. The handler receives a discord.js *Attachment* object with metadata
+    and a CDN URL, or `null` if the option is optional and was not filled. No
+    additional constraints are available for this type.
   </Dropdown>
 </DropdownGroup>
 
-Every option decorator accepts two positional arguments: the option *name* (string, used for Discord registration and *@SlashOpt* matching) and a *config* object. The config object extends *SlashBaseOptionConfig* with type-specific fields.
+Every option decorator accepts two positional arguments: the option _name_ (string, used for Discord registration and _@SlashOpt_ matching) and a _config_ object. The config object extends _SlashBaseOptionConfig_ with type-specific fields.
 
 ## Base option configuration
 
-All nine option types share a common configuration interface. The *description* field is the only required property. The remaining properties have sensible defaults so you only need to provide the ones relevant to your use case.
+All nine option types share a common configuration interface. The _description_ field is the only required property. The remaining properties have sensible defaults so you only need to provide the ones relevant to your use case.
 
 <Table variant="striped">
   <TableHead>
@@ -122,48 +174,67 @@ All nine option types share a common configuration interface. The *description* 
       <TableCell>*description*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>(required)</TableCell>
-      <TableCell>Description shown to the user in the Discord option picker. 1-100 characters.</TableCell>
+      <TableCell>
+        Description shown to the user in the Discord option picker. 1-100
+        characters.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*required*</TableCell>
       <TableCell>`boolean`</TableCell>
       <TableCell>`false`</TableCell>
-      <TableCell>Whether the user must provide a value. When `false`, the handler receives `null` if the option is omitted.</TableCell>
+      <TableCell>
+        Whether the user must provide a value. When `false`, the handler
+        receives `null` if the option is omitted.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*i18n*</TableCell>
       <TableCell>`SlashI18nKeys`</TableCell>
       <TableCell>`undefined`</TableCell>
-      <TableCell>Localization keys for option name and description, resolved through the i18n module.</TableCell>
+      <TableCell>
+        Localization keys for option name and description, resolved through the
+        i18n module.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## String option constraints
 
-The *@SlashOption.String* decorator supports four additional configuration properties beyond the base config. These properties map directly to the Discord API constraints for string options and let you control input length, provide fixed choices, or enable autocomplete suggestions.
+The _@SlashOption.String_ decorator supports four additional configuration properties beyond the base config. These properties map directly to the Discord API constraints for string options and let you control input length, provide fixed choices, or enable autocomplete suggestions.
 
 ```typescript filename="commands/echo.command.ts"
-import { SlashCommand, SlashOption } from '@spraxium/common';
+import { SlashCommand, SlashOption } from "@spraxium/common";
 
-@SlashCommand({ name: 'echo', description: 'Repeat a message back to the channel.' })
+@SlashCommand({
+  name: "echo",
+  description: "Repeat a message back to the channel.",
+})
 export class EchoCommand {
-  @SlashOption.String('message', {
-    description: 'Text to echo', required: true, minLength: 1, maxLength: 2000, })
+  @SlashOption.String("message", {
+    description: "Text to echo",
+    required: true,
+    minLength: 1,
+    maxLength: 2000,
+  })
   build() {}
 }
 ```
 
-When *minLength* or *maxLength* is set, Discord validates the input length client-side before the interaction is sent. When *choices* is provided, the user selects from a dropdown instead of typing freely. When *autocomplete* is set to `true`, Discord calls your autocomplete handler as the user types, providing real-time dynamic suggestions from your code.
+When _minLength_ or _maxLength_ is set, Discord validates the input length client-side before the interaction is sent. When _choices_ is provided, the user selects from a dropdown instead of typing freely. When _autocomplete_ is set to `true`, Discord calls your autocomplete handler as the user types, providing real-time dynamic suggestions from your code.
 
 <Callout tone="warning" title="choices and autocomplete are mutually exclusive">
-  Setting *autocomplete* to true and providing a *choices* array on the same option is not allowed by the Discord API. When *autocomplete* is enabled, the static choices are ignored and only your autocomplete handler is consulted.
-  Use static *choices* for small, fixed lists and *autocomplete* for dynamic or database-driven suggestions that exceed 25 entries.
+  Setting *autocomplete* to true and providing a *choices* array on the same
+  option is not allowed by the Discord API. When *autocomplete* is enabled, the
+  static choices are ignored and only your autocomplete handler is consulted.
+  Use static *choices* for small, fixed lists and *autocomplete* for dynamic or
+  database-driven suggestions that exceed 25 entries.
 </Callout>
 
 ## Numeric option constraints
 
-Both *@SlashOption.Integer* and *@SlashOption.Number* support *min* and *max* properties that set the allowed value range. Discord enforces these constraints on the client side, so the handler is guaranteed to receive a value within the specified range (or `null` if the option is not required and the user omits it). The *Integer* variant also supports *choices* and *autocomplete*, while the *Number* variant supports *autocomplete* only.
+Both _@SlashOption.Integer_ and _@SlashOption.Number_ support _min_ and _max_ properties that set the allowed value range. Discord enforces these constraints on the client side, so the handler is guaranteed to receive a value within the specified range (or `null` if the option is not required and the user omits it). The _Integer_ variant also supports _choices_ and _autocomplete_, while the _Number_ variant supports _autocomplete_ only.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="Integer with choices" language="typescript">
@@ -172,12 +243,19 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 
 @SlashCommand({ name: 'roll', description: 'Roll a dice.' })
 export class RollCommand {
-  @SlashOption.Integer('sides', {
-    description: 'Number of sides on the dice', required: true, choices: [
-      { name: '6-sided', value: 6 }, { name: '12-sided', value: 12 }, { name: '20-sided', value: 20 }, ], })
-  build() {}
+@SlashOption.Integer('sides', {
+description: 'Number of sides on the dice',
+required: true,
+choices: [
+{ name: '6-sided', value: 6 },
+{ name: '12-sided', value: 12 },
+{ name: '20-sided', value: 20 },
+],
+})
+build() {}
 }
-```
+
+````
   </Tab>
   <Tab label="Number with range" language="typescript">
 ```typescript filename="commands/volume.command.ts"
@@ -186,27 +264,41 @@ import { SlashCommand, SlashOption } from '@spraxium/common';
 @SlashCommand({ name: 'volume', description: 'Set the playback volume.' })
 export class VolumeCommand {
   @SlashOption.Number('level', {
-    description: 'Volume level (0.0 to 2.0)', required: true, min: 0, max: 2, })
+    description: 'Volume level (0.0 to 2.0)',
+    required: true,
+    min: 0,
+    max: 2,
+  })
   build() {}
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Channel type filtering
 
-The *@SlashOption.Channel* decorator accepts a *channelTypes* array that restricts which channel types the user can select. The values correspond to Discord *ChannelType* enum members. When the array is provided, the Discord client only shows channels matching the specified types in the option picker.
+The _@SlashOption.Channel_ decorator accepts a _channelTypes_ array that restricts which channel types the user can select. The values correspond to Discord _ChannelType_ enum members. When the array is provided, the Discord client only shows channels matching the specified types in the option picker.
 
 ```typescript filename="commands/setup.command.ts"
-import { SlashCommand, SlashOption } from '@spraxium/common';
-import { ChannelType } from 'discord.js';
+import { SlashCommand, SlashOption } from "@spraxium/common";
+import { ChannelType } from "discord.js";
 
-@SlashCommand({ name: 'setup', description: 'Configure the bot for this server.' })
+@SlashCommand({
+  name: "setup",
+  description: "Configure the bot for this server.",
+})
 export class SetupCommand {
-  @SlashOption.Channel('log-channel', {
-    description: 'Channel for bot logs', required: true, channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement], })
-  @SlashOption.Channel('voice-channel', {
-    description: 'Default voice channel', required: false, channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice], })
+  @SlashOption.Channel("log-channel", {
+    description: "Channel for bot logs",
+    required: true,
+    channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
+  })
+  @SlashOption.Channel("voice-channel", {
+    description: "Default voice channel",
+    required: false,
+    channelTypes: [ChannelType.GuildVoice, ChannelType.GuildStageVoice],
+  })
   build() {}
 }
 ```
@@ -275,42 +367,73 @@ export class SetupCommand {
 
 ## Localization with i18n keys
 
-Both the *@SlashCommand* decorator and every *@SlashOption* decorator accept an optional *i18n* property of type *SlashI18nKeys*. This object contains two string keys, *name* and *description*, which the i18n module resolves to locale-specific strings during command registration. The resolved localizations are sent to Discord as part of the command payload, so users see command and option names in their Discord client language.
+Both the _@SlashCommand_ decorator and every _@SlashOption_ decorator accept an optional _i18n_ property of type _SlashI18nKeys_. This object contains two string keys, _name_ and _description_, which the i18n module resolves to locale-specific strings during command registration. The resolved localizations are sent to Discord as part of the command payload, so users see command and option names in their Discord client language.
 
 ```typescript filename="commands/locale.command.ts"
-import { SlashCommand, SlashOption } from '@spraxium/common';
+import { SlashCommand, SlashOption } from "@spraxium/common";
 
 @SlashCommand({
-  name: 'locale', description: 'Change your preferred language.', i18n: {
-    name: 'commands.locale.name', description: 'commands.locale.description', }, })
+  name: "locale",
+  description: "Change your preferred language.",
+  i18n: {
+    name: "commands.locale.name",
+    description: "commands.locale.description",
+  },
+})
 export class LocaleCommand {
-  @SlashOption.String('language', {
-    description: 'The language to use.', required: true, i18n: {
-      name: 'commands.locale.options.language.name', description: 'commands.locale.options.language.description', }, choices: [
-      { name: 'English (US)', value: 'en-US' }, { name: 'Português (Brasil)', value: 'pt-BR' }, ], })
+  @SlashOption.String("language", {
+    description: "The language to use.",
+    required: true,
+    i18n: {
+      name: "commands.locale.options.language.name",
+      description: "commands.locale.options.language.description",
+    },
+    choices: [
+      { name: "English (US)", value: "en-US" },
+      { name: "Português (Brasil)", value: "pt-BR" },
+    ],
+  })
   build() {}
 }
 ```
 
-The *i18n* keys follow the same resolution pattern as the rest of the framework i18n system. They map to keys in your locale JSON files and support all Discord-supported locales. When a user with a Brazilian Portuguese Discord client opens the command picker, they see the translated command and option names automatically.
+The _i18n_ keys follow the same resolution pattern as the rest of the framework i18n system. They map to keys in your locale JSON files and support all Discord-supported locales. When a user with a Brazilian Portuguese Discord client opens the command picker, they see the translated command and option names automatically.
 
 ## Design checklist for command definitions
 
 <Steps>
   <Step title="Keep definitions free of business logic">
-    The command class should contain only metadata decorators and an empty *build()* method (or named subcommand methods). Never import services, repositories, or runtime dependencies into a command definition file. This ensures the class can be imported by handlers, autocomplete handlers, and tests without creating dependency chains.
+    The command class should contain only metadata decorators and an empty
+    *build()* method (or named subcommand methods). Never import services,
+    repositories, or runtime dependencies into a command definition file. This
+    ensures the class can be imported by handlers, autocomplete handlers, and
+    tests without creating dependency chains.
   </Step>
   <Step title="Use the most specific option type available">
-    Prefer *@SlashOption.User* over *@SlashOption.String* for user IDs, *@SlashOption.Channel* over *@SlashOption.String* for channel references, and *@SlashOption.Integer* over *@SlashOption.Number* for whole numbers. Specific types give Discord better UI affordances like user pickers and channel dropdowns, and the handler receives fully resolved discord.js objects instead of raw strings.
+    Prefer *@SlashOption.User* over *@SlashOption.String* for user IDs,
+    *@SlashOption.Channel* over *@SlashOption.String* for channel references,
+    and *@SlashOption.Integer* over *@SlashOption.Number* for whole numbers.
+    Specific types give Discord better UI affordances like user pickers and
+    channel dropdowns, and the handler receives fully resolved discord.js
+    objects instead of raw strings.
   </Step>
   <Step title="Restrict channels with channelTypes">
-    When a command expects a specific kind of channel, always provide the *channelTypes* array. This prevents users from selecting voice channels where you expect text channels, and the Discord client enforces the constraint before the interaction reaches your bot.
+    When a command expects a specific kind of channel, always provide the
+    *channelTypes* array. This prevents users from selecting voice channels
+    where you expect text channels, and the Discord client enforces the
+    constraint before the interaction reaches your bot.
   </Step>
   <Step title="Prefer choices over autocomplete for small sets">
-    Static *choices* arrays are displayed as a dropdown and require no handler code. Use them when the set of valid values is small and fixed (under 25 entries). Use *autocomplete* when the values are dynamic, come from a database, or exceed the 25-choice limit.
+    Static *choices* arrays are displayed as a dropdown and require no handler
+    code. Use them when the set of valid values is small and fixed (under 25
+    entries). Use *autocomplete* when the values are dynamic, come from a
+    database, or exceed the 25-choice limit.
   </Step>
   <Step title="Set permissions at the definition level">
-    Use *defaultMemberPermissions* to set the minimum permissions required to see the command in the picker. This is a UI hint that Discord enforces on the client side. Combine it with *@UseGuards* on the handler for server-side enforcement that cannot be bypassed.
+    Use *defaultMemberPermissions* to set the minimum permissions required to
+    see the command in the picker. This is a UI hint that Discord enforces on
+    the client side. Combine it with *@UseGuards* on the handler for server-side
+    enforcement that cannot be bypassed.
   </Step>
 </Steps>
 

@@ -31,11 +31,16 @@ de sistema de i18n que merece ser parte de un framework.
 ## Configurando el módulo
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from '@spraxium/i18n';
+import { defineI18n } from "@spraxium/i18n";
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'es-ES', references: [
-    { name: 'comandos', path: './locales/comandos'  }, { name: 'mensajes', path: './locales/mensajes'  }, { name: 'errores', path: './locales/errores'   }, ], });
+  defaultLocale: "es-ES",
+  references: [
+    { name: "comandos", path: "./locales/comandos" },
+    { name: "mensajes", path: "./locales/mensajes" },
+    { name: "errores", path: "./locales/errores" },
+  ],
+});
 ```
 
 <Table variant="striped">
@@ -50,24 +55,32 @@ export const i18nConfig = defineI18n({
     <TableRow>
       <TableCell>*defaultLocale*</TableCell>
       <TableCell>string</TableCell>
-      <TableCell>Locale de reserva cuando no hay preferencia de usuario o servidor configurada</TableCell>
+      <TableCell>
+        Locale de reserva cuando no hay preferencia de usuario o servidor
+        configurada
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*references*</TableCell>
       <TableCell>Array</TableCell>
-      <TableCell>Punteros con nombre a directorios de locale en el disco</TableCell>
+      <TableCell>
+        Punteros con nombre a directorios de locale en el disco
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*pluralRules*</TableCell>
       <TableCell>Record</TableCell>
-      <TableCell>Funciones de plural personalizadas por locale, que reemplazan a Intl.PluralRules</TableCell>
+      <TableCell>
+        Funciones de plural personalizadas por locale, que reemplazan a
+        Intl.PluralRules
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## La API de I18nService
 
-Inyecta *I18nService* en cualquier handler o proveedor. Expone métodos de traducción síncronos y
+Inyecta _I18nService_ en cualquier handler o proveedor. Expone métodos de traducción síncronos y
 asíncronos para cubrir todos los patrones de uso.
 
 <CodeTabs>
@@ -80,15 +93,16 @@ import { PingCommand } from '../commands/ping.command';
 
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
-  constructor(private readonly i18n: I18nService) {}
+constructor(private readonly i18n: I18nService) {}
 
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const locale  = interaction.locale;
-    const mensaje = this.i18n.t('comandos.ping.respuesta', locale);
-    await interaction.reply(mensaje);
-  }
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const locale = interaction.locale;
+const mensaje = this.i18n.t('comandos.ping.respuesta', locale);
+await interaction.reply(mensaje);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Resuelto por usuario" language="typescript">
 ```typescript filename="saludo.handler.ts"
@@ -106,12 +120,17 @@ export class SaludoHandler {
     const guildId = interaction.guildId ?? undefined;
 
     const mensaje = await this.i18n.tUser(
-      userId, 'comandos.saludo.bienvenida', { nombre: interaction.user.username }, guildId, );
+      userId,
+      'comandos.saludo.bienvenida',
+      { nombre: interaction.user.username },
+      guildId,
+    );
 
     await interaction.reply(mensaje);
   }
 }
-```
+````
+
   </Tab>
   <Tab label="Pluralización" language="typescript">
 ```typescript filename="objetos.handler.ts"
@@ -122,17 +141,19 @@ import { ObjetosCommand } from '../commands/objetos.command';
 
 @SlashCommandHandler(ObjetosCommand)
 export class ObjetosHandler {
-  constructor(private readonly i18n: I18nService) {}
+constructor(private readonly i18n: I18nService) {}
 
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const userId = interaction.user.id;
-    const total  = 5;
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const userId = interaction.user.id;
+const total = 5;
 
     const mensaje = await this.i18n.tpUser(userId, 'comandos.objetos', total, { count: total });
     await interaction.reply(mensaje);
-  }
+
 }
-```
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -225,8 +246,13 @@ configurado sus preferencias.
 
   ```typescript filename="bienvenida.handler.ts"
   const mensaje = await this.i18n.tUser(
-    interaction.user.id, 'comandos.bienvenida.texto', { nombre: interaction.user.username }, interaction.guildId ?? undefined, );
-  ```
+    interaction.user.id,
+    'comandos.bienvenida.texto',
+    { nombre: interaction.user.username },
+    interaction.guildId ?? undefined,
+  );
+````
+
 </Dropdown>
 
 <Dropdown title="tpUser, combinando pluralización con resolución de preferencias">
@@ -236,15 +262,21 @@ configurado sus preferencias.
   de vars. El motor selecciona la categoría plural correcta para el locale resuelto y busca la
   variante con la clave correspondiente.
 
-  Usa *tpUser* siempre que el texto de la respuesta cambie según un valor numérico y la cadena de
-  preferencias deba seguir aplicándose. Ejemplos comunes incluyen conteos de inventario, posiciones
-  en colas, clasificaciones en tablas de líderes y cualquier mensaje dependiente de una cantidad.
+Usa _tpUser_ siempre que el texto de la respuesta cambie según un valor numérico y la cadena de
+preferencias deba seguir aplicándose. Ejemplos comunes incluyen conteos de inventario, posiciones
+en colas, clasificaciones en tablas de líderes y cualquier mensaje dependiente de una cantidad.
 
-  ```typescript filename="inventario.handler.ts"
-  const total = await contarObjetos(interaction.user.id);
-  const mensaje = await this.i18n.tpUser(
-    interaction.user.id, 'comandos.inventario.objetos', total, {}, interaction.guildId ?? undefined, );
-  ```
+```typescript filename="inventario.handler.ts"
+const total = await contarObjetos(interaction.user.id);
+const mensaje = await this.i18n.tpUser(
+  interaction.user.id,
+  "comandos.inventario.objetos",
+  total,
+  {},
+  interaction.guildId ?? undefined,
+);
+```
+
 </Dropdown>
 
 <Dropdown title="setUserLocale y setGuildLocale, guardando preferencias">
@@ -254,17 +286,22 @@ configurado sus preferencias.
   posterior a *tUser* para ese usuario o servidor reflejará la nueva configuración sin ningún paso
   adicional de invalidación de caché.
 
-  *setGuildLocale* debe restringirse a miembros con permiso de gestión del servidor, ya que afecta
-  el idioma por defecto de todos los usuarios del servidor que no hayan configurado una preferencia
-  personal. Usar un guard para esta restricción es el enfoque recomendado frente a verificar
-  permisos manualmente en el handler.
+_setGuildLocale_ debe restringirse a miembros con permiso de gestión del servidor, ya que afecta
+el idioma por defecto de todos los usuarios del servidor que no hayan configurado una preferencia
+personal. Usar un guard para esta restricción es el enfoque recomendado frente a verificar
+permisos manualmente en el handler.
 
-  ```typescript filename="idioma.handler.ts"
-  const locale = interaction.options.getString('idioma', true);
-  await this.i18n.setUserLocale(interaction.user.id, locale);
-  const confirmacion = await this.i18n.tUser(interaction.user.id, 'sistema.locale_guardado', { locale });
-  await interaction.reply({ content: confirmacion, ephemeral: true });
-  ```
+```typescript filename="idioma.handler.ts"
+const locale = interaction.options.getString("idioma", true);
+await this.i18n.setUserLocale(interaction.user.id, locale);
+const confirmacion = await this.i18n.tUser(
+  interaction.user.id,
+  "sistema.locale_guardado",
+  { locale },
+);
+await interaction.reply({ content: confirmacion, ephemeral: true });
+```
+
 </Dropdown>
 
 <Dropdown title="resolveLocale, leyendo el locale resuelto sin traducir">
@@ -274,16 +311,19 @@ configurado sus preferencias.
   formateador de fecha sensible al locale, o al pasar una string de locale a un servicio externo
   que gestiona su propia localización.
 
-  Como *resolveLocale* solo lee de la store y nunca escribe, es seguro llamarlo tantas veces como
-  sea necesario. El resultado solo cambia cuando la preferencia se actualiza mediante *setUserLocale*
-  o *setGuildLocale*, lo que lo hace predecible y sin efectos secundarios.
+Como _resolveLocale_ solo lee de la store y nunca escribe, es seguro llamarlo tantas veces como
+sea necesario. El resultado solo cambia cuando la preferencia se actualiza mediante _setUserLocale_
+o _setGuildLocale_, lo que lo hace predecible y sin efectos secundarios.
 
-  ```typescript filename="perfil.handler.ts"
-  const locale = await this.i18n.resolveLocale(
-    interaction.user.id, interaction.guildId ?? undefined, );
-  const formateado = new Intl.DateTimeFormat(locale).format(new Date());
-  await interaction.reply(`Tu cuenta fue creada el ${formateado}.`);
-  ```
+```typescript filename="perfil.handler.ts"
+const locale = await this.i18n.resolveLocale(
+  interaction.user.id,
+  interaction.guildId ?? undefined,
+);
+const formateado = new Intl.DateTimeFormat(locale).format(new Date());
+await interaction.reply(`Tu cuenta fue creada el ${formateado}.`);
+```
+
 </Dropdown>
 </DropdownGroup>
 

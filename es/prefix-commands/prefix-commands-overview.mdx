@@ -17,7 +17,7 @@ Los prefix commands en Spraxium no son un legado olvidado. Son clases completas 
 
 ## Un ejemplo básico de comando
 
-Aquí hay dos clases que muestran el patrón de dos clases. La primera es una definición de comando que declara el nombre, aliases y schema de argumentos a través de decorators *@PrefixArg*. La segunda es un handler que recibe los argumentos parseados y el *Message* crudo vía *@Ctx*. Juntas, cubren la estructura mínima que necesitas para crear un prefix command funcional.
+Aquí hay dos clases que muestran el patrón de dos clases. La primera es una definición de comando que declara el nombre, aliases y schema de argumentos a través de decorators _@PrefixArg_. La segunda es un handler que recibe los argumentos parseados y el _Message_ crudo vía _@Ctx_. Juntas, cubren la estructura mínima que necesitas para crear un prefix command funcional.
 
 <CodeTabs>
   <Tab label="Comando" language="typescript">
@@ -25,12 +25,13 @@ Aquí hay dos clases que muestran el patrón de dos clases. La primera es una de
 import { PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({
-  name: 'ping', aliases: ['p'], description: 'Check bot latency.', category: 'Fun', usage: '!ping', cooldown: 3,
+name: 'ping', aliases: ['p'], description: 'Check bot latency.', category: 'Fun', usage: '!ping', cooldown: 3,
 })
 export class PingCommand {
-  build() {}
+build() {}
 }
-```
+
+````
   </Tab>
   <Tab label="Handler" language="typescript">
 ```typescript filename="src/modules/fun/handlers/ping-command.handler.ts"
@@ -45,23 +46,25 @@ export class PingHandler {
     await message.reply(`Pong! Latency: ${latency}ms`);
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-Nota que la clase de comando es puramente declarativa: describe cómo se llama el comando, qué aliases acepta y qué cooldown impone. La clase handler contiene la lógica de ejecución y recibe dependencias a través de decorators. Para comandos con argumentos, agregas decorators *@PrefixArg* en el método *build* del comando y decorators *@PrefixArg* correspondientes en los parámetros del método *handle* del handler. La siguiente página cubre schemas de argumentos en detalle.
+Nota que la clase de comando es puramente declarativa: describe cómo se llama el comando, qué aliases acepta y qué cooldown impone. La clase handler contiene la lógica de ejecución y recibe dependencias a través de decorators. Para comandos con argumentos, agregas decorators _@PrefixArg_ en el método _build_ del comando y decorators _@PrefixArg_ correspondientes en los parámetros del método _handle_ del handler. La siguiente página cubre schemas de argumentos en detalle.
 
 ## Registrando comandos en un módulo
 
-Los prefix commands no se activan solo por existir en tu código fuente. Necesitas registrar la clase de comando en el array *commands* del módulo y la clase handler en el array *handlers* para que el framework sepa sobre ellos y pueda conectarlos durante el bootstrap. Sin ambos registros, tu comando será invisible para el parser o no tendrá handler para despacho.
+Los prefix commands no se activan solo por existir en tu código fuente. Necesitas registrar la clase de comando en el array _commands_ del módulo y la clase handler en el array _handlers_ para que el framework sepa sobre ellos y pueda conectarlos durante el bootstrap. Sin ambos registros, tu comando será invisible para el parser o no tendrá handler para despacho.
 
 ```typescript filename="src/modules/fun/fun.module.ts"
-import { Module } from '@spraxium/common';
-import { PingCommand } from './commands/ping.command';
-import { PingHandler } from './handlers/ping.handler';
+import { Module } from "@spraxium/common";
+import { PingCommand } from "./commands/ping.command";
+import { PingHandler } from "./handlers/ping.handler";
 
 @Module({
-  commands: [PingCommand], handlers: [PingHandler],
+  commands: [PingCommand],
+  handlers: [PingHandler],
 })
 export class FunModule {}
 ```
@@ -92,7 +95,11 @@ El módulo debe importarse en tu módulo raíz o en otro módulo dentro de la ca
 Esta estructura mantiene las definiciones de comando y los handlers en carpetas dedicadas, con el archivo de módulo en la raíz del dominio. Conforme tu bot crece, puedes agregar más archivos de comando y handler sin cambiar la estructura de carpetas. El archivo de módulo es el único lugar que declara qué commands y handlers están activos.
 
 <Callout tone="info" title="Dos clases por comando">
-  Cada prefix command requiere una clase de comando y una clase handler registradas en el mismo módulo. La clase de comando declara la estructura y los metadatos. La clase handler contiene la lógica de ejecución y las dependencias inyectables. Si olvidas registrar cualquiera de las dos, el comando no funcionará en runtime.
+  Cada prefix command requiere una clase de comando y una clase handler
+  registradas en el mismo módulo. La clase de comando declara la estructura y
+  los metadatos. La clase handler contiene la lógica de ejecución y las
+  dependencias inyectables. Si olvidas registrar cualquiera de las dos, el
+  comando no funcionará en runtime.
 </Callout>
 
 ## Siguiente página

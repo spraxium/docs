@@ -11,7 +11,7 @@ category: Schedule
 
 In a single-process bot, every scheduled job runs exactly once because there is only one instance of the scheduler. When you scale to multiple shards or processes, the same cron job might fire simultaneously in every instance, causing duplicate executions. The driver system solves this by introducing a locking mechanism that ensures only one instance acquires the right to execute a given job at each trigger.
 
-Drivers are pluggable. You configure the driver once in your schedule config and the framework handles the rest transparently. Your job methods do not need to know which driver is active. This means you can develop locally with the *MemoryDriver* and switch to the *RedisScheduleDriver* in production without changing any service code.
+Drivers are pluggable. You configure the driver once in your schedule config and the framework handles the rest transparently. Your job methods do not need to know which driver is active. This means you can develop locally with the _MemoryDriver_ and switch to the _RedisScheduleDriver_ in production without changing any service code.
 
 The locking model is optimistic. When a job triggers, the driver attempts to acquire a lock using the job name as the key. If the lock is acquired, the job runs. If another process already holds the lock, the job is silently skipped on that instance. The lock has a configurable TTL that auto-releases after the expected execution window.
 
@@ -44,9 +44,9 @@ The locking model is optimistic. When a job triggers, the driver attempts to acq
 
 ## Configuring drivers
 
-The default *MemoryDriver* requires no configuration. It always acquires the lock, so every job runs every time it triggers. This is the correct behavior for single-process bots.
+The default _MemoryDriver_ requires no configuration. It always acquires the lock, so every job runs every time it triggers. This is the correct behavior for single-process bots.
 
-For distributed environments, switch to the *RedisScheduleDriver* by passing Redis connection options and an optional lock TTL. The driver uses `SET key NX EX ttl` to acquire locks atomically and a Lua script to release them safely without race conditions.
+For distributed environments, switch to the _RedisScheduleDriver_ by passing Redis connection options and an optional lock TTL. The driver uses `SET key NX EX ttl` to acquire locks atomically and a Lua script to release them safely without race conditions.
 
 <CodeTabs>
   <Tab label="Memory (default)" language="typescript">
@@ -72,9 +72,9 @@ export default defineSchedule({
 
 ## ScheduleService API
 
-The *ScheduleService* is an injectable provider that gives you full runtime control over registered jobs. Inject it into any service, command handler, or controller to pause, resume, destroy, or manually trigger jobs by name. The service is exported from the global *ScheduleModule*, so it is available in every module without explicit imports.
+The _ScheduleService_ is an injectable provider that gives you full runtime control over registered jobs. Inject it into any service, command handler, or controller to pause, resume, destroy, or manually trigger jobs by name. The service is exported from the global _ScheduleModule_, so it is available in every module without explicit imports.
 
-Every method takes the job *name* as defined in the decorator options. If you did not set an explicit name, the framework uses a generated name based on the class and method. Explicit names are strongly recommended for any job you plan to manage at runtime.
+Every method takes the job _name_ as defined in the decorator options. If you did not set an explicit name, the framework uses a generated name based on the class and method. Explicit names are strongly recommended for any job you plan to manage at runtime.
 
 <Table>
   <TableHead>
@@ -120,33 +120,36 @@ Every method takes the job *name* as defined in the decorator options. If you di
 
 ## Using ScheduleService in a command
 
-A practical use case for the *ScheduleService* is building admin commands that let guild owners or bot administrators control background tasks without restarting the bot. The example below shows a prefix command handler that pauses or resumes a job by name. The same pattern works with slash commands or dashboard endpoints.
+A practical use case for the _ScheduleService_ is building admin commands that let guild owners or bot administrators control background tasks without restarting the bot. The example below shows a prefix command handler that pauses or resumes a job by name. The same pattern works with slash commands or dashboard endpoints.
 
 ```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
-import { ScheduleService } from '@spraxium/schedule';
-import type { Message } from 'discord.js';
-import { ScheduleAdminCommand } from '../commands/schedule-admin.command';
+import { Ctx, PrefixArg, PrefixCommandHandler } from "@spraxium/common";
+import { ScheduleService } from "@spraxium/schedule";
+import type { Message } from "discord.js";
+import { ScheduleAdminCommand } from "../commands/schedule-admin.command";
 
 @PrefixCommandHandler(ScheduleAdminCommand)
 export class ScheduleAdminHandler {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   async handle(
-    @Ctx() message: Message, @PrefixArg('action') action: string, @PrefixArg('jobName') jobName: string, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg("action") action: string,
+    @PrefixArg("jobName") jobName: string,
+  ): Promise<void> {
     const job = this.scheduleService.get(jobName);
     if (!job) {
       await message.reply(`Job \`${jobName}\` not found.`);
       return;
     }
 
-    if (action === 'pause') {
+    if (action === "pause") {
       this.scheduleService.pause(jobName);
       await message.reply(`Job \`${jobName}\` paused.`);
-    } else if (action === 'resume') {
+    } else if (action === "resume") {
       this.scheduleService.resume(jobName);
       await message.reply(`Job \`${jobName}\` resumed.`);
-    } else if (action === 'run') {
+    } else if (action === "run") {
       await this.scheduleService.runNow(jobName);
       await message.reply(`Job \`${jobName}\` triggered manually.`);
     }

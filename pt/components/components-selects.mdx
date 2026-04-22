@@ -11,7 +11,7 @@ category: Components
 
 O Discord fornece cinco variantes de menu de seleção, e o Spraxium suporta todas elas através de decorators dedicados. Selects de string permitem que você defina opções customizadas com labels e valores. Selects de user, role, mentionable e channel usam os seletores nativos de entidade do Discord que são preenchidos automaticamente com dados do servidor. Todos os cinco tipos compartilham o mesmo padrão de handler e sistema de injeção de parâmetros.
 
-Cada tipo de select é definido como uma classe decorada, vinculado a um handler via um decorator de handler específico do tipo, e renderizado através do *SelectService*. A diferença principal entre os tipos é o decorator utilizado e o tipo de dado que o usuário seleciona. Selects de string requerem definições de opções explícitas, enquanto os outros quatro tipos preenchem suas opções a partir do servidor automaticamente.
+Cada tipo de select é definido como uma classe decorada, vinculado a um handler via um decorator de handler específico do tipo, e renderizado através do _SelectService_. A diferença principal entre os tipos é o decorator utilizado e o tipo de dado que o usuário seleciona. Selects de string requerem definições de opções explícitas, enquanto os outros quatro tipos preenchem suas opções a partir do servidor automaticamente.
 
 <Table>
   <TableHead>
@@ -27,7 +27,9 @@ Cada tipo de select é definido como uma classe decorada, vinculado a um handler
       <TableCell>String</TableCell>
       <TableCell>*@StringSelect*</TableCell>
       <TableCell>*@StringSelectHandler*</TableCell>
-      <TableCell>Definidas pelo desenvolvedor via *@SelectOption* ou *dynamicOptions*</TableCell>
+      <TableCell>
+        Definidas pelo desenvolvedor via *@SelectOption* ou *dynamicOptions*
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>User</TableCell>
@@ -45,7 +47,9 @@ Cada tipo de select é definido como uma classe decorada, vinculado a um handler
       <TableCell>Mentionable</TableCell>
       <TableCell>*@MentionableSelect*</TableCell>
       <TableCell>*@MentionableSelectHandler*</TableCell>
-      <TableCell>Preenchido automaticamente pelo Discord (users + roles)</TableCell>
+      <TableCell>
+        Preenchido automaticamente pelo Discord (users + roles)
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Channel</TableCell>
@@ -58,7 +62,7 @@ Cada tipo de select é definido como uma classe decorada, vinculado a um handler
 
 ## Selects de string com opções estáticas
 
-Selects de string são o tipo mais flexível porque você controla as opções diretamente. Use o decorator empilhável *@SelectOption* na mesma propriedade para definir cada opção. Cada opção tem um *label* (exibido ao usuário), um *value* (enviado na submissão) e uma *description* opcional. A ordem dos decorators *@SelectOption* determina a ordem das opções no menu renderizado.
+Selects de string são o tipo mais flexível porque você controla as opções diretamente. Use o decorator empilhável _@SelectOption_ na mesma propriedade para definir cada opção. Cada opção tem um _label_ (exibido ao usuário), um _value_ (enviado na submissão) e uma _description_ opcional. A ordem dos decorators _@SelectOption_ determina a ordem das opções no menu renderizado.
 
 <CodeTabs>
 <Tab label="Componente">
@@ -66,14 +70,15 @@ Selects de string são o tipo mais flexível porque você controla as opções d
 import { StringSelect, SelectOption } from '@spraxium/components';
 
 @StringSelect({
-  customId: 'color-picker', placeholder: 'Choose a color', minValues: 1, maxValues: 1, })
+customId: 'color-picker', placeholder: 'Choose a color', minValues: 1, maxValues: 1, })
 export class ColorPickerSelect {
-  @SelectOption({ label: 'Red', value: 'red', description: 'A warm color' })
-  @SelectOption({ label: 'Blue', value: 'blue', description: 'A cool color' })
-  @SelectOption({ label: 'Green', value: 'green', description: 'A natural color' })
-  options: void;
+@SelectOption({ label: 'Red', value: 'red', description: 'A warm color' })
+@SelectOption({ label: 'Blue', value: 'blue', description: 'A cool color' })
+@SelectOption({ label: 'Green', value: 'green', description: 'A natural color' })
+options: void;
 }
-```
+
+````
 </Tab>
 <Tab label="Handler">
 ```typescript filename="src/components/color-picker.handler.ts"
@@ -89,13 +94,14 @@ export class ColorPickerHandler {
       content: `You picked ${color}.`, ephemeral: true, });
   }
 }
-```
+````
+
 </Tab>
 </CodeTabs>
 
 ## Referência de configuração
 
-O objeto de configuração passado para *@StringSelect* controla a aparência e o comportamento do menu. O *customId* e o *placeholder* são obrigatórios. Os campos *minValues* e *maxValues* controlam quantas opções o usuário pode selecionar simultaneamente.
+O objeto de configuração passado para _@StringSelect_ controla a aparência e o comportamento do menu. O _customId_ e o _placeholder_ são obrigatórios. Os campos _minValues_ e _maxValues_ controlam quantas opções o usuário pode selecionar simultaneamente.
 
 <Table>
   <TableHead>
@@ -148,25 +154,32 @@ O objeto de configuração passado para *@StringSelect* controla a aparência e 
 
 ## Opções dinâmicas
 
-Quando as opções do select dependem de dados de runtime, como registros de banco de dados ou configurações do servidor, use a propriedade *dynamicOptions* no decorator *@StringSelect*. Essa callback recebe um objeto de dados em tempo de build e retorna um array de objetos de opção.
+Quando as opções do select dependem de dados de runtime, como registros de banco de dados ou configurações do servidor, use a propriedade _dynamicOptions_ no decorator _@StringSelect_. Essa callback recebe um objeto de dados em tempo de build e retorna um array de objetos de opção.
 
 <Callout type="tip">
-  Os decorators *@SelectOption* e *dynamicOptions* são mutuamente exclusivos. Quando ambos estão presentes na mesma classe, a callback dinâmica tem precedência e as opções estáticas são completamente ignoradas.
+  Os decorators *@SelectOption* e *dynamicOptions* são mutuamente exclusivos.
+  Quando ambos estão presentes na mesma classe, a callback dinâmica tem
+  precedência e as opções estáticas são completamente ignoradas.
 </Callout>
 
 ```typescript filename="src/components/role-list.select.ts"
-import { StringSelect } from '@spraxium/components';
+import { StringSelect } from "@spraxium/components";
 
 @StringSelect({
-  customId: 'role-list', placeholder: 'Pick a role', dynamicOptions: (roles: Array<{ id: string; name: string }>) =>
+  customId: "role-list",
+  placeholder: "Pick a role",
+  dynamicOptions: (roles: Array<{ id: string; name: string }>) =>
     roles.map((r) => ({
-      label: r.name, value: r.id, })), })
+      label: r.name,
+      value: r.id,
+    })),
+})
 export class RoleListSelect {}
 ```
 
 ## Selects de entidade
 
-Os selects de entidade usam os seletores nativos do Discord que exibem avatares de membros, cores de cargo e ícones de canal. Eles não precisam de decorators *@SelectOption* porque as opções vêm do servidor automaticamente. Cada tipo de entidade tem seu próprio par de decorators para componente e handler.
+Os selects de entidade usam os seletores nativos do Discord que exibem avatares de membros, cores de cargo e ícones de canal. Eles não precisam de decorators _@SelectOption_ porque as opções vêm do servidor automaticamente. Cada tipo de entidade tem seu próprio par de decorators para componente e handler.
 
 <CodeTabs>
 <Tab label="User Select">
@@ -174,9 +187,10 @@ Os selects de entidade usam os seletores nativos do Discord que exibem avatares 
 import { UserSelect } from '@spraxium/components';
 
 @UserSelect({
-  customId: 'assign-user', placeholder: 'Select a team member', })
+customId: 'assign-user', placeholder: 'Select a team member', })
 export class AssignUserSelect {}
-```
+
+````
 </Tab>
 <Tab label="Role Select">
 ```typescript filename="src/components/assign-role.select.ts"
@@ -185,7 +199,8 @@ import { RoleSelect } from '@spraxium/components';
 @RoleSelect({
   customId: 'assign-role', placeholder: 'Select a role', })
 export class AssignRoleSelect {}
-```
+````
+
 </Tab>
 <Tab label="Channel Select">
 ```typescript filename="src/components/pick-channel.select.ts"
@@ -193,9 +208,10 @@ import { ChannelSelect } from '@spraxium/components';
 import { ChannelType } from 'discord.js';
 
 @ChannelSelect({
-  customId: 'pick-channel', placeholder: 'Select a channel', channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice], })
+customId: 'pick-channel', placeholder: 'Select a channel', channelTypes: [ChannelType.GuildText, ChannelType.GuildVoice], })
 export class PickChannelSelect {}
-```
+
+````
 </Tab>
 </CodeTabs>
 
@@ -216,18 +232,18 @@ export class AssignUserHandler {
       content: `Selected ${userIds.length} user(s).`, ephemeral: true, });
   }
 }
-```
+````
 
 ## Renderização com SelectService
 
-O *SelectService* transforma metadados de decorator em action rows do discord.js. O método *build* aceita a classe do select e dados opcionais (para *dynamicOptions*). O método *buildWithContext* anexa um ID de flow context ao *customId* do select.
+O _SelectService_ transforma metadados de decorator em action rows do discord.js. O método _build_ aceita a classe do select e dados opcionais (para _dynamicOptions_). O método _buildWithContext_ anexa um ID de flow context ao _customId_ do select.
 
 ```typescript filename="src/commands/pick-color.command-handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { SelectService } from '@spraxium/components';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { ColorPickerSelect } from '../components/color-picker.select';
-import { PickColorCommand } from './pick-color.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { SelectService } from "@spraxium/components";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { ColorPickerSelect } from "../components/color-picker.select";
+import { PickColorCommand } from "./pick-color.command";
 
 @SlashCommandHandler(PickColorCommand)
 export class PickColorCommandHandler {
@@ -237,21 +253,23 @@ export class PickColorCommandHandler {
     const row = await this.selects.build(ColorPickerSelect);
 
     await interaction.reply({
-      content: 'Pick your favorite color:', components: [row], });
+      content: "Pick your favorite color:",
+      components: [row],
+    });
   }
 }
 ```
 
 ## Construtor fluente alternativo
 
-Para cenários onde você precisa construir definições de select programaticamente, use o construtor fluente *Selects.string()*. Esse construtor produz a mesma saída que os decorators, mas através de uma API de encadeamento de métodos. É útil em funções utilitárias ou quando a configuração do select depende inteiramente de dados de runtime.
+Para cenários onde você precisa construir definições de select programaticamente, use o construtor fluente _Selects.string()_. Esse construtor produz a mesma saída que os decorators, mas através de uma API de encadeamento de métodos. É útil em funções utilitárias ou quando a configuração do select depende inteiramente de dados de runtime.
 
 ```typescript filename="src/utils/select-factory.ts"
-import { Selects } from '@spraxium/components';
+import { Selects } from "@spraxium/components";
 
 export function buildCategorySelect(categories: string[]) {
-  return Selects.string('category-select')
-    .placeholder('Pick a category')
+  return Selects.string("category-select")
+    .placeholder("Pick a category")
     .options(categories.map((c) => ({ label: c, value: c.toLowerCase() })))
     .build();
 }
@@ -259,16 +277,16 @@ export function buildCategorySelect(categories: string[]) {
 
 ## Registro no módulo
 
-Apenas os handlers precisam ser registrados, no array *handlers* de um módulo de feature. Classes de componente de select decoradas com *@StringSelect*, *@UserSelect* ou similares são somente metadados e nunca são adicionadas a nenhum módulo. O scanner de instâncias identifica selects pelo metadado do decorator no handler e os registra no *SelectDispatcher* durante a fase de boot.
+Apenas os handlers precisam ser registrados, no array _handlers_ de um módulo de feature. Classes de componente de select decoradas com _@StringSelect_, _@UserSelect_ ou similares são somente metadados e nunca são adicionadas a nenhum módulo. O scanner de instâncias identifica selects pelo metadado do decorator no handler e os registra no _SelectDispatcher_ durante a fase de boot.
 
 ```typescript filename="src/components/components.module.ts"
-import { Module } from '@spraxium/core';
-import { ColorPickerHandler } from './color-picker.handler';
-import { AssignUserHandler } from './assign-user.handler';
+import { Module } from "@spraxium/core";
+import { ColorPickerHandler } from "./color-picker.handler";
+import { AssignUserHandler } from "./assign-user.handler";
 
 @Module({
-  handlers: [
-    ColorPickerHandler, AssignUserHandler, ], })
+  handlers: [ColorPickerHandler, AssignUserHandler],
+})
 export class SelectsModule {}
 ```
 

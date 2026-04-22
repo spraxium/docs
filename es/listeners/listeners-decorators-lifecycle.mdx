@@ -9,7 +9,7 @@ category: Listeners
 
 ## El decorator Listener
 
-El decorator *@Listener* se aplica a una clase y le dice al framework a cual evento de Discord pertenece esa clase. Acepta un valor del enum *Events* de Discord.js, que garantiza que usas un nombre de evento válido en vez de escribir un string de texto libre que podría tener un typo. Sin este decorator, una clase es solo una clase normal de TypeScript y el framework la ignora completamente. La primera pestaña muestra un listener dedicado a un solo evento, y la segúnda muestra múltiples clases listener agrupadas en el mismo archivo cuando están fuertemente relacionadas.
+El decorator _@Listener_ se aplica a una clase y le dice al framework a cual evento de Discord pertenece esa clase. Acepta un valor del enum _Events_ de Discord.js, que garantiza que usas un nombre de evento válido en vez de escribir un string de texto libre que podría tener un typo. Sin este decorator, una clase es solo una clase normal de TypeScript y el framework la ignora completamente. La primera pestaña muestra un listener dedicado a un solo evento, y la segúnda muestra múltiples clases listener agrupadas en el mismo archivo cuando están fuertemente relacionadas.
 
 <CodeTabs>
   <Tab label="Clase Única" language="typescript">
@@ -19,15 +19,16 @@ import type { GuildMember } from 'discord.js';
 
 @Listener(Events.GuildMemberAdd)
 export class MemberJoinListener {
-  @On()
-  async onJoin(member: GuildMember): Promise<void> {
-    const channel = member.guild.systemChannel;
-    if (channel) {
-      await channel.send(`Welcome ${member.user.username}!`);
-    }
-  }
+@On()
+async onJoin(member: GuildMember): Promise<void> {
+const channel = member.guild.systemChannel;
+if (channel) {
+await channel.send(`Welcome ${member.user.username}!`);
 }
-```
+}
+}
+
+````
   </Tab>
   <Tab label="Múltiples Clases" language="typescript">
 ```typescript filename="src/events/listeners/member.listener.ts"
@@ -52,39 +53,40 @@ export class MemberLeaveListener {
     console.log(`${member.user.username} left ${member.guild.name}`);
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-Agrupar clases listener en un solo archivo funciona bien cuando los eventos están lógicamente relacionados, como entrada y salida de miembros. Solo asegurate de exportar ambas clases y registrarlas individualmente en el array *listeners* de tu módulo.
+Agrupar clases listener en un solo archivo funciona bien cuando los eventos están lógicamente relacionados, como entrada y salida de miembros. Solo asegurate de exportar ambas clases y registrarlas individualmente en el array _listeners_ de tu módulo.
 
 ## On versus Once
 
-Los decorators *@On* y *@Once* se aplican a métodos dentro de una clase listener, y controlan cómo el método se conecta al event emitter de Discord.js. La diferencia entre ellos es simple pero fundamental: *@On* crea un binding persistente que dispara cada vez que el evento ocurre, mientras que *@Once* crea un binding de una sola vez que dispara solo la primera vez que el evento ocurre y luego se desconecta automáticamente.
+Los decorators _@On_ y _@Once_ se aplican a métodos dentro de una clase listener, y controlan cómo el método se conecta al event emitter de Discord.js. La diferencia entre ellos es simple pero fundamental: _@On_ crea un binding persistente que dispara cada vez que el evento ocurre, mientras que _@Once_ crea un binding de una sola vez que dispara solo la primera vez que el evento ocurre y luego se desconecta automáticamente.
 
-Usa *@On* para eventos que quieres manejar repetidamente durante la vida del bot, como mensajes entrando, miembros uniéndose, o reacciónes siendo agregadas. La gran mayoria de tus listeners van a usar *@On* porque quieres que reacciónen cada vez que el evento pasa.
+Usa _@On_ para eventos que quieres manejar repetidamente durante la vida del bot, como mensajes entrando, miembros uniéndose, o reacciónes siendo agregadas. La gran mayoria de tus listeners van a usar _@On_ porque quieres que reacciónen cada vez que el evento pasa.
 
 ```typescript filename="src/events/listeners/reaction.listener.ts"
-import { Events, Listener, On } from '@spraxium/common';
-import type { MessageReaction, User } from 'discord.js';
+import { Events, Listener, On } from "@spraxium/common";
+import type { MessageReaction, User } from "discord.js";
 
 @Listener(Events.MessageReactionAdd)
 export class ReactionAddListener {
   @On()
   async onReaction(reaction: MessageReaction, user: User): Promise<void> {
-    if (reaction.emoji.name === '⭐') {
+    if (reaction.emoji.name === "⭐") {
       console.log(`${user.username} starred a message`);
     }
   }
 }
 ```
 
-Usa *@Once* para eventos que solo importan la primera vez que ocurren, como *ClientReady*. El evento Ready de Discord.js dispara cuando el client termina el login y llena sus caches. Quieres reaccionar a eso una vez para loguear que el bot esta listo, no cada vez que el client reconecta internamente.
+Usa _@Once_ para eventos que solo importan la primera vez que ocurren, como _ClientReady_. El evento Ready de Discord.js dispara cuando el client termina el login y llena sus caches. Quieres reaccionar a eso una vez para loguear que el bot esta listo, no cada vez que el client reconecta internamente.
 
 ```typescript filename="src/events/listeners/ready.listener.ts"
-import { Events, Listener, Once } from '@spraxium/common';
-import { Logger } from '@spraxium/core';
-import type { Client } from 'discord.js';
+import { Events, Listener, Once } from "@spraxium/common";
+import { Logger } from "@spraxium/core";
+import type { Client } from "discord.js";
 
 @Listener(Events.ClientReady)
 export class ReadyListener {
@@ -97,15 +99,15 @@ export class ReadyListener {
 }
 ```
 
-Bajo el capo, el framework llama al método *on* del client de Discord.js para bindings de *@On* y al método *once* para bindings de *@Once*. Con *once*, Discord.js automáticamente remueve el listener despues de la primera invocación, así que tu método literalmente no puede ser llamado dos veces.
+Bajo el capo, el framework llama al método _on_ del client de Discord.js para bindings de _@On_ y al método _once_ para bindings de _@Once_. Con _once_, Discord.js automáticamente remueve el listener despues de la primera invocación, así que tu método literalmente no puede ser llamado dos veces.
 
 ## El decorator Ctx
 
-El decorator *@Ctx* es un decorator de parámetro que inyecta el contexto de ejecución en tu método handler. En vez de recibir el payload crudo del evento de Discord.js, recibes un objeto *ExecutionContext* de Spraxium que envuelve la interacción o mensaje y provee métodos de utilidad como *getUserId*, *getGuildId* y *getCommandName*.
+El decorator _@Ctx_ es un decorator de parámetro que inyecta el contexto de ejecución en tu método handler. En vez de recibir el payload crudo del evento de Discord.js, recibes un objeto _ExecutionContext_ de Spraxium que envuelve la interacción o mensaje y provee métodos de utilidad como _getUserId_, _getGuildId_ y _getCommandName_.
 
 ```typescript filename="src/events/listeners/message-log.listener.ts"
-import { Ctx, Events, Listener, On } from '@spraxium/common';
-import type { ExecutionContext } from '@spraxium/common';
+import { Ctx, Events, Listener, On } from "@spraxium/common";
+import type { ExecutionContext } from "@spraxium/common";
 
 @Listener(Events.MessageCreate)
 export class MessageLogListener {
@@ -118,20 +120,23 @@ export class MessageLogListener {
 }
 ```
 
-Cuando usas *@Ctx*, el framework envuelve automáticamente el primer argumento del evento en un *ExecutionContext* antes de llamar a tu método. Esto es particularmente útil cuando tu listener participa en el pipeline de guards, porque el mismo objeto de contexto que tus guards reciben es el que tu método handler recibe. Para eventos simples donde solo necesitas el payload crudo de Discord.js, puedes omitir *@Ctx* y recibir los argumentos del evento directamente.
+Cuando usas _@Ctx_, el framework envuelve automáticamente el primer argumento del evento en un _ExecutionContext_ antes de llamar a tu método. Esto es particularmente útil cuando tu listener participa en el pipeline de guards, porque el mismo objeto de contexto que tus guards reciben es el que tu método handler recibe. Para eventos simples donde solo necesitas el payload crudo de Discord.js, puedes omitir _@Ctx_ y recibir los argumentos del evento directamente.
 
 <Callout tone="info" title="Ctx no está disponible para todos los eventos">
-  El decorator Ctx funciona para eventos cuyo primer argumento es una BaseInteraction o un Message. Para otros eventos como ClientReady o GuildMemberAdd, usa los parámetros regulares del método porque el payload del evento no es un tipo que el framework pueda envolver en un ExecutionContext.
+  El decorator Ctx funciona para eventos cuyo primer argumento es una
+  BaseInteraction o un Message. Para otros eventos como ClientReady o
+  GuildMemberAdd, usa los parámetros regulares del método porque el payload del
+  evento no es un tipo que el framework pueda envolver en un ExecutionContext.
 </Callout>
 
 ## Inyección de dependencias en listeners
 
-El decorator *@Listener* automáticamente marca la clase como inyectable, lo que significa que no necesitas agregar un decorator *@Injectable* separado. El contenedor de DI de Spraxium resuelve dependencias de constructor cuando instancia el listener, así que puedes inyectar servicios, repositorios u otros providers directamente en el constructor del listener.
+El decorator _@Listener_ automáticamente marca la clase como inyectable, lo que significa que no necesitas agregar un decorator _@Injectable_ separado. El contenedor de DI de Spraxium resuelve dependencias de constructor cuando instancia el listener, así que puedes inyectar servicios, repositorios u otros providers directamente en el constructor del listener.
 
 ```typescript filename="src/events/listeners/message-create.listener.ts"
-import { Events, Listener, On } from '@spraxium/common';
-import type { Message } from 'discord.js';
-import { LeaderboardService } from '../services/leaderboard.service';
+import { Events, Listener, On } from "@spraxium/common";
+import type { Message } from "discord.js";
+import { LeaderboardService } from "../services/leaderboard.service";
 
 @Listener(Events.MessageCreate)
 export class MessageCreateListener {
@@ -148,18 +153,22 @@ export class MessageCreateListener {
 Para que la inyección funcione, el servicio que estas inyectando debe estar registrado como un provider en el mismo módulo que contiene el listener, o debe ser exportado desde un módulo que es importado por el módulo del listener. El framework usa el mismo contenedor de DI y las mismas reglas de resolución para listeners que para commands y todos los demas inyectables. Si el contenedor no puede resolver una dependencia, vas a recibir un error durante el bootstrap antes de que el bot se conecte a Discord.
 
 ```typescript filename="src/events/events.module.ts"
-import { Module } from '@spraxium/common';
-import { MessageCreateListener } from './listeners/message-create.listener';
-import { LeaderboardService } from './services/leaderboard.service';
+import { Module } from "@spraxium/common";
+import { MessageCreateListener } from "./listeners/message-create.listener";
+import { LeaderboardService } from "./services/leaderboard.service";
 
 @Module({
-  providers: [LeaderboardService], listeners: [MessageCreateListener],
+  providers: [LeaderboardService],
+  listeners: [MessageCreateListener],
 })
 export class EventsModule {}
 ```
 
 <Callout tone="warning" title="No dupliques providers">
-  Si un servicio ya esta exportado desde otro módulo, importa ese módulo en vez de registrar el servicio de nuevo en providers. Registrar el mismo servicio en múltiples módulos crea instancias separadas, lo que puede causar estado inconsistente y bugs difíciles de rastrear.
+  Si un servicio ya esta exportado desde otro módulo, importa ese módulo en vez
+  de registrar el servicio de nuevo en providers. Registrar el mismo servicio en
+  múltiples módulos crea instancias separadas, lo que puede causar estado
+  inconsistente y bugs difíciles de rastrear.
 </Callout>
 
 ## Siguiente página

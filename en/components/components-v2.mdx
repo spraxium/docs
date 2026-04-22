@@ -14,14 +14,14 @@ system. Instead of a message being a flat combination of text content, embeds, a
 single container element. The container becomes the top-level layout unit for the message.
 
 Spraxium's V2 system wraps this API with the same decorator-handler architecture used across the
-rest of *@spraxium/components*. You declare a container schema as a decorated class, annotate each
-structural element with a property decorator, and render the whole container through *V2Service* by
+rest of _@spraxium/components_. You declare a container schema as a decorated class, annotate each
+structural element with a property decorator, and render the whole container through _V2Service_ by
 passing runtime data. The result is a strongly-typed, composable layout that separates structure
 from the data flowing through it at render time.
 
 The package provides two authoring styles for V2. The class-based schema pattern uses
-*@V2Container* plus property decorators and is best for reusable, data-driven layouts. The fluent
-API is an imperative builder that chains calls on a *V2ContainerFluentBuilder* instance and is best
+_@V2Container_ plus property decorators and is best for reusable, data-driven layouts. The fluent
+API is an imperative builder that chains calls on a _V2ContainerFluentBuilder_ instance and is best
 for one-off or dynamically assembled messages. Both styles produce the same wire-format and can be
 mixed within the same bot.
 
@@ -35,20 +35,23 @@ between sections, or that would require multiple embeds to approximate, is a goo
 V2 container.
 
 <Callout type="warning">
-  V2 containers require the MessageFlags.IsComponentsV2 flag when sending messages.
-  Setting this flag means the message cannot simultaneously carry traditional embeds or a plain content string alongside the containers, design V2 messages as self-contained layouts, not as enhancements to existing content.
+  V2 containers require the MessageFlags.IsComponentsV2 flag when sending
+  messages. Setting this flag means the message cannot simultaneously carry
+  traditional embeds or a plain content string alongside the containers, design
+  V2 messages as self-contained layouts, not as enhancements to existing
+  content.
 </Callout>
 
 ## Setting up V2Service
 
-*V2Service* is the rendering and construction service for all V2 work. It is automatically
-available via injection once *ComponentsModule* is registered in your module graph. No additional
-configuration is needed beyond the standard *defineComponents* plugin setup.
+_V2Service_ is the rendering and construction service for all V2 work. It is automatically
+available via injection once _ComponentsModule_ is registered in your module graph. No additional
+configuration is needed beyond the standard _defineComponents_ plugin setup.
 
-Inject *V2Service* into any handler or service that needs to render V2 containers.
+Inject _V2Service_ into any handler or service that needs to render V2 containers.
 
 ```typescript filename="src/handlers/my.handler.ts"
-import { V2Service } from '@spraxium/components';
+import { V2Service } from "@spraxium/components";
 
 @SlashCommandHandler(MyCommand)
 export class MyHandler {
@@ -62,9 +65,9 @@ export class MyHandler {
 
 ## Class-based container schemas
 
-The class-based pattern declares a container as an annotated class. Apply *@V2Container* to the
+The class-based pattern declares a container as an annotated class. Apply _@V2Container_ to the
 class to mark it as a container and configure the accent color and spoiler options. Apply property
-decorators to each field to register child components in declaration order. At render time, *V2Service.build* reads the metadata, evaluates all factory functions with your runtime data, and
+decorators to each field to register child components in declaration order. At render time, _V2Service.build_ reads the metadata, evaluates all factory functions with your runtime data, and
 assembles the container.
 
 The property names in the schema class do not matter at runtime. Only the metadata registered by
@@ -87,26 +90,27 @@ export interface UserProfileData {
 
 @V2Container({ accentColor: 0x5865f2 })
 export class UserProfileContainer {
-  @V2Text((data: UserProfileData) => desc().h2(`👤 ${data.username}`))
-  title!: never;
+@V2Text((data: UserProfileData) => desc().h2(`👤 ${data.username}`))
+title!: never;
 
-  @V2Separator()
-  divider!: never;
+@V2Separator()
+divider!: never;
 
-  @V2Section({
-    text: (data: UserProfileData) =>
-      [
-        `**ID:** \`${data.userId}\``, `**Joined:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
-      url: (data: UserProfileData) => data.avatarUrl, description: 'User avatar', }, })
-  stats!: never;
+@V2Section({
+text: (data: UserProfileData) =>
+[
+`**ID:** \`${data.userId}\``, `**Joined:** <t:${Math.floor(data.joinedAt / 1000)}:R>`, `**Bio:** ${data.bio}`, ].join('\n'), thumbnail: {
+url: (data: UserProfileData) => data.avatarUrl, description: 'User avatar', }, })
+stats!: never;
 
-  @V2Separator({ divider: false })
-  spacer!: never;
+@V2Separator({ divider: false })
+spacer!: never;
 
-  @V2Text((data: UserProfileData) => desc().subtext(`Profile for ${data.username}`))
-  footer!: never;
+@V2Text((data: UserProfileData) => desc().subtext(`Profile for ${data.username}`))
+footer!: never;
 }
-```
+
+````
   </Tab>
   <Tab label="Handler" language="typescript">
 ```typescript filename="src/handlers/profile.handler.ts"
@@ -132,26 +136,27 @@ export class ProfileHandler {
       ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## The fluent API
 
-The fluent API is a chainable builder attached to *V2Service*. Call *v2.container()* to open a
-builder, chain child component calls, and call *.toReply()* at the end to produce the payload
-ready for *interaction.reply()*. Each chain method returns the same builder, so every operation
+The fluent API is a chainable builder attached to _V2Service_. Call _v2.container()_ to open a
+builder, chain child component calls, and call _.toReply()_ at the end to produce the payload
+ready for _interaction.reply()_. Each chain method returns the same builder, so every operation
 can be inlined.
 
-The fluent API does not support property-level decorators or *@V2When* conditions because there is
+The fluent API does not support property-level decorators or _@V2When_ conditions because there is
 no class-level metadata to annotate. Use the class-based pattern when you need conditional
 rendering or when you want to reuse the same layout in multiple handlers.
 
 ```typescript filename="src/handlers/greet.handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { V2Service, desc } from '@spraxium/components';
-import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
-import { GreetCommand } from '../commands/greet.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { V2Service, desc } from "@spraxium/components";
+import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
+import { GreetCommand } from "../commands/greet.command";
 
 @SlashCommandHandler(GreetCommand)
 export class GreetHandler {
@@ -166,14 +171,21 @@ export class GreetHandler {
       .sep()
       .section(
         [
-          `**ID:** \`${user.id}\``, `**Account age:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`, ].join('\n'), this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
-          description: `${user.username} avatar`, }), )
+          `**ID:** \`${user.id}\``,
+          `**Account age:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
+        ].join("\n"),
+        this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
+          description: `${user.username} avatar`,
+        }),
+      )
       .sep({ divider: false })
-      .text(desc().subtext('Powered by Spraxium V2'))
+      .text(desc().subtext("Powered by Spraxium V2"))
       .toReply();
 
     await interaction.reply({
-      ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+      ...payload,
+      flags: payload.flags | MessageFlags.Ephemeral,
+    });
   }
 }
 ```
@@ -288,16 +300,23 @@ export class GreetHandler {
 
 ## Dynamic children with @V2Dynamic
 
-*@V2Dynamic* is the solution when the number of child components depends on runtime data. Instead
+_@V2Dynamic_ is the solution when the number of child components depends on runtime data. Instead
 of a static configuration, you provide a factory function that receives the data object and returns
-an array of child specs created with the helper functions *v2text*, *v2sep*, *v2section*, *v2gallery*, and *v2row*. The engine walks this array and renders each spec in sequence.
+an array of child specs created with the helper functions _v2text_, _v2sep_, _v2section_, _v2gallery_, and _v2row_. The engine walks this array and renders each spec in sequence.
 
 A common pattern is to generate one or more text lines per data entry and insert separators between
 them, stopping one separator short so the last entry isn't followed by a divider.
 
 ```typescript filename="src/schemas/leaderboard.container.ts"
 import {
-  V2Container, V2Dynamic, V2Separator, V2Text, desc, v2sep, v2text, } from '@spraxium/components';
+  V2Container,
+  V2Dynamic,
+  V2Separator,
+  V2Text,
+  desc,
+  v2sep,
+  v2text,
+} from "@spraxium/components";
 
 export interface LeaderboardEntry {
   username: string;
@@ -310,7 +329,7 @@ export interface LeaderboardData {
   entries: Array<LeaderboardEntry>;
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 @V2Container({ accentColor: 0xf1c40f })
 export class LeaderboardContainer {
@@ -322,13 +341,17 @@ export class LeaderboardContainer {
 
   @V2Dynamic((data: LeaderboardData) => {
     if (data.entries.length === 0) {
-      return [v2text(desc().subtext('No entries yet.'))];
+      return [v2text(desc().subtext("No entries yet."))];
     }
 
     return data.entries.flatMap((entry, index) => {
       const medal = MEDALS[index] ?? `**${entry.rank}.**`;
       return [
-        v2text(`${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`), ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []), ];
+        v2text(
+          `${medal} **${entry.username}**, ${entry.score.toLocaleString()} pts`,
+        ),
+        ...(index < data.entries.length - 1 ? [v2sep({ divider: false })] : []),
+      ];
     });
   })
   entries!: never;
@@ -336,12 +359,14 @@ export class LeaderboardContainer {
   @V2Separator({ divider: false })
   footer!: never;
 
-  @V2Text((data: LeaderboardData) => desc().subtext(`${data.entries.length} players ranked`))
+  @V2Text((data: LeaderboardData) =>
+    desc().subtext(`${data.entries.length} players ranked`),
+  )
   summary!: never;
 }
 ```
 
-The handler passes the entry list as data and calls *buildReply* without knowing how many rows will
+The handler passes the entry list as data and calls _buildReply_ without knowing how many rows will
 be generated.
 
 ```typescript filename="src/handlers/leaderboard.handler.ts"
@@ -353,7 +378,9 @@ export class LeaderboardHandler {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
     const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: 'Weekly Top Players', entries, });
+      title: "Weekly Top Players",
+      entries,
+    });
 
     await interaction.reply(payload);
   }
@@ -362,18 +389,23 @@ export class LeaderboardHandler {
 
 ## Conditional rendering with @V2When
 
-*@V2When* conditionally includes a child based on runtime data. It is applied as an additional
-decorator *below* the child decorator, which means it runs last and patches the existing child
+_@V2When_ conditionally includes a child based on runtime data. It is applied as an additional
+decorator _below_ the child decorator, which means it runs last and patches the existing child
 definition with a guard predicate. If the predicate returns `false` for the given data, the child
 is excluded from the container entirely, not rendered as empty.
 
-*@V2When* is stackable: multiple children in the same container can each carry independent
+_@V2When_ is stackable: multiple children in the same container can each carry independent
 conditions. The order property assigned at registration time is preserved regardless of which
 children are filtered out.
 
 ```typescript filename="src/schemas/member-card.container.ts"
 import {
-  V2Container, V2Separator, V2Text, V2When, desc, } from '@spraxium/components';
+  V2Container,
+  V2Separator,
+  V2Text,
+  V2When,
+  desc,
+} from "@spraxium/components";
 
 export interface MemberCardData {
   username: string;
@@ -391,11 +423,13 @@ export class MemberCardContainer {
   divider!: never;
 
   @V2When((data: MemberCardData) => data.isAdmin)
-  @V2Text('⚙️ **Server Administrator**')
+  @V2Text("⚙️ **Server Administrator**")
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
-  @V2Text((data: MemberCardData) => `⭐ **Server Booster**, Level ${data.boostLevel}`)
+  @V2Text(
+    (data: MemberCardData) => `⭐ **Server Booster**, Level ${data.boostLevel}`,
+  )
   boostBadge!: never;
 
   @V2Text((data: MemberCardData) => data.bio)
@@ -408,9 +442,9 @@ up naturally without any gap.
 
 ## Embedding action rows with @V2Row
 
-*@V2Row* places a button row or select menu row directly inside a V2 container. Pass your component
-classes in the `components` array the same way you would pass them to *ButtonService* or
-*SelectService*. The service auto-detects whether the first class is a select menu and routes to
+_@V2Row_ places a button row or select menu row directly inside a V2 container. Pass your component
+classes in the `components` array the same way you would pass them to _ButtonService_ or
+_SelectService_. The service auto-detects whether the first class is a select menu and routes to
 the correct builder automatically.
 
 <CodeTabs>
@@ -427,19 +461,20 @@ export class CancelButton {}
 
 @V2Container({ accentColor: 0xed4245 })
 export class ConfirmPanelContainer {
-  @V2Text((data: { action: string }) => desc().h2(`Confirm: ${data.action}`))
-  title!: never;
+@V2Text((data: { action: string }) => desc().h2(`Confirm: ${data.action}`))
+title!: never;
 
-  @V2Text('This action cannot be undone. Are you sure?')
-  body!: never;
+@V2Text('This action cannot be undone. Are you sure?')
+body!: never;
 
-  @V2Separator({ divider: false })
-  spacer!: never;
+@V2Separator({ divider: false })
+spacer!: never;
 
-  @V2Row({ components: [ConfirmButton, CancelButton] })
-  actions!: never;
+@V2Row({ components: [ConfirmButton, CancelButton] })
+actions!: never;
 }
-```
+
+````
   </Tab>
   <Tab label="Section button accessory" language="typescript">
 ```typescript filename="src/schemas/resource-card.container.ts"
@@ -463,15 +498,16 @@ export class ResourceCardContainer {
     text: (data: ResourceCardData) => data.description, button: DocsLinkButton, })
   body!: never;
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## The DescriptionBuilder
 
-The *desc()* helper function returns a *DescriptionBuilder* that chains Discord-flavoured Markdown
+The _desc()_ helper function returns a _DescriptionBuilder_ that chains Discord-flavoured Markdown
 helpers. It is available in both class-based and fluent patterns anywhere a text content value is
-accepted. The builder is a thin string accumulator; calling *.toString()* returns the final string, which the V2 engine calls automatically before passing content to the discord.js builders.
+accepted. The builder is a thin string accumulator; calling _.toString()_ returns the final string, which the V2 engine calls automatically before passing content to the discord.js builders.
 
 <Table variant="striped">
   <TableHead>
@@ -483,11 +519,15 @@ accepted. The builder is a thin string accumulator; calling *.toString()* return
   <TableBody>
     <TableRow>
       <TableCell>*.h2(text)*</TableCell>
-      <TableCell>`## text`, renders as a heading inside the container</TableCell>
+      <TableCell>
+        `## text`, renders as a heading inside the container
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.subtext(text)*</TableCell>
-      <TableCell>`-# text`, renders as small subtext beneath regular content</TableCell>
+      <TableCell>
+        `-# text`, renders as small subtext beneath regular content
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.bold(text)*</TableCell>
@@ -510,7 +550,7 @@ accepted. The builder is a thin string accumulator; calling *.toString()* return
 
 ## Container configuration
 
-The *@V2Container* decorator accepts a *V2ContainerMeta* object.
+The _@V2Container_ decorator accepts a _V2ContainerMeta_ object.
 
 <Table variant="striped">
   <TableHead>
@@ -526,32 +566,40 @@ The *@V2Container* decorator accepts a *V2ContainerMeta* object.
       <TableCell>*accentColor*</TableCell>
       <TableCell>`number | string`</TableCell>
       <TableCell>None</TableCell>
-      <TableCell>Left-side accent stripe color. Accepts a hex number (`0x5865f2`) or hex string (`'#5865F2'`).</TableCell>
+      <TableCell>
+        Left-side accent stripe color. Accepts a hex number (`0x5865f2`) or hex
+        string (`'#5865F2'`).
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*spoiler*</TableCell>
       <TableCell>`boolean`</TableCell>
       <TableCell>`false`</TableCell>
-      <TableCell>Marks the entire container as a spoiler that the user must click to reveal.</TableCell>
+      <TableCell>
+        Marks the entire container as a spoiler that the user must click to
+        reveal.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Building the reply payload
 
-Both *buildReply* and the fluent *.toReply()* method return a `{ components, flags }` object.
-Spreading this into *interaction.reply()* sets `IsComponentsV2` automatically. You can merge
+Both _buildReply_ and the fluent _.toReply()_ method return a `{ components, flags }` object.
+Spreading this into _interaction.reply()_ sets `IsComponentsV2` automatically. You can merge
 additional flags using bitwise OR.
 
 ```typescript filename="sending a V2 reply"
 const payload = this.v2.buildReply(MyContainer, data);
 
 await interaction.reply({
-  ...payload, flags: payload.flags | MessageFlags.Ephemeral, });
+  ...payload,
+  flags: payload.flags | MessageFlags.Ephemeral,
+});
 ```
 
-If you need to update an existing V2 message, use *interaction.editReply()* or pass the payload
-to *message.edit()* directly. The flag is required on both the initial send and subsequent edits, because Discord identifies a message as a V2 message by the presence of that flag.
+If you need to update an existing V2 message, use _interaction.editReply()_ or pass the payload
+to _message.edit()_ directly. The flag is required on both the initial send and subsequent edits, because Discord identifies a message as a V2 message by the presence of that flag.
 
 ## Next study
 

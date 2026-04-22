@@ -9,10 +9,10 @@ category: Exceptions
 
 ## Creating a custom exception
 
-When the built-in exceptions do not cover your domain scenario, you create a custom class by extending `SpraxiumException`. A custom exception defines its own *code*, a *message* with placeholders, and a typed *props* interface that carries runtime context for both logging and layout rendering. This gives the pipeline everything it needs to produce a meaningful user response and an operational signal without any additional wiring.
+When the built-in exceptions do not cover your domain scenario, you create a custom class by extending `SpraxiumException`. A custom exception defines its own _code_, a _message_ with placeholders, and a typed _props_ interface that carries runtime context for both logging and layout rendering. This gives the pipeline everything it needs to produce a meaningful user response and an operational signal without any additional wiring.
 
 ```typescript filename="insufficient-balance.exception.ts"
-import { SpraxiumException } from '@spraxium/core';
+import { SpraxiumException } from "@spraxium/core";
 
 interface InsufficientBalanceProps {
   required: number;
@@ -23,63 +23,80 @@ interface InsufficientBalanceProps {
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: InsufficientBalanceProps) {
     super({
-      code: 'INSUFFICIENT_BALANCE', message: 'You need {{required}} {{currency}} but only have {{current}}.', props, });
+      code: "INSUFFICIENT_BALANCE",
+      message: "You need {{required}} {{currency}} but only have {{current}}.",
+      props,
+    });
   }
 }
 ```
 
-The typed *props* interface is important because it gives layouts and logging access to structured data instead of an opaque string. Any key in the *props* object can be interpolated into the *message* using double-brace syntax, and layouts receive the entire *props* object so they can build rich embeds, format numbers, or display contextual guidance to the user.
+The typed _props_ interface is important because it gives layouts and logging access to structured data instead of an opaque string. Any key in the _props_ object can be interpolated into the _message_ using double-brace syntax, and layouts receive the entire _props_ object so they can build rich embeds, format numbers, or display contextual guidance to the user.
 
 ### Throwing the custom exception
 
 Use the custom exception inside services, guards, or handlers exactly like any built-in exception. The pipeline resolves the layout, logs if configured, and sends the response automatically without any extra code at the throw site.
 
 ```typescript filename="shop.service.ts"
-import { InsufficientBalanceException } from './exceptions/insufficient-balance.exception';
+import { InsufficientBalanceException } from "./exceptions/insufficient-balance.exception";
 
 if (user.balance < item.price) {
   throw new InsufficientBalanceException({
-    required: item.price, current: user.balance, currency: 'coins', });
+    required: item.price,
+    current: user.balance,
+    currency: "coins",
+  });
 }
 ```
 
 ### Attaching a layout with @WithLayout
 
-If the exception should ship with a default visual presentation, attach a layout using the `@WithLayout` decorator from *@spraxium/common*. The layout receives the exception instance with full *props* access and the execution context, and returns a Discord response payload with embeds, components, and ephemeral flags.
+If the exception should ship with a default visual presentation, attach a layout using the `@WithLayout` decorator from _@spraxium/common_. The layout receives the exception instance with full _props_ access and the execution context, and returns a Discord response payload with embeds, components, and ephemeral flags.
 
 ```typescript filename="insufficient-balance.exception.ts"
-import { WithLayout } from '@spraxium/common';
-import { defineExceptionLayout, SpraxiumException } from '@spraxium/core';
-import { EmbedBuilder } from 'discord.js';
+import { WithLayout } from "@spraxium/common";
+import { defineExceptionLayout, SpraxiumException } from "@spraxium/core";
+import { EmbedBuilder } from "discord.js";
 
 const BalanceLayout = defineExceptionLayout((exception) => ({
   embeds: [
     new EmbedBuilder()
       .setColor(0xff6b6b)
-      .setTitle('Insufficient Balance')
+      .setTitle("Insufficient Balance")
       .setDescription(
-        `You need **${exception.props.required} ${exception.props.currency}** but only have **${exception.props.current}**.`, )
-      .setFooter({ text: 'Earn more by completing daily tasks.' }), ], ephemeral: true,
+        `You need **${exception.props.required} ${exception.props.currency}** but only have **${exception.props.current}**.`,
+      )
+      .setFooter({ text: "Earn more by completing daily tasks." }),
+  ],
+  ephemeral: true,
 }));
 
 @WithLayout(BalanceLayout)
 export class InsufficientBalanceException extends SpraxiumException {
   constructor(props: { required: number; current: number; currency: string }) {
     super({
-      code: 'INSUFFICIENT_BALANCE', message: 'You need {{required}} {{currency}} but only have {{current}}.', props, });
+      code: "INSUFFICIENT_BALANCE",
+      message: "You need {{required}} {{currency}} but only have {{current}}.",
+      props,
+    });
   }
 }
 ```
 
 ### Controlling reply and logging behavior
 
-Each custom exception can override whether the pipeline sends a Discord reply and whether it logs the error. The *shouldReply* flag defaults to true, which is correct for user-facing failures, and *shouldLog* defaults to false because most domain exceptions are expected behavior rather than incidents. Override these defaults when the exception represents a silent operation or an internal error that must appear in operational logs.
+Each custom exception can override whether the pipeline sends a Discord reply and whether it logs the error. The _shouldReply_ flag defaults to true, which is correct for user-facing failures, and _shouldLog_ defaults to false because most domain exceptions are expected behavior rather than incidents. Override these defaults when the exception represents a silent operation or an internal error that must appear in operational logs.
 
 ```typescript filename="silent-audit.exception.ts"
 export class SilentAuditException extends SpraxiumException {
   constructor(props: { action: string; actorId: string }) {
     super({
-      code: 'SILENT_AUDIT', message: 'Audit recorded for {{action}} by {{actorId}}.', props, shouldReply: false, shouldLog: true, });
+      code: "SILENT_AUDIT",
+      message: "Audit recorded for {{action}} by {{actorId}}.",
+      props,
+      shouldReply: false,
+      shouldLog: true,
+    });
   }
 }
 ```
@@ -102,21 +119,31 @@ Exception quality starts with intent clarity, meaning every exception should ans
     <TableRow>
       <TableCell>Specific class naming</TableCell>
       <TableCell>Improves readability and layout mapping quality</TableCell>
-      <TableCell>Use *PermissionDeniedException* instead of *CustomError*</TableCell>
+      <TableCell>
+        Use *PermissionDeniedException* instead of *CustomError*
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Typed props interface</TableCell>
       <TableCell>Gives layouts and logging access to structured data</TableCell>
-      <TableCell>Define an interface with the exact fields the layout needs</TableCell>
+      <TableCell>
+        Define an interface with the exact fields the layout needs
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Separate domain and technical failures</TableCell>
-      <TableCell>Prevents user-facing messaging from leaking internals</TableCell>
-      <TableCell>Technical failures use safe fallback plus strong logging</TableCell>
+      <TableCell>
+        Prevents user-facing messaging from leaking internals
+      </TableCell>
+      <TableCell>
+        Technical failures use safe fallback plus strong logging
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Explicit fallback strategy</TableCell>
-      <TableCell>Prevents empty or inconsistent responses on unmapped errors</TableCell>
+      <TableCell>
+        Prevents empty or inconsistent responses on unmapped errors
+      </TableCell>
       <TableCell>Always define a default layout in configuration</TableCell>
     </TableRow>
   </TableBody>
@@ -130,16 +157,29 @@ Throwing generic exceptions for every scenario may seem faster at first, but it 
 
 <Steps>
   <Step title="Model classes by business policy">
-    Create exception classes aligned with real product rules and user-facing scenarios rather than file layout or temporary implementation details. Each class should represent a meaningful failure category that the team can reference consistently in code reviews, monitoring dashboards, and incident reports.
+    Create exception classes aligned with real product rules and user-facing
+    scenarios rather than file layout or temporary implementation details. Each
+    class should represent a meaningful failure category that the team can
+    reference consistently in code reviews, monitoring dashboards, and incident
+    reports.
   </Step>
   <Step title="Map layouts in central config">
-    Keep user-facing behavior stable for any command or listener that can emit the same failure family. Centralizing layout mappings in *spraxium.config.ts* ensures that the same exception class always renders the same way, regardless of which module throws it.
+    Keep user-facing behavior stable for any command or listener that can emit
+    the same failure family. Centralizing layout mappings in
+    *spraxium.config.ts* ensures that the same exception class always renders
+    the same way, regardless of which module throws it.
   </Step>
   <Step title="Standardize logging context">
-    Include stable identifiers in exception payloads so operators can correlate errors with the specific command, actor, and environment that triggered them. Consistent metadata makes it possible to build dashboards and alerts that surface patterns rather than individual incidents.
+    Include stable identifiers in exception payloads so operators can correlate
+    errors with the specific command, actor, and environment that triggered
+    them. Consistent metadata makes it possible to build dashboards and alerts
+    that surface patterns rather than individual incidents.
   </Step>
   <Step title="Review after incidents">
-    After each incident, evaluate whether the exception class, payload, or layout mapping should be updated to reduce the chance of similar issues being hard to diagnose in the future. This iterative refinement is what turns a reactive error system into a proactive one over time.
+    After each incident, evaluate whether the exception class, payload, or
+    layout mapping should be updated to reduce the chance of similar issues
+    being hard to diagnose in the future. This iterative refinement is what
+    turns a reactive error system into a proactive one over time.
   </Step>
 </Steps>
 

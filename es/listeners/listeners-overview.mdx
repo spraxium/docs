@@ -17,7 +17,7 @@ Los listeners en Spraxium no son callbacks crudos. Son clases completas manejada
 
 ## Un ejemplo básico de listener
 
-El decorator *@Listener* en la clase declara a cual evento de Discord pertenece este listener, el decorator *@Once* en el método hace que dispare solo la primera vez que el evento ocurre, y *@On* crea un binding persistente que dispara cada vez que el evento pasa. La primera pestaña muestra un listener que loguea cuando el bot termina de conectarse, y la segúnda un handler que reacciona a cada mensaje entrante.
+El decorator _@Listener_ en la clase declara a cual evento de Discord pertenece este listener, el decorator _@Once_ en el método hace que dispare solo la primera vez que el evento ocurre, y _@On_ crea un binding persistente que dispara cada vez que el evento pasa. La primera pestaña muestra un listener que loguea cuando el bot termina de conectarse, y la segúnda un handler que reacciona a cada mensaje entrante.
 
 <CodeTabs>
   <Tab label="Ready (Once)" language="typescript">
@@ -28,14 +28,15 @@ import type { Client } from 'discord.js';
 
 @Listener(Events.ClientReady)
 export class ReadyListener {
-  private logger: Logger = new Logger(ReadyListener.name);
+private logger: Logger = new Logger(ReadyListener.name);
 
-  @Once()
-  onReady(client: Client<true>): void {
-    this.logger.info(`Client is ready as ${client.user.tag}`);
-  }
+@Once()
+onReady(client: Client<true>): void {
+this.logger.info(`Client is ready as ${client.user.tag}`);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Mensajes (On)" language="typescript">
 ```typescript filename="src/events/listeners/message-create.listener.ts"
@@ -52,20 +53,21 @@ export class MessageCreateListener {
     }
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-Nota que el parámetro del método recibe el payload del evento de Discord.js directamente. Para *ClientReady*, el payload es el objeto *Client*. Para *MessageCreate*, el payload es el objeto *Message*. Cada evento de Discord tiene su propio tipo de payload, y tu método recibe lo que Discord.js provee para ese evento específico.
+Nota que el parámetro del método recibe el payload del evento de Discord.js directamente. Para _ClientReady_, el payload es el objeto _Client_. Para _MessageCreate_, el payload es el objeto _Message_. Cada evento de Discord tiene su propio tipo de payload, y tu método recibe lo que Discord.js provee para ese evento específico.
 
 ## Registrando listeners en un módulo
 
-Los listeners no se activan solo por existir en tu código fuente. Necesitas registrarlos en el array *listeners* de un módulo para que el framework sepa sobre ellos y pueda conectarlos al client de Discord durante el bootstrap. Sin este registro, tu clase listener sera completamente ignorada.
+Los listeners no se activan solo por existir en tu código fuente. Necesitas registrarlos en el array _listeners_ de un módulo para que el framework sepa sobre ellos y pueda conectarlos al client de Discord durante el bootstrap. Sin este registro, tu clase listener sera completamente ignorada.
 
 ```typescript filename="src/events/events.module.ts"
-import { Module } from '@spraxium/common';
-import { ReadyListener } from './listeners/ready.listener';
-import { MessageCreateListener } from './listeners/message-create.listener';
+import { Module } from "@spraxium/common";
+import { ReadyListener } from "./listeners/ready.listener";
+import { MessageCreateListener } from "./listeners/message-create.listener";
 
 @Module({
   listeners: [ReadyListener, MessageCreateListener],
@@ -77,7 +79,7 @@ El módulo en si debe ser importado por tu módulo raiz u otro módulo en la cad
 
 ## Como el bootstrap conecta listeners
 
-El proceso de bootstrap maneja listeners en una secuencia específica que importa para entender cuando tu listener se activa. Primero, el framework lee el array *listeners* de cada módulo. Segúndo, instancia cada clase listener por el contenedor de DI, resolviendo dependencias de constructor. Tercero, el *ListenerRegistry* interno escanea cada instancia buscando métodos decorados con *@On* o *@Once* y los agrupa por nombre de evento. Cuarto, el *ListenerBinder* toma esos grupos y llama al método *on* u *once* del client Discord.js para crear los bindings reales. Finalmente, cuando un evento de Discord dispara, el *ListenerInvoker* llama a cada handler registrado para ese evento.
+El proceso de bootstrap maneja listeners en una secuencia específica que importa para entender cuando tu listener se activa. Primero, el framework lee el array _listeners_ de cada módulo. Segúndo, instancia cada clase listener por el contenedor de DI, resolviendo dependencias de constructor. Tercero, el _ListenerRegistry_ interno escanea cada instancia buscando métodos decorados con _@On_ o _@Once_ y los agrupa por nombre de evento. Cuarto, el _ListenerBinder_ toma esos grupos y llama al método _on_ u _once_ del client Discord.js para crear los bindings reales. Finalmente, cuando un evento de Discord dispara, el _ListenerInvoker_ llama a cada handler registrado para ese evento.
 
 <FolderStructure title="Layout típico de módulo de listeners">
   <Folder name="src" open>
@@ -97,7 +99,10 @@ El proceso de bootstrap maneja listeners en una secuencia específica que import
 Esta estructura mantiene todas las clases listener en una carpeta dedicada y el archivo de módulo en la raiz de events. Conforme tu bot crece, puedes agregar mas archivos de listener sin cambiar la estructura de carpetas. Cada listener maneja un evento, y el archivo de módulo es el único lugar que declara cuales listeners están activos.
 
 <Callout tone="info" title="Una clase por evento">
-  Cada clase listener está vinculada a exactamente un evento de Discord a través del decorator Listener. Si necesitas escuchar múltiples eventos, crea clases listener separadas para cada uno. Esto mantiene cada clase enfocada y fácil de encontrar al debuguear.
+  Cada clase listener está vinculada a exactamente un evento de Discord a través
+  del decorator Listener. Si necesitas escuchar múltiples eventos, crea clases
+  listener separadas para cada uno. Esto mantiene cada clase enfocada y fácil de
+  encontrar al debuguear.
 </Callout>
 
 ## Siguiente página

@@ -9,9 +9,9 @@ category: Components
 
 ## Button types
 
-Spraxium provides two button variants, each with its own decorator and use case. Static buttons have a fixed *customId* and fire a handler when clicked. Link buttons open a URL in the user's browser and do not fire any handler.
+Spraxium provides two button variants, each with its own decorator and use case. Static buttons have a fixed _customId_ and fire a handler when clicked. Link buttons open a URL in the user's browser and do not fire any handler.
 
-Both types are defined as decorated classes and rendered through *ButtonService*. The visual properties, label, style, emoji, and disabled state, are configured in the decorator and stored as metadata. The renderer reads this metadata at build time and produces the appropriate discord.js *ButtonBuilder* instance.
+Both types are defined as decorated classes and rendered through _ButtonService_. The visual properties, label, style, emoji, and disabled state, are configured in the decorator and stored as metadata. The renderer reads this metadata at build time and produces the appropriate discord.js _ButtonBuilder_ instance.
 
 <Table>
   <TableHead>
@@ -41,7 +41,7 @@ Both types are defined as decorated classes and rendered through *ButtonService*
 
 ## Static buttons
 
-A static button is the simplest interactive component. You decorate a class with *@Button*, providing a *customId* and a *label* at minimum. The *customId* must be unique across your entire bot because the dispatcher matches incoming interactions by exact *customId* equality. The *style* field maps to Discord's button styles and defaults to `'primary'` if omitted.
+A static button is the simplest interactive component. You decorate a class with _@Button_, providing a _customId_ and a _label_ at minimum. The _customId_ must be unique across your entire bot because the dispatcher matches incoming interactions by exact _customId_ equality. The _style_ field maps to Discord's button styles and defaults to `'primary'` if omitted.
 
 <CodeTabs>
   <Tab label="Component" language="typescript">
@@ -49,9 +49,10 @@ A static button is the simplest interactive component. You decorate a class with
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm_action', label: 'Confirm', style: 'success', emoji: '✅', })
+customId: 'confirm_action', label: 'Confirm', style: 'success', emoji: '✅', })
 export class ConfirmButton {}
-```
+
+````
   </Tab>
   <Tab label="Handler" language="typescript">
 ```typescript filename="src/components/buttons/confirm.handler.ts"
@@ -65,11 +66,12 @@ export class ConfirmButtonHandler {
     await interaction.reply({ content: 'Action confirmed.', ephemeral: true });
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-The handler class must be decorated with *@ButtonHandler* and pass the component class as its argument. This creates a metadata link that the dispatcher resolves during bootstrap. The *handle* method receives parameters through decorators: *@Ctx()* injects the raw *ButtonInteraction*, and *@FlowContext()* injects the context object when present.
+The handler class must be decorated with _@ButtonHandler_ and pass the component class as its argument. This creates a metadata link that the dispatcher resolves during bootstrap. The _handle_ method receives parameters through decorators: _@Ctx()_ injects the raw _ButtonInteraction_, and _@FlowContext()_ injects the context object when present.
 
 ## Button configuration reference
 
@@ -124,22 +126,24 @@ The handler class must be decorated with *@ButtonHandler* and pass the component
 
 ## Link buttons
 
-Link buttons open a URL in the user's browser without firing any handler on the bot side. They are useful for directing users to documentation, dashboards, or external tools. Because Discord requires a different button style for links, the *@LinkButton* decorator omits *customId* and *style* in favor of a *url* field.
+Link buttons open a URL in the user's browser without firing any handler on the bot side. They are useful for directing users to documentation, dashboards, or external tools. Because Discord requires a different button style for links, the _@LinkButton_ decorator omits _customId_ and _style_ in favor of a _url_ field.
 
 ```typescript filename="src/components/buttons/docs-link.button.ts"
-import { LinkButton } from '@spraxium/components';
+import { LinkButton } from "@spraxium/components";
 
 @LinkButton({
-  url: 'https://docs.example.com', label: 'View Documentation', emoji: '📖', })
+  url: "https://docs.example.com",
+  label: "View Documentation",
+  emoji: "📖",
+})
 export class DocsLinkButton {}
 ```
 
-Link buttons can be mixed with static buttons in the same action row. You pass all button classes to *ButtonService.build* and the renderer produces the correct builder type for each one based on the metadata.
-
+Link buttons can be mixed with static buttons in the same action row. You pass all button classes to _ButtonService.build_ and the renderer produces the correct builder type for each one based on the metadata.
 
 ## Rendering with ButtonService
 
-*ButtonService* is the injectable service that transforms decorated classes into discord.js action rows. It provides two methods for different rendering scenarios. All methods read component metadata via reflection, so the service does not need explicit configuration beyond the decorated classes.
+_ButtonService_ is the injectable service that transforms decorated classes into discord.js action rows. It provides two methods for different rendering scenarios. All methods read component metadata via reflection, so the service does not need explicit configuration beyond the decorated classes.
 
 <Table>
   <TableHead>
@@ -165,38 +169,48 @@ Link buttons can be mixed with static buttons in the same action row. You pass a
 </Table>
 
 <Callout type="tip">
-  Discord limits action rows to five buttons. The service throws an error if you pass more than five classes to *build*.
-  For layouts with more buttons, create multiple rows by calling *build* multiple times and pass each row individually in the *components* array.
+  Discord limits action rows to five buttons. The service throws an error if you
+  pass more than five classes to *build*. For layouts with more buttons, create
+  multiple rows by calling *build* multiple times and pass each row individually
+  in the *components* array.
 </Callout>
 
 ```typescript filename="src/commands/moderation.command-handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { ButtonService, ContextService } from '@spraxium/components';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { ConfirmButton } from '../components/buttons/confirm.button';
-import { CancelButton } from '../components/buttons/cancel.button';
-import { DocsLinkButton } from '../components/buttons/docs-link.button';
-import { ModerationCommand } from './moderation.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { ButtonService, ContextService } from "@spraxium/components";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { ConfirmButton } from "../components/buttons/confirm.button";
+import { CancelButton } from "../components/buttons/cancel.button";
+import { DocsLinkButton } from "../components/buttons/docs-link.button";
+import { ModerationCommand } from "./moderation.command";
 
 @SlashCommandHandler(ModerationCommand)
 export class ModerationCommandHandler {
   constructor(
-    private readonly buttons: ButtonService, private readonly context: ContextService, ) {}
+    private readonly buttons: ButtonService,
+    private readonly context: ContextService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const ctx = await this.context.create({ targetUserId: '123456' });
-    const actionRow = this.buttons.rowWithContext(ctx, ConfirmButton, CancelButton);
+    const ctx = await this.context.create({ targetUserId: "123456" });
+    const actionRow = this.buttons.rowWithContext(
+      ctx,
+      ConfirmButton,
+      CancelButton,
+    );
     const linkRow = this.buttons.build(DocsLinkButton);
 
     await interaction.reply({
-      content: 'Review the moderation action below.', components: [actionRow, linkRow], });
+      content: "Review the moderation action below.",
+      components: [actionRow, linkRow],
+    });
   }
 }
 ```
 
 ## Button style reference
 
-The *style* field accepts one of four named values that map to Discord's *ButtonStyle* enum. Each style controls the button's color and visual prominence. Link buttons always use the link style automatically and do not accept a *style* field.
+The _style_ field accepts one of four named values that map to Discord's _ButtonStyle_ enum. Each style controls the button's color and visual prominence. Link buttons always use the link style automatically and do not accept a _style_ field.
 
 <Table>
   <TableHead>
@@ -230,24 +244,26 @@ The *style* field accepts one of four named values that map to Discord's *Button
       <TableCell>`'danger'`</TableCell>
       <TableCell>*ButtonStyle.Danger*</TableCell>
       <TableCell>Red</TableCell>
-      <TableCell>Destructive or irreversible actions like bans and deletes.</TableCell>
+      <TableCell>
+        Destructive or irreversible actions like bans and deletes.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Module registration
 
-Only handler classes need to be registered, and they go in the *handlers* array of your feature module. Component classes decorated with *@Button* or *@LinkButton* are metadata-only and are never added to any module. The dispatcher reads their customId and configuration directly from the class reference stored inside each *@ButtonHandler* decorator, with no DI instantiation required.
+Only handler classes need to be registered, and they go in the _handlers_ array of your feature module. Component classes decorated with _@Button_ or _@LinkButton_ are metadata-only and are never added to any module. The dispatcher reads their customId and configuration directly from the class reference stored inside each _@ButtonHandler_ decorator, with no DI instantiation required.
 
 ```typescript filename="src/modules/moderation/moderation.module.ts"
-import { Module } from '@spraxium/common';
-import { ConfirmButtonHandler } from './components/confirm.handler';
-import { CancelButtonHandler } from './components/cancel.handler';
-import { UserBanButtonHandler } from './components/user-ban.handler';
+import { Module } from "@spraxium/common";
+import { ConfirmButtonHandler } from "./components/confirm.handler";
+import { CancelButtonHandler } from "./components/cancel.handler";
+import { UserBanButtonHandler } from "./components/user-ban.handler";
 
 @Module({
-  handlers: [
-    ConfirmButtonHandler, CancelButtonHandler, UserBanButtonHandler, ], })
+  handlers: [ConfirmButtonHandler, CancelButtonHandler, UserBanButtonHandler],
+})
 export class ModerationModule {}
 ```
 

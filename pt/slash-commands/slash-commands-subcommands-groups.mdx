@@ -11,37 +11,45 @@ category: Slash Commands
 
 O Discord suporta uma hierarquia de três níveis para slash commands: comando, grupo de subcomandos e subcomando. Um comando raiz como `/ping` fica no nível superior e aceita opções diretamente. Um comando como `/config view` usa subcomandos onde `config` é o pai e `view` é o subcomando. Um comando como `/config moderation automod` usa um grupo de subcomandos onde `config` é o pai, `moderation` é o grupo e `automod` é o subcomando dentro daquele grupo.
 
-Essa hierarquia é imposta pelo Discord no nível da API. Um comando que tem subcomandos não pode aceitar opções de nível raiz, porque o Discord não permite misturar opções e subcomandos no mesmo nível. Da mesma forma, um grupo de subcomandos só pode conter subcomandos, não opções diretas. O Spraxium espelha essas restrições através do seu sistema de decorators: *@SlashSubcommand* transforma métodos em subcomandos, *@SlashSubcommandGroup* transforma classes em containers de grupo, e *@SlashSubcommandGroups* registra grupos no comando pai. O framework valida esses relacionamentos no momento do registro e constrói o payload JSON aninhado correto para a API do Discord.
+Essa hierarquia é imposta pelo Discord no nível da API. Um comando que tem subcomandos não pode aceitar opções de nível raiz, porque o Discord não permite misturar opções e subcomandos no mesmo nível. Da mesma forma, um grupo de subcomandos só pode conter subcomandos, não opções diretas. O Spraxium espelha essas restrições através do seu sistema de decorators: _@SlashSubcommand_ transforma métodos em subcomandos, _@SlashSubcommandGroup_ transforma classes em containers de grupo, e _@SlashSubcommandGroups_ registra grupos no comando pai. O framework valida esses relacionamentos no momento do registro e constrói o payload JSON aninhado correto para a API do Discord.
 
 Entender qual nível usar depende da complexidade do comando. Comandos simples com poucas opções usam opções de nível raiz. Comandos com 2-5 ações distintas usam subcomandos. Comandos com muitas ações que podem ser logicamente agrupadas em categorias usam grupos de subcomandos.
 
 <Callout tone="info" title="O Discord impõe limites rígidos de subcomandos">
-  Um comando pode ter no máximo 25 subcomandos no nível superior, e cada grupo de subcomandos também pode conter no máximo 25 subcomandos.
-  Planeje a hierarquia do comando antes de registrar para evitar reconstruir o schema após atingir esses limites.
+  Um comando pode ter no máximo 25 subcomandos no nível superior, e cada grupo
+  de subcomandos também pode conter no máximo 25 subcomandos. Planeje a
+  hierarquia do comando antes de registrar para evitar reconstruir o schema após
+  atingir esses limites.
 </Callout>
 
 ## Subcomandos com @SlashSubcommand
 
-Um subcomando é declarado decorando um método na classe *@SlashCommand* com *@SlashSubcommand*. Cada método decorado representa um subcomando no seletor do Discord. Opções para um subcomando são declaradas no mesmo método usando decorators *@SlashOption*, assim como opções raiz são declaradas no método *build()*.
+Um subcomando é declarado decorando um método na classe _@SlashCommand_ com _@SlashSubcommand_. Cada método decorado representa um subcomando no seletor do Discord. Opções para um subcomando são declaradas no mesmo método usando decorators _@SlashOption_, assim como opções raiz são declaradas no método _build()_.
 
 ```typescript filename="commands/user.command.ts"
-import { SlashCommand, SlashOption, SlashSubcommand } from '@spraxium/common';
+import { SlashCommand, SlashOption, SlashSubcommand } from "@spraxium/common";
 
-@SlashCommand({ name: 'user', description: 'User utilities.' })
+@SlashCommand({ name: "user", description: "User utilities." })
 export class UserCommand {
-  @SlashOption.User('target', { description: 'The user to look up', required: true })
-  @SlashSubcommand({ name: 'info', description: 'Show user info' })
+  @SlashOption.User("target", {
+    description: "The user to look up",
+    required: true,
+  })
+  @SlashSubcommand({ name: "info", description: "Show user info" })
   info() {}
 
-  @SlashOption.User('target', { description: 'The user to get the avatar of', required: false })
-  @SlashSubcommand({ name: 'avatar', description: 'Show user avatar' })
+  @SlashOption.User("target", {
+    description: "The user to get the avatar of",
+    required: false,
+  })
+  @SlashSubcommand({ name: "avatar", description: "Show user avatar" })
   avatar() {}
 }
 ```
 
-O decorator *@SlashSubcommand* aceita um objeto de metadados com *name*, *description* e chaves *i18n* opcionais. O nome do método na classe serve como identificador interno que o framework usa durante a coleta de metadados, mas a propriedade *name* na configuração do decorator é o que aparece no seletor de comandos do Discord. O corpo do método permanece vazio porque a lógica de execução fica nas classes handler.
+O decorator _@SlashSubcommand_ aceita um objeto de metadados com _name_, _description_ e chaves _i18n_ opcionais. O nome do método na classe serve como identificador interno que o framework usa durante a coleta de metadados, mas a propriedade _name_ na configuração do decorator é o que aparece no seletor de comandos do Discord. O corpo do método permanece vazio porque a lógica de execução fica nas classes handler.
 
-Cada subcomando recebe sua própria classe handler. O handler usa a opção *sub* no *@SlashCommandHandler* para especificar qual subcomando ele trata.
+Cada subcomando recebe sua própria classe handler. O handler usa a opção _sub_ no _@SlashCommandHandler_ para especificar qual subcomando ele trata.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="commands/user.command.ts" language="typescript">
@@ -50,15 +58,16 @@ import { SlashCommand, SlashOption, SlashSubcommand } from '@spraxium/common';
 
 @SlashCommand({ name: 'user', description: 'User utilities.' })
 export class UserCommand {
-  @SlashOption.User('target', { description: 'The user to look up', required: true })
-  @SlashSubcommand({ name: 'info', description: 'Show user info' })
-  info() {}
+@SlashOption.User('target', { description: 'The user to look up', required: true })
+@SlashSubcommand({ name: 'info', description: 'Show user info' })
+info() {}
 
-  @SlashOption.User('target', { description: 'The user to get the avatar of', required: false })
-  @SlashSubcommand({ name: 'avatar', description: 'Show user avatar' })
-  avatar() {}
+@SlashOption.User('target', { description: 'The user to get the avatar of', required: false })
+@SlashSubcommand({ name: 'avatar', description: 'Show user avatar' })
+avatar() {}
 }
-```
+
+````
   </Tab>
   <Tab label="handlers/user-info.handler.ts" language="typescript">
 ```typescript filename="handlers/user-info.handler.ts"
@@ -69,11 +78,14 @@ import { UserCommand } from '../commands/user.command';
 @SlashCommandHandler(UserCommand, { sub: 'info' })
 export class UserInfoHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('target') target: User,
+  ): Promise<void> {
     await interaction.reply(`User: ${target.tag}, ID: ${target.id}`);
   }
 }
-```
+````
+
   </Tab>
   <Tab label="handlers/user-avatar.handler.ts" language="typescript">
 ```typescript filename="handlers/user-avatar.handler.ts"
@@ -83,13 +95,16 @@ import { UserCommand } from '../commands/user.command';
 
 @SlashCommandHandler(UserCommand, { sub: 'avatar' })
 export class UserAvatarHandler {
-  async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('target') target: User | null, ): Promise<void> {
-    const user = target ?? interaction.user;
-    await interaction.reply(user.displayAvatarURL({ size: 512 }));
-  }
+async handle(
+@Ctx() interaction: ChatInputCommandInteraction,
+@SlashOpt('target') target: User | null,
+): Promise<void> {
+const user = target ?? interaction.user;
+await interaction.reply(user.displayAvatarURL({ size: 512 }));
 }
-```
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -101,11 +116,18 @@ A classe de grupo serve como um namespace para subcomandos. No seletor do Discor
 
 ```typescript filename="commands/config.command.ts"
 import {
-  SlashCommand, SlashOption, SlashSubcommand, SlashSubcommandGroup, SlashSubcommandGroups, } from '@spraxium/common';
+  SlashCommand,
+  SlashOption,
+  SlashSubcommand,
+  SlashSubcommandGroup,
+  SlashSubcommandGroups,
+} from '@spraxium/common';
 import { ChannelType } from 'discord.js';
 
 @SlashSubcommandGroup({
-  name: 'moderation', description: 'Moderation settings', })
+  name: 'moderation',
+  description: 'Moderation settings',
+})
 export class ModerationGroup {
   @SlashOption.Boolean('enabled', { description: 'Enable or disable automod', required: true })
   @SlashOption.String('filter', { description: 'Filter profile to apply', required: false })
@@ -113,28 +135,42 @@ export class ModerationGroup {
   automod() {}
 
   @SlashOption.Channel('channel', {
-    description: 'Channel to send moderation logs to', required: true, channelTypes: [ChannelType.GuildText], })
+    description: 'Channel to send moderation logs to',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
   @SlashSubcommand({ name: 'logging', description: 'Configure moderation logging channel' })
   logging() {}
 }
 
 @SlashSubcommandGroup({
-  name: 'welcome', description: 'Welcome system settings', })
+  name: 'welcome',
+  description: 'Welcome system settings',
+})
 export class WelcomeGroup {
   @SlashOption.Channel('channel', {
-    description: 'Channel to send welcome messages to', required: true, channelTypes: [ChannelType.GuildText], })
+    description: 'Channel to send welcome messages to',
+    required: true,
+    channelTypes: [ChannelType.GuildText],
+  })
   @SlashSubcommand({ name: 'channel', description: 'Set the welcome channel' })
   setChannel() {}
 
   @SlashOption.String('template', {
-    description: 'Welcome message template', required: true, maxLength: 2000, })
+    description: 'Welcome message template',
+    required: true,
+    maxLength: 2000,
+  })
   @SlashSubcommand({ name: 'message', description: 'Set the welcome message template' })
   message() {}
 }
 
 @SlashSubcommandGroups([ModerationGroup, WelcomeGroup])
 @SlashCommand({
-  name: 'config', description: 'Server configuration commands.', defaultMemberPermissions: 0x20n, })
+  name: 'config',
+  description: 'Server configuration commands.',
+  defaultMemberPermissions: 0x20n,
+})
 export class ConfigCommand {
   @SlashSubcommand({ name: 'view', description: 'View the current server configuration' })
   view() {}
@@ -142,17 +178,17 @@ export class ConfigCommand {
   @SlashSubcommand({ name: 'reset', description: 'Reset configuration to defaults' })
   reset() {}
 }
-```
+````
 
 ## Misturando subcomandos de nível superior com grupos
 
-Um único comando pode ter tanto subcomandos de nível superior (declarados na classe do comando) quanto grupos de subcomandos (registrados via *@SlashSubcommandGroups*). No exemplo acima, `ConfigCommand` tem dois subcomandos de nível superior (*view* e *reset*) mais dois grupos (*moderation* e *welcome*). O *SlashRegistrar* lida com isso automaticamente: ele primeiro aplica os subcomandos de nível superior da classe do comando, depois itera sobre as classes de grupo e adiciona cada grupo com seus subcomandos.
+Um único comando pode ter tanto subcomandos de nível superior (declarados na classe do comando) quanto grupos de subcomandos (registrados via _@SlashSubcommandGroups_). No exemplo acima, `ConfigCommand` tem dois subcomandos de nível superior (_view_ e _reset_) mais dois grupos (_moderation_ e _welcome_). O _SlashRegistrar_ lida com isso automaticamente: ele primeiro aplica os subcomandos de nível superior da classe do comando, depois itera sobre as classes de grupo e adiciona cada grupo com seus subcomandos.
 
 No seletor do Discord, o usuário vê todos os três níveis: `/config view`, `/config reset`, `/config moderation automod`, `/config moderation logging`, `/config welcome channel`, `/config welcome message`. Os subcomandos de nível superior aparecem sem prefixo de grupo.
 
 ## Roteamento de handler com group e sub
 
-Handlers para subcomandos agrupados usam ambas as opções *sub* e *group* no decorator *@SlashCommandHandler*. O framework faz correspondência de handlers verificando nome do comando, nome do grupo e nome do subcomando como uma tripla. Um handler com `{ sub: 'automod', group: 'moderation' }` só recebe interações para `/config moderation automod` e nunca para `/config view` ou `/config welcome channel`.
+Handlers para subcomandos agrupados usam ambas as opções _sub_ e _group_ no decorator _@SlashCommandHandler_. O framework faz correspondência de handlers verificando nome do comando, nome do grupo e nome do subcomando como uma tripla. Um handler com `{ sub: 'automod', group: 'moderation' }` só recebe interações para `/config moderation automod` e nunca para `/config view` ou `/config welcome channel`.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="Subcomando de nível superior" language="typescript">
@@ -163,17 +199,21 @@ import { ConfigCommand } from '../commands/config.command';
 
 @SlashCommandHandler(ConfigCommand, { sub: 'view' })
 export class ConfigViewHandler {
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('Server Configuration')
-      .addFields(
-        { name: 'Prefix', value: '`!`', inline: true }, { name: 'Language', value: 'en-US', inline: true }, );
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const embed = new EmbedBuilder()
+.setColor(0x5865f2)
+.setTitle('Server Configuration')
+.addFields(
+{ name: 'Prefix', value: '`!`', inline: true },
+{ name: 'Language', value: 'en-US', inline: true },
+);
 
     await interaction.reply({ embeds: [embed] });
-  }
+
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Subcomando agrupado" language="typescript">
 ```typescript filename="handlers/config-automod.handler.ts"
@@ -184,33 +224,45 @@ import { ConfigCommand } from '../commands/config.command';
 @SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
 export class ConfigAutomodHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt('enabled') enabled: boolean,
+    @SlashOpt('filter') filter: string | null,
+  ): Promise<void> {
     const state = enabled ? 'enabled' : 'disabled';
     const filterText = filter ? ` (filter: ${filter})` : '';
     await interaction.reply(`Automod has been **${state}**${filterText}.`);
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Registro no módulo para comandos complexos
 
-Quando um comando tem múltiplos handlers de subcomando, todos os handlers devem ser registrados no array *handlers* do módulo. O array *commands* precisa apenas da classe do comando pai, não das classes de grupo. Classes de grupo são descobertas através dos metadados de *@SlashSubcommandGroups* na classe do comando.
+Quando um comando tem múltiplos handlers de subcomando, todos os handlers devem ser registrados no array _handlers_ do módulo. O array _commands_ precisa apenas da classe do comando pai, não das classes de grupo. Classes de grupo são descobertas através dos metadados de _@SlashSubcommandGroups_ na classe do comando.
 
 ```typescript filename="modules/slash/slash.module.ts"
-import { Module } from '@spraxium/common';
-import { ConfigCommand } from './commands/config.command';
-import { ConfigAutomodHandler } from './handlers/config-automod.handler';
-import { ConfigLoggingHandler } from './handlers/config-logging.handler';
-import { ConfigResetHandler } from './handlers/config-reset.handler';
-import { ConfigViewHandler } from './handlers/config-view.handler';
-import { ConfigWelcomeChannelHandler } from './handlers/config-welcome-channel.handler';
-import { ConfigWelcomeMessageHandler } from './handlers/config-welcome-message.handler';
+import { Module } from "@spraxium/common";
+import { ConfigCommand } from "./commands/config.command";
+import { ConfigAutomodHandler } from "./handlers/config-automod.handler";
+import { ConfigLoggingHandler } from "./handlers/config-logging.handler";
+import { ConfigResetHandler } from "./handlers/config-reset.handler";
+import { ConfigViewHandler } from "./handlers/config-view.handler";
+import { ConfigWelcomeChannelHandler } from "./handlers/config-welcome-channel.handler";
+import { ConfigWelcomeMessageHandler } from "./handlers/config-welcome-message.handler";
 
 @Module({
-  commands: [ConfigCommand], handlers: [
-    ConfigViewHandler, ConfigResetHandler, ConfigAutomodHandler, ConfigLoggingHandler, ConfigWelcomeChannelHandler, ConfigWelcomeMessageHandler, ], })
+  commands: [ConfigCommand],
+  handlers: [
+    ConfigViewHandler,
+    ConfigResetHandler,
+    ConfigAutomodHandler,
+    ConfigLoggingHandler,
+    ConfigWelcomeChannelHandler,
+    ConfigWelcomeMessageHandler,
+  ],
+})
 export class SlashModule {}
 ```
 
@@ -239,7 +291,7 @@ O module loader instancia cada handler através do container DI e o conecta ao c
   </Folder>
 </FolderStructure>
 
-Classes de grupo como *ModerationGroup* e *WelcomeGroup* ficam no mesmo arquivo de comando que a classe do comando pai porque fazem parte do schema do comando, não da lógica de execução. Arquivos de handler são nomeados seguindo o caminho completo do subcomando que tratam, facilitando encontrar o handler para qualquer caminho de interação específico.
+Classes de grupo como _ModerationGroup_ e _WelcomeGroup_ ficam no mesmo arquivo de comando que a classe do comando pai porque fazem parte do schema do comando, não da lógica de execução. Arquivos de handler são nomeados seguindo o caminho completo do subcomando que tratam, facilitando encontrar o handler para qualquer caminho de interação específico.
 
 ## Checklist de design para subcomandos e grupos
 

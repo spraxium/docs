@@ -17,7 +17,7 @@ Listeners in Spraxium are not raw callbacks. They are full classes managed by th
 
 ## A basic listener example
 
-Here are two listeners that show the two binding modes. The first uses *@Once* to react to *ClientReady* a single time when the bot connects. The second uses *@On* to react to every *MessageCreate* event for the entire lifetime of the bot. Together, these cover the two most common patterns you will use.
+Here are two listeners that show the two binding modes. The first uses _@Once_ to react to _ClientReady_ a single time when the bot connects. The second uses _@On_ to react to every _MessageCreate_ event for the entire lifetime of the bot. Together, these cover the two most common patterns you will use.
 
 <CodeTabs>
   <Tab label="Ready (Once)" language="typescript">
@@ -28,14 +28,15 @@ import type { Client } from 'discord.js';
 
 @Listener(Events.ClientReady)
 export class ReadyListener {
-  private logger: Logger = new Logger(ReadyListener.name);
+private logger: Logger = new Logger(ReadyListener.name);
 
-  @Once()
-  onReady(client: Client<true>): void {
-    this.logger.info(`Client is ready as ${client.user.tag}`);
-  }
+@Once()
+onReady(client: Client<true>): void {
+this.logger.info(`Client is ready as ${client.user.tag}`);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Messages (On)" language="typescript">
 ```typescript filename="src/events/listeners/message-create.listener.ts"
@@ -52,20 +53,21 @@ export class MessageCreateListener {
     }
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-Notice that the method parameter receives the Discord.js event payload directly. For *ClientReady*, the payload is the *Client* object. For *MessageCreate*, the payload is the *Message* object. Each Discord event has its own payload type, and your method receives whatever Discord.js provides for that specific event.
+Notice that the method parameter receives the Discord.js event payload directly. For _ClientReady_, the payload is the _Client_ object. For _MessageCreate_, the payload is the _Message_ object. Each Discord event has its own payload type, and your method receives whatever Discord.js provides for that specific event.
 
 ## Registering listeners in a module
 
-Listeners do not activate just by existing in your source code. You need to register them in a module's *listeners* array so the framework knows about them and can wire them to the Discord client during bootstrap. Without this registration, your listener class will be ignored completely.
+Listeners do not activate just by existing in your source code. You need to register them in a module's _listeners_ array so the framework knows about them and can wire them to the Discord client during bootstrap. Without this registration, your listener class will be ignored completely.
 
 ```typescript filename="src/events/events.module.ts"
-import { Module } from '@spraxium/common';
-import { ReadyListener } from './listeners/ready.listener';
-import { MessageCreateListener } from './listeners/message-create.listener';
+import { Module } from "@spraxium/common";
+import { ReadyListener } from "./listeners/ready.listener";
+import { MessageCreateListener } from "./listeners/message-create.listener";
 
 @Module({
   listeners: [ReadyListener, MessageCreateListener],
@@ -77,7 +79,7 @@ The module itself must be imported by your root module or another module in the 
 
 ## How the bootstrap wires listeners
 
-The bootstrap process handles listeners in a specific sequence that matters for understanding when your listener becomes active. First, the framework reads the *listeners* array from each module. Second, it instantiates each listener class through the DI container, resolving constructor dependencies. Third, the internal *ListenerRegistry* scans each instance for methods decorated with *@On* or *@Once* and groups them by event name. Fourth, the *ListenerBinder* takes those groups and calls the Discord.js client's *on* or *once* method to create the actual bindings. Finally, when a Discord event fires, the *ListenerInvoker* calls each registered handler for that event.
+The bootstrap process handles listeners in a specific sequence that matters for understanding when your listener becomes active. First, the framework reads the _listeners_ array from each module. Second, it instantiates each listener class through the DI container, resolving constructor dependencies. Third, the internal _ListenerRegistry_ scans each instance for methods decorated with _@On_ or _@Once_ and groups them by event name. Fourth, the _ListenerBinder_ takes those groups and calls the Discord.js client's _on_ or _once_ method to create the actual bindings. Finally, when a Discord event fires, the _ListenerInvoker_ calls each registered handler for that event.
 
 <FolderStructure title="Typical listener module layout">
   <Folder name="src" open>
@@ -97,7 +99,10 @@ The bootstrap process handles listeners in a specific sequence that matters for 
 This structure keeps all listener classes in a dedicated folder and the module file at the events root. As your bot grows, you can add more listener files without changing the folder structure. Each listener handles one event, and the module file is the single place that declares which listeners are active.
 
 <Callout tone="info" title="One class per event">
-  Each listener class is bound to exactly one Discord event through the Listener decorator. If you need to listen to multiple events, create separate listener classes for each one. This keeps each class focused and easy to find when debugging.
+  Each listener class is bound to exactly one Discord event through the Listener
+  decorator. If you need to listen to multiple events, create separate listener
+  classes for each one. This keeps each class focused and easy to find when
+  debugging.
 </Callout>
 
 ## Next page

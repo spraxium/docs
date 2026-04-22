@@ -17,11 +17,11 @@ Guards também se integram com a camada de exceptions. Quando um guard nega exec
 
 ## A interface SpraxiumGuard
 
-Todo guard implementa a interface *SpraxiumGuard*, que exige um único método chamado *canActivate*. Esse método recebe o *ExecutionContext* atual e deve retornar um boolean ou uma promise que resolve pra boolean. Se o método retorna true, a execução continua pro próximo guard ou pro handler. Se retorna false, a execução para e o framework trata como uma negação.
+Todo guard implementa a interface _SpraxiumGuard_, que exige um único método chamado _canActivate_. Esse método recebe o _ExecutionContext_ atual e deve retornar um boolean ou uma promise que resolve pra boolean. Se o método retorna true, a execução continua pro próximo guard ou pro handler. Se retorna false, a execução para e o framework trata como uma negação.
 
 ```typescript filename="guild-only.guard.ts"
-import { Guard } from '@spraxium/common';
-import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { Guard } from "@spraxium/common";
+import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
 
 @Guard()
 export class GuildOnlyGuard implements SpraxiumGuard {
@@ -31,11 +31,11 @@ export class GuildOnlyGuard implements SpraxiumGuard {
 }
 ```
 
-O método *canActivate* suporta retornos síncronos e assíncronos. Se seu guard precisa checar um banco de dados, chamar uma API externa ou fazer qualquer operação async pra decidir se a execução deve continuar, você pode retornar uma *Promise* e o framework vai aguardar o resultado antes de tomar a decisão. Essa flexibilidade significa que guards funcionam igualmente bem pra checagens instantâneas como verificar contexto de guild e pra checagens mais pesadas como consultar um banco de dados de assinaturas.
+O método _canActivate_ suporta retornos síncronos e assíncronos. Se seu guard precisa checar um banco de dados, chamar uma API externa ou fazer qualquer operação async pra decidir se a execução deve continuar, você pode retornar uma _Promise_ e o framework vai aguardar o resultado antes de tomar a decisão. Essa flexibilidade significa que guards funcionam igualmente bem pra checagens instantâneas como verificar contexto de guild e pra checagens mais pesadas como consultar um banco de dados de assinaturas.
 
 ## O ExecutionContext
 
-O *ExecutionContext* é o objeto passado pro método *canActivate* de todo guard. Ele encapsula uma interaction ou message do Discord e fornece uma API unificada pra que seu guard não precise saber se o comando foi acionado por um slash command ou um prefix command. Cada método do contexto extrai uma informação específica sobre quem acionou a execução e onde aconteceu.
+O _ExecutionContext_ é o objeto passado pro método _canActivate_ de todo guard. Ele encapsula uma interaction ou message do Discord e fornece uma API unificada pra que seu guard não precise saber se o comando foi acionado por um slash command ou um prefix command. Cada método do contexto extrai uma informação específica sobre quem acionou a execução e onde aconteceu.
 
 <Table variant="striped">
   <TableHead>
@@ -49,17 +49,23 @@ O *ExecutionContext* é o objeto passado pro método *canActivate* de todo guard
     <TableRow>
       <TableCell>*getUserId()*</TableCell>
       <TableCell>string</TableCell>
-      <TableCell>O snowflake ID do Discord do usuário que acionou o comando</TableCell>
+      <TableCell>
+        O snowflake ID do Discord do usuário que acionou o comando
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getUser()*</TableCell>
       <TableCell>User</TableCell>
-      <TableCell>O objeto User completo do Discord.js do usuário que acionou</TableCell>
+      <TableCell>
+        O objeto User completo do Discord.js do usuário que acionou
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getGuildId()*</TableCell>
       <TableCell>string ou null</TableCell>
-      <TableCell>O snowflake ID da guild, ou null quando o comando roda em DM</TableCell>
+      <TableCell>
+        O snowflake ID da guild, ou null quando o comando roda em DM
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getChannelId()*</TableCell>
@@ -74,32 +80,42 @@ O *ExecutionContext* é o objeto passado pro método *canActivate* de todo guard
     <TableRow>
       <TableCell>*getMember()*</TableCell>
       <TableCell>GuildMember ou null</TableCell>
-      <TableCell>O membro resolvido da guild, ou null em DMs ou quando não esta em cache</TableCell>
+      <TableCell>
+        O membro resolvido da guild, ou null em DMs ou quando não esta em cache
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getMemberPermissions()*</TableCell>
       <TableCell>PermissionsBitField ou null</TableCell>
-      <TableCell>As permissões resolvidas do membro no Discord, ou null em DMs</TableCell>
+      <TableCell>
+        As permissões resolvidas do membro no Discord, ou null em DMs
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getInteraction()*</TableCell>
       <TableCell>BaseInteraction ou Message</TableCell>
-      <TableCell>A interaction ou message crua do Discord.js por trás desse contexto</TableCell>
+      <TableCell>
+        A interaction ou message crua do Discord.js por trás desse contexto
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*isSlashCommand()*</TableCell>
       <TableCell>boolean</TableCell>
-      <TableCell>True quando o handler foi acionado por uma slash interaction</TableCell>
+      <TableCell>
+        True quando o handler foi acionado por uma slash interaction
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*isPrefixCommand()*</TableCell>
       <TableCell>boolean</TableCell>
-      <TableCell>True quando o handler foi acionado por uma mensagem de texto com prefixo</TableCell>
+      <TableCell>
+        True quando o handler foi acionado por uma mensagem de texto com prefixo
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-você pode estar se perguntando por que *getUserId* e *getUser* existem separadamente. O motivo é performance: se seu guard só precisa comparar o ID do usuário contra uma lista de owner IDs, chamar *getUserId* evita resolver o objeto User completo. Se seu guard precisa de mais informações como a data de criação da conta, *getUser* te da o objeto completo. Use o que fizer sentido pra checagem específica do seu guard.
+você pode estar se perguntando por que _getUserId_ e _getUser_ existem separadamente. O motivo é performance: se seu guard só precisa comparar o ID do usuário contra uma lista de owner IDs, chamar _getUserId_ evita resolver o objeto User completo. Se seu guard precisa de mais informações como a data de criação da conta, _getUser_ te da o objeto completo. Use o que fizer sentido pra checagem específica do seu guard.
 
 ## O pipeline de execução
 
@@ -107,23 +123,39 @@ Guards não rodam em ordem aleatória. O Spraxium avalia em três camadas, sempr
 
 <Steps>
   <Step title="Guards globais rodam primeiro">
-    Sao registrados durante o bootstrap da aplicação com *useGlobalGuards* na instância *SpraxiumApplication*. Eles se aplicam a todo comando e todo listener com guard na aplicação inteira, o que os torna o lugar certo pra regras amplas como bloquear contas de bot, restringir acesso durante manutenção ou aplicar rate limit global.
+    Sao registrados durante o bootstrap da aplicação com *useGlobalGuards* na
+    instância *SpraxiumApplication*. Eles se aplicam a todo comando e todo
+    listener com guard na aplicação inteira, o que os torna o lugar certo pra
+    regras amplas como bloquear contas de bot, restringir acesso durante
+    manutenção ou aplicar rate limit global.
   </Step>
   <Step title="Guards de classe rodam em segundo">
-    Sao aplicados com *UseGuards* na classe do handler ou listener. Eles se aplicam a todo método dentro daquela classe, o que é útil quando todos os comandos de um módulo compartilham o mesmo requisito de acesso. Um exemplo típico e aplicar um guard de role na classe pra que todo subcommand de um handler de moderação exija a role Moderator.
+    Sao aplicados com *UseGuards* na classe do handler ou listener. Eles se
+    aplicam a todo método dentro daquela classe, o que é útil quando todos os
+    comandos de um módulo compartilham o mesmo requisito de acesso. Um exemplo
+    típico e aplicar um guard de role na classe pra que todo subcommand de um
+    handler de moderação exija a role Moderator.
   </Step>
   <Step title="Guards de método rodam por ultimo">
-    Sao aplicados com *UseGuards* diretamente em um método específico. Eles se aplicam apenas aquele método, o que permite adicionar requisitos mais rigorosos pra operações sensiveis como banir usuários ou resetar dados sem afetar o resto dos métodos da classe.
+    Sao aplicados com *UseGuards* diretamente em um método específico. Eles se
+    aplicam apenas aquele método, o que permite adicionar requisitos mais
+    rigorosos pra operações sensiveis como banir usuários ou resetar dados sem
+    afetar o resto dos métodos da classe.
   </Step>
   <Step title="Handler executa">
-    Somente depois que todo guard em toda camada retornou true o framework chama o método handler de fato. Se seu código chega ao handler, você pode ter certeza de que todas as políticas de acesso configuradas já foram satisfeitas pro contexto de execução atual.
+    Somente depois que todo guard em toda camada retornou true o framework chama
+    o método handler de fato. Se seu código chega ao handler, você pode ter
+    certeza de que todas as políticas de acesso configuradas já foram
+    satisfeitas pro contexto de execução atual.
   </Step>
 </Steps>
 
 Esse pipeline usa avaliação short-circuit. No momento em que qualquer guard nega a execução, o framework para de avaliar e vai direto pro tratamento de negação. Isso é importante pra performance porque você deve colocar checagens baratas antes das caras sempre que possível. Por exemplo, uma simples checagem de guild-only que le uma propriedade deve vir antes de uma consulta ao banco que verifica status de assinatura premium.
 
 <Callout tone="info" title="Guard versus lógica de negócio">
-  Um guard responde "isso pode rodar?" e nada mais. O handler responde "o que deve acontecer?". Mantenha essas responsabilidades separadas pra que guards fiquem pequenos, reutilizáveis e fáceis de testar independentemente.
+  Um guard responde "isso pode rodar?" e nada mais. O handler responde "o que
+  deve acontecer?". Mantenha essas responsabilidades separadas pra que guards
+  fiquem pequenos, reutilizáveis e fáceis de testar independentemente.
 </Callout>
 
 ## Próxima página

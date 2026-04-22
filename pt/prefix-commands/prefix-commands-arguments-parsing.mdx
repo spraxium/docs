@@ -17,7 +17,7 @@ Para comandos com subcomandos, o primeiro token argv é verificado contra nomes 
 
 ## Decorators de método @PrefixArg
 
-O namespace *@PrefixArg* fornece 14 decorators de método tipados que você empilha em um método *build* (para comandos simples) ou em métodos *@PrefixSubcommand* (para comandos com subcomandos). Cada decorator declara um argumento posicional com seu nome, tipo e regras de validação opcionais. Os decorators são empilhados de cima para baixo para determinar a ordem posicional.
+O namespace _@PrefixArg_ fornece 14 decorators de método tipados que você empilha em um método _build_ (para comandos simples) ou em métodos _@PrefixSubcommand_ (para comandos com subcomandos). Cada decorator declara um argumento posicional com seu nome, tipo e regras de validação opcionais. Os decorators são empilhados de cima para baixo para determinar a ordem posicional.
 
 <CodeTabs>
   <Tab label="Comando simples" language="typescript">
@@ -26,11 +26,12 @@ import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({ name: 'roll', cooldown: 3 })
 export class RollCommand {
-  @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
-  @PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
-  build() {}
+@PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
+@PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
+build() {}
 }
-```
+
+````
   </Tab>
   <Tab label="Subcomando" language="typescript">
 ```typescript filename="src/modules/moderation/commands/mod.command.ts"
@@ -43,13 +44,14 @@ export class ModCommand {
   @PrefixArg.Rest('reason', { required: false })
   ban() {}
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Tipos de argumento suportados
 
-O framework fornece 14 tipos de argumento que cobrem os padrões de entrada mais comuns em bots Discord. Cada tipo possui seu próprio parser que converte o token de texto bruto em uma saída tipada. Se a conversão falhar, o parser lança uma *ArgumentException* com uma mensagem de erro descritiva.
+O framework fornece 14 tipos de argumento que cobrem os padrões de entrada mais comuns em bots Discord. Cada tipo possui seu próprio parser que converte o token de texto bruto em uma saída tipada. Se a conversão falhar, o parser lança uma _ArgumentException_ com uma mensagem de erro descritiva.
 
 <DropdownGroup>
   <Dropdown title="PrefixArg.String">
@@ -98,26 +100,46 @@ O framework fornece 14 tipos de argumento que cobrem os padrões de entrada mais
 
 ## Opções de validação
 
-Todo decorator *@PrefixArg* aceita um objeto de configuração opcional com regras de validação. Essas regras são aplicadas durante a fase de parsing antes que o handler receba o valor. Se qualquer validação falhar, o parser lança uma *ArgumentException* que inclui o nome do argumento, a restrição esperada e a entrada recebida.
+Todo decorator _@PrefixArg_ aceita um objeto de configuração opcional com regras de validação. Essas regras são aplicadas durante a fase de parsing antes que o handler receba o valor. Se qualquer validação falhar, o parser lança uma _ArgumentException_ que inclui o nome do argumento, a restrição esperada e a entrada recebida.
 
 <DropdownGroup>
   <Dropdown title="required (boolean, padrão true)">
-    Quando `true`, o parser lança uma *ArgumentException* se o token do argumento estiver ausente ou vazio. Quando `false`, um token ausente resulta na injeção de `undefined` e toda validação posterior é ignorada. Marcar um argumento como opcional é útil para campos como texto de motivo ou modificadores que possuem valores padrão razoáveis no handler.
+    Quando `true`, o parser lança uma *ArgumentException* se o token do
+    argumento estiver ausente ou vazio. Quando `false`, um token ausente resulta
+    na injeção de `undefined` e toda validação posterior é ignorada. Marcar um
+    argumento como opcional é útil para campos como texto de motivo ou
+    modificadores que possuem valores padrão razoáveis no handler.
   </Dropdown>
   <Dropdown title="min / max (number)">
-    Limites numéricos aplicados aos valores de *Integer* e *Number* após a coerção. Se o número analisado ficar abaixo de *min* ou acima de *max*, o parser lança uma *ArgumentException* com a restrição e o valor recebido. Essas opções não se aplicam aos tipos string ou entidade do Discord.
+    Limites numéricos aplicados aos valores de *Integer* e *Number* após a
+    coerção. Se o número analisado ficar abaixo de *min* ou acima de *max*, o
+    parser lança uma *ArgumentException* com a restrição e o valor recebido.
+    Essas opções não se aplicam aos tipos string ou entidade do Discord.
   </Dropdown>
   <Dropdown title="minLength / maxLength (number)">
-    Limites de comprimento de caractere aplicados aos valores de *String* e *Rest*. A verificação é executada no token bruto antes de qualquer processamento adicional. Use *maxLength* para se proteger contra entradas inesperadamente longas em campos de texto livre.
+    Limites de comprimento de caractere aplicados aos valores de *String* e
+    *Rest*. A verificação é executada no token bruto antes de qualquer
+    processamento adicional. Use *maxLength* para se proteger contra entradas
+    inesperadamente longas em campos de texto livre.
   </Dropdown>
   <Dropdown title="choices (string[])">
-    Uma lista de permissão de valores de entrada válidos. O parser verifica o token bruto contra esse array antes da coerção e lança uma *ArgumentException* se o token não estiver incluído. Útil para argumentos no estilo enum como nomes de status, tipos de ação ou seletores de modo.
+    Uma lista de permissão de valores de entrada válidos. O parser verifica o
+    token bruto contra esse array antes da coerção e lança uma
+    *ArgumentException* se o token não estiver incluído. Útil para argumentos no
+    estilo enum como nomes de status, tipos de ação ou seletores de modo.
   </Dropdown>
   <Dropdown title="validation.pattern (RegExp)">
-    Uma expressão regular que o token bruto deve corresponder antes de qualquer outro processamento. A verificação é executada na string bruta, podendo validar restrições de formato que os parsers de tipo integrados não impõem. Se a regex não corresponder, uma *ArgumentException* é lançada.
+    Uma expressão regular que o token bruto deve corresponder antes de qualquer
+    outro processamento. A verificação é executada na string bruta, podendo
+    validar restrições de formato que os parsers de tipo integrados não impõem.
+    Se a regex não corresponder, uma *ArgumentException* é lançada.
   </Dropdown>
   <Dropdown title="validation.validate (função)">
-    Uma função personalizada que recebe o token bruto e retorna `true` para aprovar ou uma string de erro para reprovar. A string de erro é incluída na mensagem de *ArgumentException* para que os usuários vejam seu feedback customizado. Use para regras específicas de domínio que não podem ser expressas com regex ou outras opções de restrição.
+    Uma função personalizada que recebe o token bruto e retorna `true` para
+    aprovar ou uma string de erro para reprovar. A string de erro é incluída na
+    mensagem de *ArgumentException* para que os usuários vejam seu feedback
+    customizado. Use para regras específicas de domínio que não podem ser
+    expressas com regex ou outras opções de restrição.
   </Dropdown>
 </DropdownGroup>
 
@@ -127,37 +149,58 @@ O argument parser aplica validações em uma ordem específica para cada argumen
 
 <Steps>
   <Step title="Verificação de presença">
-    Se o argumento é obrigatório e o token bruto está ausente ou vazio, o parser lança uma *ArgumentException* imediatamente. Argumentos opcionais com tokens ausentes recebem `undefined` e pulam todas as verificações restantes. Esta é a primeira barreira que impede valores vazios de alcançar os parsers específicos de tipo.
+    Se o argumento é obrigatório e o token bruto está ausente ou vazio, o parser
+    lança uma *ArgumentException* imediatamente. Argumentos opcionais com tokens
+    ausentes recebem `undefined` e pulam todas as verificações restantes. Esta é
+    a primeira barreira que impede valores vazios de alcançar os parsers
+    específicos de tipo.
   </Step>
   <Step title="Validação customizada">
-    Se um regex *validation.pattern* estiver definido, a entrada bruta deve combiná-lo. Se uma função *validation.validate* estiver definida, ela recebe a entrada bruta e deve retornar `true` ou uma string de erro. Ambas as verificações executam sobre o texto bruto antes de qualquer coerção de tipo, permitindo validar restrições de formato independentemente do parsing de tipo.
+    Se um regex *validation.pattern* estiver definido, a entrada bruta deve
+    combiná-lo. Se uma função *validation.validate* estiver definida, ela recebe
+    a entrada bruta e deve retornar `true` ou uma string de erro. Ambas as
+    verificações executam sobre o texto bruto antes de qualquer coerção de tipo,
+    permitindo validar restrições de formato independentemente do parsing de
+    tipo.
   </Step>
   <Step title="Verificação de choices">
-    Se um array *choices* estiver definido, a entrada bruta deve corresponder exatamente a um dos valores permitidos. Isso funciona como uma restrição de enum e é útil para valores de argumento que devem vir de um conjunto fixo como nomes de status, tipos de ação ou seleções de modo.
+    Se um array *choices* estiver definido, a entrada bruta deve corresponder
+    exatamente a um dos valores permitidos. Isso funciona como uma restrição de
+    enum e é útil para valores de argumento que devem vir de um conjunto fixo
+    como nomes de status, tipos de ação ou seleções de modo.
   </Step>
   <Step title="Coerção de tipo e limites">
-    O parser converte o token bruto no tipo alvo usando o parser específico do tipo. Para tipos numéricos, verificações de limites (*min*, *max*) executam após a coerção bem-sucedida. Para tipos string, verificações de comprimento (*minLength*, *maxLength*) são aplicadas. Se a coerção ou os limites falharem, o parser lança uma *ArgumentException*.
+    O parser converte o token bruto no tipo alvo usando o parser específico do
+    tipo. Para tipos numéricos, verificações de limites (*min*, *max*) executam
+    após a coerção bem-sucedida. Para tipos string, verificações de comprimento
+    (*minLength*, *maxLength*) são aplicadas. Se a coerção ou os limites
+    falharem, o parser lança uma *ArgumentException*.
   </Step>
 </Steps>
 
 ## Decorator de parâmetro @PrefixArg
 
-Na classe de handler, a função *@PrefixArg* (sem o namespace) é um decorator de parâmetro que injeta um valor de argumento parseado pelo nome. O nome deve corresponder a um argumento declarado no schema do comando. O decorator *@Ctx* injeta o objeto *Message* bruto. Juntos, eles permitem que o handler receba parâmetros completamente tipados sem parsing manual.
+Na classe de handler, a função _@PrefixArg_ (sem o namespace) é um decorator de parâmetro que injeta um valor de argumento parseado pelo nome. O nome deve corresponder a um argumento declarado no schema do comando. O decorator _@Ctx_ injeta o objeto _Message_ bruto. Juntos, eles permitem que o handler receba parâmetros completamente tipados sem parsing manual.
 
 ```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
-import type { Message } from 'discord.js';
-import { RollCommand } from '../commands/roll.command';
+import { Ctx, PrefixArg, PrefixCommandHandler } from "@spraxium/common";
+import type { Message } from "discord.js";
+import { RollCommand } from "../commands/roll.command";
 
 @PrefixCommandHandler(RollCommand)
 export class RollHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('sides') sides: number | undefined, @PrefixArg('count') count: number | undefined, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg("sides") sides: number | undefined,
+    @PrefixArg("count") count: number | undefined,
+  ): Promise<void> {
     const faces = sides ?? 6;
     const rolls = count ?? 1;
-    const results = Array.from({ length: rolls }, () =>
-      Math.floor(Math.random() * faces) + 1, );
-    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}]`);
+    const results = Array.from(
+      { length: rolls },
+      () => Math.floor(Math.random() * faces) + 1,
+    );
+    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(", ")}]`);
   }
 }
 ```

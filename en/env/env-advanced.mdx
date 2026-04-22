@@ -9,20 +9,22 @@ category: Environment
 
 ## Composing multiple validators
 
-A single property can carry as many validators as needed. The pipeline runs them in declaration order, applying transforms first and then validating the result. This lets you layer constraints so each decorator handles one concern. A database URL might use *IsString* for presence, a custom *Validate* for prefix checking, and *Secret* for masking. Each decorator stays focused and the combination expresses the full requirement.
+A single property can carry as many validators as needed. The pipeline runs them in declaration order, applying transforms first and then validating the result. This lets you layer constraints so each decorator handles one concern. A database URL might use _IsString_ for presence, a custom _Validate_ for prefix checking, and _Secret_ for masking. Each decorator stays focused and the combination expresses the full requirement.
 
-When stacking validators, place transform decorators before validate decorators. The *Transform* decorator converts the raw string in place, and every subsequent *Validate* or type validator sees the transformed value. If you reverse the order, a type validator might reject the raw string before your transform has a chance to convert it.
+When stacking validators, place transform decorators before validate decorators. The _Transform_ decorator converts the raw string in place, and every subsequent _Validate_ or type validator sees the transformed value. If you reverse the order, a type validator might reject the raw string before your transform has a chance to convert it.
 
-You can also combine built-in type validators with custom checks. For example, *IsPort* already validates that the value is an integer between 1 and 65535. Adding a *Validate* on top lets you further restrict the range, like rejecting ports below 1024 to enforce non-privileged binding.
+You can also combine built-in type validators with custom checks. For example, _IsPort_ already validates that the value is an integer between 1 and 65535. Adding a _Validate_ on top lets you further restrict the range, like rejecting ports below 1024 to enforce non-privileged binding.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
+import { EnvSchema, Env, IsPort, Validate } from "@spraxium/env";
 
 @EnvSchema()
 export class AppEnv {
-  @Env('HTTP_PORT', { secret: false })
+  @Env("HTTP_PORT", { secret: false })
   @IsPort()
-  @Validate((value) => (value as number) >= 1024 ? true : 'Port must be 1024 or higher')
+  @Validate((value) =>
+    (value as number) >= 1024 ? true : "Port must be 1024 or higher",
+  )
   HTTP_PORT!: number;
 }
 ```
@@ -31,7 +33,7 @@ export class AppEnv {
 
 Environment schemas support class inheritance. A child class extends a parent and adds its own fields. The validation pipeline traverses the full prototype chain, collecting fields from every ancestor. This makes it possible to build layered schemas where a base class defines shared fields and feature-specific classes add their own.
 
-The most common pattern is extending *SpraxiumBaseEnv*, which provides `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and `NODE_ENV`. You apply *@EnvSchema* to the child class only. The parent already has its own *@EnvSchema*, and both metadata entries are recognized during validation.
+The most common pattern is extending _SpraxiumBaseEnv_, which provides `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and `NODE_ENV`. You apply _@EnvSchema_ to the child class only. The parent already has its own _@EnvSchema_, and both metadata entries are recognized during validation.
 
 When two classes in the chain declare a field with the same property key, the child wins. This lets you override a parent default, for example changing the `NODE_ENV` default from `"development"` to `"production"` in a deployment-specific schema. Fields with different property keys merge normally regardless of which class declares them.
 
@@ -43,16 +45,17 @@ import { SpraxiumBaseEnv } from '@spraxium/env';
 
 @EnvSchema()
 export class BaseEnv extends SpraxiumBaseEnv {
-  @Env('LOG_LEVEL', { default: 'info', secret: false })
-  @IsString()
-  LOG_LEVEL!: string;
+@Env('LOG_LEVEL', { default: 'info', secret: false })
+@IsString()
+LOG_LEVEL!: string;
 
-  @Env('SENTRY_DSN')
-  @IsString()
-  @IsOptional()
-  SENTRY_DSN?: string;
+@Env('SENTRY_DSN')
+@IsString()
+@IsOptional()
+SENTRY_DSN?: string;
 }
-```
+
+````
   </Tab>
   <Tab label="Child" language="typescript">
 ```typescript filename="src/app.env.ts"
@@ -69,36 +72,37 @@ export class AppEnv extends BaseEnv {
   @IsRedisUri()
   REDIS_URI!: string;
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## The validation error flow
 
-When one or more fields fail validation, the framework builds a list of *EnvFieldError* objects. Each error carries the variable key, a reason code, an optional received value, and an optional message from the validator that rejected it. The four reason codes are `missing` when the variable is absent, `invalid_value` when a validator returned an error message, `enum_mismatch` when *IsEnum* failed, and `validation_failed` for custom *Validate* rejections.
+When one or more fields fail validation, the framework builds a list of _EnvFieldError_ objects. Each error carries the variable key, a reason code, an optional received value, and an optional message from the validator that rejected it. The four reason codes are `missing` when the variable is absent, `invalid_value` when a validator returned an error message, `enum_mismatch` when _IsEnum_ failed, and `validation_failed` for custom _Validate_ rejections.
 
-In production mode (when `NODE_ENV` is not `"development"`), the framework prints all errors to stderr and exits the process immediately. This prevents a misconfigured bot from connecting to Discord with partial or incorrect settings. The error output lists each failing variable with its reason, a mask or the received value (depending on the *secret* flag), and the validator message.
+In production mode (when `NODE_ENV` is not `"development"`), the framework prints all errors to stderr and exits the process immediately. This prevents a misconfigured bot from connecting to Discord with partial or incorrect settings. The error output lists each failing variable with its reason, a mask or the received value (depending on the _secret_ flag), and the validator message.
 
 In development mode, the framework enters a hot-reload loop instead of exiting. It watches the `.env` file and re-validates every 500 milliseconds. When you fix the file and save, the pipeline re-runs. If errors remain, it updates the error list. When all errors clear, it prints a success message with a diff showing what changed and continues the boot sequence. This loop has a five-minute timeout after which it exits to prevent zombie processes.
 
 ## Silent validation
 
-When you need to validate a schema without printing the startup table, pass the *silent* option. This is useful in test environments where console output clutters test results, or in worker processes that should validate without logging. The schema still runs every validator and still throws on errors, it just skips the success table.
+When you need to validate a schema without printing the startup table, pass the _silent_ option. This is useful in test environments where console output clutters test results, or in worker processes that should validate without logging. The schema still runs every validator and still throws on errors, it just skips the success table.
 
 ```typescript filename="src/test/setup.ts"
-import { EnvValidator } from '@spraxium/env';
-import { AppEnv } from '../app.env';
+import { EnvValidator } from "@spraxium/env";
+import { AppEnv } from "../app.env";
 
 const env = EnvValidator.validate(AppEnv, { silent: true });
 ```
 
-The *validate* method returns a fully populated instance of your schema class. Every property holds its validated, transformed value. You can use this instance directly in tests or pass it to services that need configuration without going through the dependency injection container.
+The _validate_ method returns a fully populated instance of your schema class. Every property holds its validated, transformed value. You can use this instance directly in tests or pass it to services that need configuration without going through the dependency injection container.
 
 ## DotEnv file loading
 
 The framework loads `.env` files automatically during validation. It checks for `.env.local` first, then `.env`, using the first one it finds. Variables that already exist in `process.env` are never overwritten, so system-level variables and CI pipeline variables always take precedence.
 
-The parser handles comments (lines starting with `#`), quoted values (single or double quotes are stripped), and inline comments after unquoted values. It does not support multi-line values or variable interpolation. For complex values like JSON objects, wrap them in quotes and use *IsJson* to parse them.
+The parser handles comments (lines starting with `#`), quoted values (single or double quotes are stripped), and inline comments after unquoted values. It does not support multi-line values or variable interpolation. For complex values like JSON objects, wrap them in quotes and use _IsJson_ to parse them.
 
 <DropdownGroup>
 <Dropdown title="1. System environment and CI variables">
@@ -106,7 +110,10 @@ The parser handles comments (lines starting with `#`), quoted values (single or 
 </Dropdown>
 
 <Dropdown title="2. .env.local">
-  Loaded first among file sources when the file exists at the project root. Use this file for local developer overrides that should not be committed to version control. Add `.env.local` to your `.gitignore` to keep developer-specific values out of the repository.
+  Loaded first among file sources when the file exists at the project root. Use
+  this file for local developer overrides that should not be committed to
+  version control. Add `.env.local` to your `.gitignore` to keep
+  developer-specific values out of the repository.
 </Dropdown>
 
 <Dropdown title="3. .env">
@@ -116,43 +123,60 @@ The parser handles comments (lines starting with `#`), quoted values (single or 
 
 ## Full example
 
-This example shows a complete schema that combines inheritance, multiple validator types, custom transforms, and secret masking. The schema extends *SpraxiumBaseEnv* for the token and node environment, adds database and API fields, and includes a custom transform that splits a comma-separated list into an array.
+This example shows a complete schema that combines inheritance, multiple validator types, custom transforms, and secret masking. The schema extends _SpraxiumBaseEnv_ for the token and node environment, adds database and API fields, and includes a custom transform that splits a comma-separated list into an array.
 
 ```typescript filename="src/app.env.ts"
 import {
-  EnvSchema, Env, SpraxiumBaseEnv, IsMongoUri, IsRedisUri, IsPort, IsBoolean, IsEnum, IsOptional, Secret, Default, Transform, Validate, } from '@spraxium/env';
+  EnvSchema,
+  Env,
+  SpraxiumBaseEnv,
+  IsMongoUri,
+  IsRedisUri,
+  IsPort,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  Secret,
+  Default,
+  Transform,
+  Validate,
+} from "@spraxium/env";
 
 @EnvSchema()
 export class AppEnv extends SpraxiumBaseEnv {
-  @Env('MONGO_URI')
+  @Env("MONGO_URI")
   @IsMongoUri()
   MONGO_URI!: string;
 
-  @Env('REDIS_URI')
+  @Env("REDIS_URI")
   @IsRedisUri()
   @IsOptional()
   REDIS_URI?: string;
 
-  @Env('API_PORT', { default: '3000', secret: false })
+  @Env("API_PORT", { default: "3000", secret: false })
   @IsPort()
   API_PORT!: number;
 
-  @Env('ENABLE_METRICS', { default: 'false', secret: false })
+  @Env("ENABLE_METRICS", { default: "false", secret: false })
   @IsBoolean()
   ENABLE_METRICS!: boolean;
 
-  @Env('LOG_LEVEL', { default: 'info', secret: false })
-  @IsEnum(['debug', 'info', 'warn', 'error'])
+  @Env("LOG_LEVEL", { default: "info", secret: false })
+  @IsEnum(["debug", "info", "warn", "error"])
   LOG_LEVEL!: string;
 
-  @Env('WEBHOOK_SECRET')
+  @Env("WEBHOOK_SECRET")
   @IsOptional()
   @Secret()
   WEBHOOK_SECRET?: string;
 
-  @Env('CORS_ORIGINS', { default: 'http://localhost:3000', secret: false })
-  @Transform((raw) => raw.split(',').map((s) => s.trim()))
-  @Validate((value) => Array.isArray(value) && value.length > 0 ? true : 'Need at least one origin')
+  @Env("CORS_ORIGINS", { default: "http://localhost:3000", secret: false })
+  @Transform((raw) => raw.split(",").map((s) => s.trim()))
+  @Validate((value) =>
+    Array.isArray(value) && value.length > 0
+      ? true
+      : "Need at least one origin",
+  )
   CORS_ORIGINS!: string[];
 }
 ```

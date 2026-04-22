@@ -4,18 +4,18 @@ description: |
   Implement the Signal receiver in your bot runtime with clear trust boundaries and typed event handlers.
   Learn plugin configuration, module wiring, listener decorators, event routing, and the complete lifecycle from boot to shutdown.
 order: 2
-category: '@spraxium/signal'
+category: "@spraxium/signal"
 ---
 
 ## Bot-side responsibilities
 
-On the receiver side, *Signal* is responsible for protecting your bot runtime before any domain mutation happens. The *SignalRegistry* discovers listener classes during boot, the *SignalValidator* enforces ten transport rules, the *NonceCache* prevents replay attacks, and the *SignalProcessor* orchestrates the entire pipeline. Your handlers only execute after all these layers have approved the incoming envelope.
+On the receiver side, _Signal_ is responsible for protecting your bot runtime before any domain mutation happens. The _SignalRegistry_ discovers listener classes during boot, the _SignalValidator_ enforces ten transport rules, the _NonceCache_ prevents replay attacks, and the _SignalProcessor_ orchestrates the entire pipeline. Your handlers only execute after all these layers have approved the incoming envelope.
 
 This separation is the key architectural benefit. Your domain handlers stay focused on business intent, applying role changes, updating configurations, posting announcements, while the protocol layer owns trust, format, and routing concerns. No handler needs to check whether the webhook is authorized or whether the signature is valid because those checks already happened upstream.
 
 ## Plugin configuration
 
-The bot-side Signal module reads its configuration from a plugin entry produced by the *defineSignal* factory. This factory is exported from `@spraxium/signal` and produces a typed *SpraxiumPlugin* entry that must be added to the *plugins* array in `spraxium.config.ts`. The configuration defines the trust boundaries and operational controls for the receiver pipeline.
+The bot-side Signal module reads its configuration from a plugin entry produced by the _defineSignal_ factory. This factory is exported from `@spraxium/signal` and produces a typed _SpraxiumPlugin_ entry that must be added to the _plugins_ array in `spraxium.config.ts`. The configuration defines the trust boundaries and operational controls for the receiver pipeline.
 
 <Table>
   <TableHead>
@@ -31,31 +31,46 @@ The bot-side Signal module reads its configuration from a plugin entry produced 
       <TableCell>*channelId*</TableCell>
       <TableCell>`string | string[]`</TableCell>
       <TableCell>Yes</TableCell>
-      <TableCell>The private channel IDs where Signal envelopes are accepted. Messages from other channels are ignored.</TableCell>
+      <TableCell>
+        The private channel IDs where Signal envelopes are accepted. Messages
+        from other channels are ignored.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*allowedWebhookIds*</TableCell>
       <TableCell>`string[]`</TableCell>
       <TableCell>Yes</TableCell>
-      <TableCell>Webhook IDs that are authorized to publish envelopes. Unapproved webhooks are rejected even if they post to the correct channel.</TableCell>
+      <TableCell>
+        Webhook IDs that are authorized to publish envelopes. Unapproved
+        webhooks are rejected even if they post to the correct channel.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*hmacSecret*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>Yes</TableCell>
-      <TableCell>Shared secret for HMAC-SHA256 signature verification. Must match the emitter's secret exactly.</TableCell>
+      <TableCell>
+        Shared secret for HMAC-SHA256 signature verification. Must match the
+        emitter's secret exactly.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*deleteAfterProcessing*</TableCell>
       <TableCell>`boolean`</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>Whether to delete webhook messages from the channel after processing. Reduces noise but removes audit trail.</TableCell>
+      <TableCell>
+        Whether to delete webhook messages from the channel after processing.
+        Reduces noise but removes audit trail.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*debug*</TableCell>
       <TableCell>`boolean`</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>Enables verbose diagnostic logging for every validation step and processing decision.</TableCell>
+      <TableCell>
+        Enables verbose diagnostic logging for every validation step and
+        processing decision.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -70,7 +85,12 @@ The recommended approach is to extract the Signal config into a dedicated file i
 import { defineSignal } from '@spraxium/signal';
 
 export const signalPlugin = defineSignal({
-  channelId: process.env.SIGNAL_CHANNEL_ID!, allowedWebhookIds: [process.env.SIGNAL_WEBHOOK_ID!], hmacSecret: process.env.SIGNAL_HMAC_SECRET!, deleteAfterProcessing: true, debug: false, });
+  channelId:             process.env.SIGNAL_CHANNEL_ID!,
+  allowedWebhookIds:     [process.env.SIGNAL_WEBHOOK_ID!],
+  hmacSecret:            process.env.SIGNAL_HMAC_SECRET!,
+  deleteAfterProcessing: true,
+  debug:                 false,
+});
 ```
   </Tab>
   <Tab label="spraxium.config.ts" language="typescript">
@@ -79,25 +99,29 @@ import { defineConfig } from '@spraxium/core';
 import { signalPlugin } from './config/signal.config';
 
 export default defineConfig(() => ({
-  plugins: [signalPlugin], }));
+  plugins: [signalPlugin],
+}));
 ```
   </Tab>
 </CodeTabs>
 
 ## The @SignalListener decorator
 
-The *@SignalListener()* decorator marks a class as a container for Signal event handlers. It serves the same role that *@Listener()* serves for Discord events and *@PrefixCommand()* serves for prefix commands. During boot, the *SignalRegistry* scans provider instances and identifies classes decorated with *@SignalListener()*, then inspects each method for *@OnSignal()* metadata.
+The _@SignalListener()_ decorator marks a class as a container for Signal event handlers. It serves the same role that _@Listener()_ serves for Discord events and _@PrefixCommand()_ serves for prefix commands. During boot, the _SignalRegistry_ scans provider instances and identifies classes decorated with _@SignalListener()_, then inspects each method for _@OnSignal()_ metadata.
 
-Internally, *@SignalListener()* applies *@Injectable()* automatically, so the class participates in dependency injection without needing a separate decorator. The class must be listed in the *providers* array of a module that imports *SignalModule*.
+Internally, _@SignalListener()_ applies _@Injectable()_ automatically, so the class participates in dependency injection without needing a separate decorator. The class must be listed in the _providers_ array of a module that imports _SignalModule_.
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
-import { SignalListener, OnSignal } from '@spraxium/signal';
-import type { SignalEnvelope } from '@spraxium/signal';
+import { SignalListener, OnSignal } from "@spraxium/signal";
+import type { SignalEnvelope } from "@spraxium/signal";
 
 @SignalListener()
 export class GuildConfigSignal {
-  @OnSignal('config.update')
-  async onConfigUpdate(payload: unknown, envelope: SignalEnvelope): Promise<void> {
+  @OnSignal("config.update")
+  async onConfigUpdate(
+    payload: unknown,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Domain logic anchored to envelope.guildId
   }
 }
@@ -105,9 +129,9 @@ export class GuildConfigSignal {
 
 ## The @OnSignal decorator
 
-The *@OnSignal()* decorator registers a method as a handler for a specific Signal event. The first argument is the event name, which must match exactly the event name used by the emitter. The optional second argument is an options object that can include a Zod schema for payload validation.
+The _@OnSignal()_ decorator registers a method as a handler for a specific Signal event. The first argument is the event name, which must match exactly the event name used by the emitter. The optional second argument is an options object that can include a Zod schema for payload validation.
 
-When the Signal pipeline receives an envelope with a matching event name, the decorated method is invoked with two arguments: the payload (optionally validated by Zod) and the full *SignalEnvelope*. The envelope gives you access to *guildId*, *nonce*, *sentAt*, and other metadata for scoping and auditing.
+When the Signal pipeline receives an envelope with a matching event name, the decorated method is invoked with two arguments: the payload (optionally validated by Zod) and the full _SignalEnvelope_. The envelope gives you access to _guildId_, _nonce_, _sentAt_, and other metadata for scoping and auditing.
 
 <Table>
   <TableHead>
@@ -121,29 +145,39 @@ When the Signal pipeline receives an envelope with a matching event name, the de
     <TableRow>
       <TableCell>*event*</TableCell>
       <TableCell>`string`</TableCell>
-      <TableCell>The event name that this handler responds to. Must match the emitter's event name exactly.</TableCell>
+      <TableCell>
+        The event name that this handler responds to. Must match the emitter's
+        event name exactly.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.schema*</TableCell>
       <TableCell>`ZodType`</TableCell>
-      <TableCell>Optional Zod schema for payload validation. If provided, invalid payloads are rejected before the handler runs.</TableCell>
+      <TableCell>
+        Optional Zod schema for payload validation. If provided, invalid
+        payloads are rejected before the handler runs.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
-import { SignalListener, OnSignal } from '@spraxium/signal';
-import type { SignalEnvelope } from '@spraxium/signal';
-import { z } from 'zod';
+import { SignalListener, OnSignal } from "@spraxium/signal";
+import type { SignalEnvelope } from "@spraxium/signal";
+import { z } from "zod";
 
 const ConfigUpdateSchema = z.object({
-  prefix: z.string().min(1).max(5), language: z.enum(['en', 'pt', 'es']).optional(), });
+  prefix: z.string().min(1).max(5),
+  language: z.enum(["en", "pt", "es"]).optional(),
+});
 
 @SignalListener()
 export class GuildConfigSignal {
-  @OnSignal('config.update', { schema: ConfigUpdateSchema })
+  @OnSignal("config.update", { schema: ConfigUpdateSchema })
   async onConfigUpdate(
-    payload: z.infer<typeof ConfigUpdateSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof ConfigUpdateSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // payload is validated and typed, envelope provides guild context
   }
 }
@@ -151,18 +185,19 @@ export class GuildConfigSignal {
 
 ## Event name as a stable contract
 
-The first argument in *@OnSignal('config.update')* is the event identity used by Signal routing. It is the key that maps incoming envelopes to the correct listener, it is a producer-consumer contract between emitter code and bot listeners, and it is an operational reference for logs, dashboards, and incident analysis.
+The first argument in _@OnSignal('config.update')_ is the event identity used by Signal routing. It is the key that maps incoming envelopes to the correct listener, it is a producer-consumer contract between emitter code and bot listeners, and it is an operational reference for logs, dashboards, and incident analysis.
 
 Treat event names as stable domain APIs. If payload semantics must change in a non-backward-compatible way, prefer introducing a new event name such as `config.update.v2` instead of silently reusing the same one. Renaming an event without coordinating producers and listeners causes messages to be silently ignored or dispatched to the wrong handler.
 
 <Callout tone="warning" title="Renaming event names is a breaking change">
-  If you rename an event without updating both the emitter and the bot listener, messages
-  will be silently ignored because the router cannot find a matching handler for the old name.
+  If you rename an event without updating both the emitter and the bot listener,
+  messages will be silently ignored because the router cannot find a matching
+  handler for the old name.
 </Callout>
 
 ## Module and listener wiring
 
-The module structure for Signal follows the standard Spraxium pattern. Create a feature module that imports *SignalModule* and registers your listener classes in the *providers* array. The *SignalModule* is a global module that provides the core services (*SignalValidator*, *SignalRouter*, *SignalProcessor*, *SignalRegistry*, *NonceCache*), so you only need to import it once in any module that contains listeners.
+The module structure for Signal follows the standard Spraxium pattern. Create a feature module that imports _SignalModule_ and registers your listener classes in the _providers_ array. The _SignalModule_ is a global module that provides the core services (_SignalValidator_, _SignalRouter_, _SignalProcessor_, _SignalRegistry_, _NonceCache_), so you only need to import it once in any module that contains listeners.
 
 <CodeTabs>
   <Tab label="Module" language="typescript">
@@ -173,9 +208,12 @@ import { GuildConfigSignal } from './listeners/guild-config.signal';
 import { BillingSignal } from './listeners/billing.signal';
 
 @Module({
-  imports: [SignalModule], providers: [GuildConfigSignal, BillingSignal], })
+imports: [SignalModule],
+providers: [GuildConfigSignal, BillingSignal],
+})
 export class AppSignalModule {}
-```
+
+````
   </Tab>
   <Tab label="Listener" language="typescript">
 ```typescript filename="src/modules/signal/listeners/billing.signal.ts"
@@ -184,17 +222,23 @@ import type { SignalEnvelope } from '@spraxium/signal';
 import { z } from 'zod';
 
 const BillingSchema = z.object({
-  action: z.enum(['activated', 'cancelled', 'upgraded']), planId: z.string(), userId: z.string(), });
+  action: z.enum(['activated', 'cancelled', 'upgraded']),
+  planId: z.string(),
+  userId: z.string(),
+});
 
 @SignalListener()
 export class BillingSignal {
   @OnSignal('billing.status.changed', { schema: BillingSchema })
   async onBillingChange(
-    payload: z.infer<typeof BillingSchema>, envelope: SignalEnvelope, ): Promise<void> {
+    payload: z.infer<typeof BillingSchema>,
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     // Apply role changes based on billing status
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
@@ -202,37 +246,58 @@ export class BillingSignal {
 
 <Steps>
   <Step title="Listener discovery and registration">
-    During boot, the *SignalRegistry* registers a scanner function with *ModuleLoader.instanceScanners*. As the module loader instantiates each provider, the scanner checks whether the instance's class is decorated with *@SignalListener()*. For matching classes, it extracts all methods decorated with *@OnSignal()* and registers them with the *SignalRouter*.
+    During boot, the *SignalRegistry* registers a scanner function with
+    *ModuleLoader.instanceScanners*. As the module loader instantiates each
+    provider, the scanner checks whether the instance's class is decorated with
+    *@SignalListener()*. For matching classes, it extracts all methods decorated
+    with *@OnSignal()* and registers them with the *SignalRouter*.
   </Step>
   <Step title="Discord messageCreate subscription">
-    After discovery, the *SignalRegistry.onBoot()* method reads the Signal config from *ConfigStore* and subscribes a handler to the Discord client's *messageCreate* event. This handler filters incoming messages and passes only webhook traffic from configured channels to the *SignalProcessor*.
+    After discovery, the *SignalRegistry.onBoot()* method reads the Signal
+    config from *ConfigStore* and subscribes a handler to the Discord client's
+    *messageCreate* event. This handler filters incoming messages and passes
+    only webhook traffic from configured channels to the *SignalProcessor*.
   </Step>
   <Step title="Envelope validation pipeline">
-    For each incoming webhook message, the *SignalProcessor* calls *SignalValidator.validate()* which runs the ten sequential rules. Source type, webhook identity, channel boundary, JSON parsing, protocol version, event registration, guild ID, nonce, clock skew, and HMAC signature are all checked in order.
+    For each incoming webhook message, the *SignalProcessor* calls
+    *SignalValidator.validate()* which runs the ten sequential rules. Source
+    type, webhook identity, channel boundary, JSON parsing, protocol version,
+    event registration, guild ID, nonce, clock skew, and HMAC signature are all
+    checked in order.
   </Step>
   <Step title="Nonce deduplication and handler dispatch">
-    After validation, the processor checks the *NonceCache* to prevent replay processing. If the nonce is new, it resolves the handler through the *SignalRouter*, optionally validates the payload with the handler's Zod schema, deletes the message if configured, and invokes the handler with the payload and envelope.
+    After validation, the processor checks the *NonceCache* to prevent replay
+    processing. If the nonce is new, it resolves the handler through the
+    *SignalRouter*, optionally validates the payload with the handler's Zod
+    schema, deletes the message if configured, and invokes the handler with the
+    payload and envelope.
   </Step>
   <Step title="Graceful shutdown">
-    When the bot shuts down, *SignalRegistry.onShutdown()* removes the *messageCreate* listener from the Discord client and unregisters the scanner from *ModuleLoader.instanceScanners*. This cleanup prevents memory leaks and ghost listeners during hot reloads.
+    When the bot shuts down, *SignalRegistry.onShutdown()* removes the
+    *messageCreate* listener from the Discord client and unregisters the scanner
+    from *ModuleLoader.instanceScanners*. This cleanup prevents memory leaks and
+    ghost listeners during hot reloads.
   </Step>
 </Steps>
 
 ## Dependency injection in listeners
 
-Because *@SignalListener()* applies *@Injectable()* automatically, your listener classes participate in the standard dependency injection system. You can inject services, repositories, and other providers through constructor parameters, just like any other injectable class in Spraxium.
+Because _@SignalListener()_ applies _@Injectable()_ automatically, your listener classes participate in the standard dependency injection system. You can inject services, repositories, and other providers through constructor parameters, just like any other injectable class in Spraxium.
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
-import { SignalListener, OnSignal } from '@spraxium/signal';
-import type { SignalEnvelope } from '@spraxium/signal';
-import { GuildSettingsService } from '../../services/guild-settings.service';
+import { SignalListener, OnSignal } from "@spraxium/signal";
+import type { SignalEnvelope } from "@spraxium/signal";
+import { GuildSettingsService } from "../../services/guild-settings.service";
 
 @SignalListener()
 export class GuildConfigSignal {
   constructor(private readonly guildSettings: GuildSettingsService) {}
 
-  @OnSignal('config.update')
-  async onConfigUpdate(payload: { prefix: string }, envelope: SignalEnvelope): Promise<void> {
+  @OnSignal("config.update")
+  async onConfigUpdate(
+    payload: { prefix: string },
+    envelope: SignalEnvelope,
+  ): Promise<void> {
     await this.guildSettings.updatePrefix(envelope.guildId, payload.prefix);
   }
 }
@@ -240,7 +305,7 @@ export class GuildConfigSignal {
 
 ## Debug diagnostics
 
-When *debug* is set to `true` in the Signal config, the framework emits detailed diagnostic messages for every step of the validation and processing pipeline. Each message includes a *[SignalValidator]* or *[SignalProcessor]* prefix and reports the exact rule that passed or failed, the nonce status, the handler resolution result, and the Zod validation outcome.
+When _debug_ is set to `true` in the Signal config, the framework emits detailed diagnostic messages for every step of the validation and processing pipeline. Each message includes a _[SignalValidator]_ or _[SignalProcessor]_ prefix and reports the exact rule that passed or failed, the nonce status, the handler resolution result, and the Zod validation outcome.
 
 This diagnostic output is invaluable during initial integration and incident investigation. However, it should be disabled in steady-state production because it significantly increases log volume on channels with frequent Signal traffic. A practical pattern is to enable debug only in neutral/staging environments or temporarily during incident analysis.
 

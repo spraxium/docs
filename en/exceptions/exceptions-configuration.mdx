@@ -9,19 +9,22 @@ category: Exceptions
 
 ## Why configure exceptions in core
 
-Central exception configuration keeps teams from handling the same failure category in different ways across modules. By defining policy in *spraxium.config.ts*, runtime behavior stays coherent even when multiple features and teams evolve in parallel, because every exception follows the same resolution rules regardless of where it originates. This also reduces refactor risk significantly, since changing the fallback strategy or updating a layout mapping requires touching one policy location instead of hunting through dozens of command and listener files scattered across the project.
+Central exception configuration keeps teams from handling the same failure category in different ways across modules. By defining policy in _spraxium.config.ts_, runtime behavior stays coherent even when multiple features and teams evolve in parallel, because every exception follows the same resolution rules regardless of where it originates. This also reduces refactor risk significantly, since changing the fallback strategy or updating a layout mapping requires touching one policy location instead of hunting through dozens of command and listener files scattered across the project.
 
 ## Minimal configuration
 
 A small baseline already gives meaningful control over how your bot handles errors in production. Defining a default layout fallback and an unhandled logging policy ensures that every exception in the system produces a user-facing response and an operational signal, even when you have not mapped that specific exception class to a dedicated layout yet. This prevents empty or broken responses that confuse users during unexpected failure scenarios.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from '@spraxium/core';
+import { defineConfig } from "@spraxium/core";
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultFriendlyLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+    },
+  },
 });
 ```
 
@@ -34,15 +37,24 @@ Layouts belong to error presentation policy, and this page focuses on central co
 When your application has multiple domains like moderation, billing, and onboarding, mapping layouts by exception class preserves context and tone for each type of failure. Each failure family can return language and guidance appropriate to the user's action, which significantly improves the error experience compared to a single generic message for every scenario in the bot.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from '@spraxium/core';
+import { defineConfig } from "@spraxium/core";
 import {
-  DefaultFriendlyLayout, CooldownLayout, PermissionDeniedLayout, ArgumentLayout,
-} from './layouts/exceptions.layouts';
+  DefaultFriendlyLayout,
+  CooldownLayout,
+  PermissionDeniedLayout,
+  ArgumentLayout,
+} from "./layouts/exceptions.layouts";
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultFriendlyLayout, CooldownException: CooldownLayout, PermissionDeniedException: PermissionDeniedLayout, ArgumentException: ArgumentLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+      CooldownException: CooldownLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+      ArgumentException: ArgumentLayout,
+    },
+  },
 });
 ```
 
@@ -86,7 +98,9 @@ Layout selection follows a stable order that determines which layout renders the
 5. The framework built-in default layout as the final fallback
 
 <Callout tone="warning" title="Class names are keys">
-  The layout map uses exception class names as keys. If a class is renamed during refactoring, update the mapping to avoid accidental fallback behavior that silently changes the user experience.
+  The layout map uses exception class names as keys. If a class is renamed
+  during refactoring, update the mapping to avoid accidental fallback behavior
+  that silently changes the user experience.
 </Callout>
 
 ## Environment strategy

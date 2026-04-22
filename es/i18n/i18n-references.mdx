@@ -26,11 +26,17 @@ mantenimiento y dificulta identificar qué falta dónde.
 ## Declarando múltiples referencias
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from '@spraxium/i18n';
+import { defineI18n } from "@spraxium/i18n";
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'es-ES', references: [
-    { name: 'slash', path: './locales/slash'    }, { name: 'ui', path: './locales/ui'       }, { name: 'errores', path: './locales/errores'  }, { name: 'embeds', path: './locales/embeds'   }, ], });
+  defaultLocale: "es-ES",
+  references: [
+    { name: "slash", path: "./locales/slash" },
+    { name: "ui", path: "./locales/ui" },
+    { name: "errores", path: "./locales/errores" },
+    { name: "embeds", path: "./locales/embeds" },
+  ],
+});
 ```
 
 No hay límite en el número de referencias. Cada una se carga de forma independiente y se fusiona
@@ -54,7 +60,9 @@ El nombre del archivo es el identificador del locale y su contenido es el objeto
 
 ```json filename="locales/errores/es-ES.json"
 {
-  "noEncontrado": "Recurso no encontrado", "prohibido": "No tienes permiso para hacer esto", "timeout": "La operación expiró después de {{segundos}} segundos"
+  "noEncontrado": "Recurso no encontrado",
+  "prohibido": "No tienes permiso para hacer esto",
+  "timeout": "La operación expiró después de {{segundos}} segundos"
 }
 ```
 
@@ -86,9 +94,12 @@ El nombre del archivo se convierte en un segmento adicional del espacio de nombr
 
 ```json filename="locales/slash/es-ES/ping.json"
 {
-  "name": "ping", "description": "Verificar la latencia del bot", "options": {
+  "name": "ping",
+  "description": "Verificar la latencia del bot",
+  "options": {
     "objetivo": {
-      "name": "objetivo", "description": "El servidor o servicio a verificar"
+      "name": "objetivo",
+      "description": "El servidor o servicio a verificar"
     }
   }
 }
@@ -105,22 +116,26 @@ Todas las referencias son accesibles a través de la misma API del servicio sin 
 referencia contiene una clave. El nombre de la referencia forma parte de la clave en sí misma.
 
 ```typescript filename="estado.handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { I18nService } from '@spraxium/i18n';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { EstadoCommand } from '../commands/estado.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { I18nService } from "@spraxium/i18n";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { EstadoCommand } from "../commands/estado.command";
 
 @SlashCommandHandler(EstadoCommand)
 export class EstadoHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const locale  = interaction.locale;
-    const userId  = interaction.user.id;
+    const locale = interaction.locale;
+    const userId = interaction.user.id;
 
-    const titulo    = this.i18n.t('slash.estado.embed.titulo', locale);
-    const errPerm   = this.i18n.t('errores.prohibido', locale);
-    const pieEmbed  = await this.i18n.tUser(userId, 'slash.estado.embed.pie', {});
+    const titulo = this.i18n.t("slash.estado.embed.titulo", locale);
+    const errPerm = this.i18n.t("errores.prohibido", locale);
+    const pieEmbed = await this.i18n.tUser(
+      userId,
+      "slash.estado.embed.pie",
+      {},
+    );
 
     await interaction.reply({ content: `${titulo}: ${pieEmbed}` });
   }
@@ -133,17 +148,22 @@ Cuando añades un campo `i18n` a un decorador de slash, las rutas de clave apunt
 cargado, que usa el nombre de la referencia como primer segmento.
 
 ```typescript filename="config.command.ts"
-import { SlashCommand } from '@spraxium/common';
+import { SlashCommand } from "@spraxium/common";
 
 @SlashCommand({
-  name: 'config', description: 'Gestionar configuración del bot', i18n: {
-    name: 'slash.config.name', description: 'slash.config.description', }, })
+  name: "config",
+  description: "Gestionar configuración del bot",
+  i18n: {
+    name: "slash.config.name",
+    description: "slash.config.description",
+  },
+})
 export class ConfigCommand {}
 ```
 
 El lifecycle del i18n ya ha cargado el mapa plano antes de que el registrador de slash se ejecute.
 El puente consulta el mapa de cada locale soportado por el bot y pasa el resultado a
-*builder.setNameLocalizations()*. El comando aparece entonces en la interfaz de Discord con nombres
+_builder.setNameLocalizations()_. El comando aparece entonces en la interfaz de Discord con nombres
 localizados de forma nativa.
 
 ## Qué ocurre cuando falta un locale

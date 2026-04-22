@@ -21,20 +21,24 @@ The practical goal is predictability across your entire bot. The same failure ty
 
 ## The SpraxiumException base class
 
-Every exception in the Spraxium ecosystem extends `SpraxiumException`, which itself extends the native JavaScript *Error*. The base class adds structured fields that the pipeline uses for layout resolution, logging decisions, and response rendering. Understanding these fields is essential before creating custom exceptions or working with built-in ones, because each field controls a specific aspect of how the error is processed at runtime.
+Every exception in the Spraxium ecosystem extends `SpraxiumException`, which itself extends the native JavaScript _Error_. The base class adds structured fields that the pipeline uses for layout resolution, logging decisions, and response rendering. Understanding these fields is essential before creating custom exceptions or working with built-in ones, because each field controls a specific aspect of how the error is processed at runtime.
 
 ```typescript filename="shop.command.ts"
-import { SpraxiumException } from '@spraxium/core';
+import { SpraxiumException } from "@spraxium/core";
 
 throw new SpraxiumException({
-  code: 'ORDER_LIMIT_EXCEEDED', message: 'You have exceeded the {{limit}} order limit for today.', props: { limit: 5, userId: interaction.user.id }, shouldReply: true, shouldLog: false,
+  code: "ORDER_LIMIT_EXCEEDED",
+  message: "You have exceeded the {{limit}} order limit for today.",
+  props: { limit: 5, userId: interaction.user.id },
+  shouldReply: true,
+  shouldLog: false,
 });
 ```
 
 For anything beyond a one-off throw, extend `SpraxiumException` into a named class so the exception carries a stable identity that layouts and monitoring rules can target. The constructor accepts the same options object and forwards it to `super`, letting each subclass own its code, default message, and typed props interface.
 
 ```typescript filename="order-limit.exception.ts"
-import { SpraxiumException } from '@spraxium/core';
+import { SpraxiumException } from "@spraxium/core";
 
 interface OrderLimitProps {
   limit: number;
@@ -44,12 +48,18 @@ interface OrderLimitProps {
 export class OrderLimitExceededException extends SpraxiumException {
   constructor(props: OrderLimitProps) {
     super({
-      code: 'ORDER_LIMIT_EXCEEDED', message: 'You have exceeded the {{limit}} order limit for today.', props, });
+      code: "ORDER_LIMIT_EXCEEDED",
+      message: "You have exceeded the {{limit}} order limit for today.",
+      props,
+    });
   }
 }
 
 // Usage anywhere in domain code
-throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id });
+throw new OrderLimitExceededException({
+  limit: 5,
+  userId: interaction.user.id,
+});
 ```
 
 <Table variant="striped">
@@ -64,17 +74,23 @@ throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id })
     <TableRow>
       <TableCell>*code*</TableCell>
       <TableCell>string</TableCell>
-      <TableCell>Machine-readable identifier for filtering, monitoring, and log queries</TableCell>
+      <TableCell>
+        Machine-readable identifier for filtering, monitoring, and log queries
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*message*</TableCell>
       <TableCell>string</TableCell>
-      <TableCell>Human-readable description with double-brace placeholder support</TableCell>
+      <TableCell>
+        Human-readable description with double-brace placeholder support
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*props*</TableCell>
       <TableCell>Record</TableCell>
-      <TableCell>Runtime data for placeholder interpolation and layout rendering</TableCell>
+      <TableCell>
+        Runtime data for placeholder interpolation and layout rendering
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*shouldReply*</TableCell>
@@ -89,14 +105,16 @@ throw new OrderLimitExceededException({ limit: 5, userId: interaction.user.id })
     <TableRow>
       <TableCell>*layout*</TableCell>
       <TableCell>ExceptionLayoutClass</TableCell>
-      <TableCell>Per-instance layout override with highest resolution priority</TableCell>
+      <TableCell>
+        Per-instance layout override with highest resolution priority
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Built-in exceptions
 
-Spraxium ships with fifteen exception classes that cover the most common failure scenarios in Discord bots. Each class extends `SpraxiumException` with a predefined *code*, a default *message* with placeholder support, and typed *props* for layout rendering. You can throw any of these directly without creating custom classes, and they are all imported from *@spraxium/core*.
+Spraxium ships with fifteen exception classes that cover the most common failure scenarios in Discord bots. Each class extends `SpraxiumException` with a predefined _code_, a default _message_ with placeholder support, and typed _props_ for layout rendering. You can throw any of these directly without creating custom classes, and they are all imported from _@spraxium/core_.
 
 <DropdownGroup>
 <Dropdown title="ArgumentException: INVALID_ARGUMENT">
@@ -104,55 +122,94 @@ Spraxium ships with fifteen exception classes that cover the most common failure
 </Dropdown>
 
 <Dropdown title="CommandNotFoundException: COMMAND_NOT_FOUND">
-  Signals that the requested command does not exist in the command registry. This exception is thrown internally when prefix or slash command lookup fails to find a matching handler. The *props* object accepts a *command* field with the unrecognized name.
+  Signals that the requested command does not exist in the command registry.
+  This exception is thrown internally when prefix or slash command lookup fails
+  to find a matching handler. The *props* object accepts a *command* field with
+  the unrecognized name.
 </Dropdown>
 
 <Dropdown title="ConfigurationException: CONFIGURATION_ERROR">
-  Reports a configuration key error with a human-readable reason. This exception surfaces during bootstrap when a required config field is missing, has the wrong type, or conflicts with another field. The *props* object accepts *key* and *reason* fields.
+  Reports a configuration key error with a human-readable reason. This exception
+  surfaces during bootstrap when a required config field is missing, has the
+  wrong type, or conflicts with another field. The *props* object accepts *key*
+  and *reason* fields.
 </Dropdown>
 
 <Dropdown title="CooldownException: COOLDOWN">
-  Tells the user how many seconds to wait before retrying the command. This exception is thrown by the *CooldownGuard* or manually from handler code when rate-limiting logic determines the user must wait. The *props* object accepts a *seconds* field.
+  Tells the user how many seconds to wait before retrying the command. This
+  exception is thrown by the *CooldownGuard* or manually from handler code when
+  rate-limiting logic determines the user must wait. The *props* object accepts
+  a *seconds* field.
 </Dropdown>
 
 <Dropdown title="DMOnlyException: DM_ONLY">
-  Restricts the command to direct message channels only. This exception is thrown by the *DMOnly* guard when a user attempts to run a DM-exclusive command inside a guild channel. No additional props are required beyond the default message.
+  Restricts the command to direct message channels only. This exception is
+  thrown by the *DMOnly* guard when a user attempts to run a DM-exclusive
+  command inside a guild channel. No additional props are required beyond the
+  default message.
 </Dropdown>
 
 <Dropdown title="GuardDeniedException: GUARD_DENIED">
-  Signals that a guard blocked command execution with an optional reason. This is the generic denial exception used when a guard returns `false` and no more specific exception applies. The *props* object accepts a *reason* field describing why access was denied.
+  Signals that a guard blocked command execution with an optional reason. This
+  is the generic denial exception used when a guard returns `false` and no more
+  specific exception applies. The *props* object accepts a *reason* field
+  describing why access was denied.
 </Dropdown>
 
 <Dropdown title="GuildOnlyException: GUILD_ONLY">
-  Restricts the command to guild (server) channels only. This exception is thrown by the *GuildOnly* guard when a user attempts to run a server-only command from a direct message. No additional props are required beyond the default message.
+  Restricts the command to guild (server) channels only. This exception is
+  thrown by the *GuildOnly* guard when a user attempts to run a server-only
+  command from a direct message. No additional props are required beyond the
+  default message.
 </Dropdown>
 
 <Dropdown title="InternalException: INTERNAL_ERROR">
-  Provides a generic internal error with a safe user-facing message. Use this exception when an unexpected failure occurs and you want to hide technical details from the user while still logging the root cause. The *props* object accepts a *detail* field for internal diagnostics.
+  Provides a generic internal error with a safe user-facing message. Use this
+  exception when an unexpected failure occurs and you want to hide technical
+  details from the user while still logging the root cause. The *props* object
+  accepts a *detail* field for internal diagnostics.
 </Dropdown>
 
 <Dropdown title="MaintenanceException: MAINTENANCE">
-  Signals that a feature is temporarily under maintenance with an optional estimated time of arrival. Use this exception to gracefully disable features during deployments or planned downtime. The *props* object accepts *feature* and *eta* fields.
+  Signals that a feature is temporarily under maintenance with an optional
+  estimated time of arrival. Use this exception to gracefully disable features
+  during deployments or planned downtime. The *props* object accepts *feature*
+  and *eta* fields.
 </Dropdown>
 
 <Dropdown title="NsfwOnlyException: NSFW_ONLY">
-  Restricts the command to channels marked as NSFW in the guild settings. This exception is thrown by the *NSFWGuard* when a user attempts to run an age-restricted command in a regular channel. No additional props are required beyond the default message.
+  Restricts the command to channels marked as NSFW in the guild settings. This
+  exception is thrown by the *NSFWGuard* when a user attempts to run an
+  age-restricted command in a regular channel. No additional props are required
+  beyond the default message.
 </Dropdown>
 
 <Dropdown title="OwnerOnlyException: OWNER_ONLY">
-  Restricts the command to the bot owner or configured owner IDs. This exception is thrown by the *OwnerOnly* guard when a non-owner user attempts to run a privileged command. No additional props are required beyond the default message.
+  Restricts the command to the bot owner or configured owner IDs. This exception
+  is thrown by the *OwnerOnly* guard when a non-owner user attempts to run a
+  privileged command. No additional props are required beyond the default
+  message.
 </Dropdown>
 
 <Dropdown title="PermissionDeniedException: PERMISSION_DENIED">
-  Reports that the user is missing a required Discord permission. This exception is thrown by the *PermissionGuard* or manually when access control checks fail. The *props* object accepts a *permission* field naming the missing permission.
+  Reports that the user is missing a required Discord permission. This exception
+  is thrown by the *PermissionGuard* or manually when access control checks
+  fail. The *props* object accepts a *permission* field naming the missing
+  permission.
 </Dropdown>
 
 <Dropdown title="PremiumOnlyException: PREMIUM_ONLY">
-  Restricts the feature to premium subscribers with optional tier information. Use this exception when monetized features need a clear upgrade prompt. The *props* object accepts *tier* and *upgradeUrl* fields for guiding users to subscription options.
+  Restricts the feature to premium subscribers with optional tier information.
+  Use this exception when monetized features need a clear upgrade prompt. The
+  *props* object accepts *tier* and *upgradeUrl* fields for guiding users to
+  subscription options.
 </Dropdown>
 
 <Dropdown title="RateLimitException: RATE_LIMITED">
-  Reports API rate limiting with retry timing and the affected route. This exception surfaces when Discord or an external API returns a 429 response. The *props* object accepts *retryAfter* (in seconds) and *route* fields for client-side retry logic.
+  Reports API rate limiting with retry timing and the affected route. This
+  exception surfaces when Discord or an external API returns a 429 response. The
+  *props* object accepts *retryAfter* (in seconds) and *route* fields for
+  client-side retry logic.
 </Dropdown>
 
 <Dropdown title="ValidationException: VALIDATION">
@@ -162,21 +219,23 @@ Spraxium ships with fifteen exception classes that cover the most common failure
 
 ### Using built-in exceptions
 
-The built-in exceptions are ready to use with zero configuration. Every class accepts an optional *props* object that populates placeholders in the default message and provides context for layout rendering. The example below shows three common scenarios you will encounter in most bots.
+The built-in exceptions are ready to use with zero configuration. Every class accepts an optional _props_ object that populates placeholders in the default message and provides context for layout rendering. The example below shows three common scenarios you will encounter in most bots.
 
 ```typescript filename="shop.command.ts"
 import {
-  CooldownException, PermissionDeniedException, MaintenanceException,
-} from '@spraxium/core';
+  CooldownException,
+  PermissionDeniedException,
+  MaintenanceException,
+} from "@spraxium/core";
 
 // User must wait before retrying the command
 throw new CooldownException({ seconds: 10 });
 
 // User lacks the required permission
-throw new PermissionDeniedException({ permission: 'MANAGE_MESSAGES' });
+throw new PermissionDeniedException({ permission: "MANAGE_MESSAGES" });
 
 // Feature is temporarily disabled
-throw new MaintenanceException({ feature: 'Leaderboard', eta: '2 hours' });
+throw new MaintenanceException({ feature: "Leaderboard", eta: "2 hours" });
 ```
 
 ## Where exceptions enter runtime flow
@@ -199,7 +258,9 @@ In practice, an exception is raised inside domain code such as a service, guard,
     </TableRow>
     <TableRow>
       <TableCell>Layout resolution</TableCell>
-      <TableCell>Core selects layout by override, class mapping, or fallback</TableCell>
+      <TableCell>
+        Core selects layout by override, class mapping, or fallback
+      </TableCell>
       <TableCell>Consistent user-facing response</TableCell>
     </TableRow>
     <TableRow>

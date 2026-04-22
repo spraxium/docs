@@ -9,94 +9,146 @@ category: Prefix Commands
 
 ## Precedencia de resolución de prefijos
 
-Cuando una *Message* entra al pipeline, el parser evalúa fuentes de prefijo en un orden fijo. Esa precedencia evita ambigüedad y permite personalizar servidores sin romper el comportamiento global. La primera coincidencia válida gana y el resto de opciones se omite.
+Cuando una _Message_ entra al pipeline, el parser evalúa fuentes de prefijo en un orden fijo. Esa precedencia evita ambigüedad y permite personalizar servidores sin romper el comportamiento global. La primera coincidencia válida gana y el resto de opciones se omite.
 
 Este diseño permite que cada comunidad adopte su propia convención sin afectar a otras. Un servidor puede usar `?` mientras otro usa `!`, y ambos siguen el mismo runtime interno. El prefijo global queda como fallback coherente para servidores sin sobrescritura.
 
 <Steps>
   <Step title="Sobrescritura por servidor">
-    El parser consulta *PrefixGuildManager.getGuildPrefix* con el ID del servidor actual. Si encuentra una entrada, prueba cada prefijo registrado en orden hasta encontrar match. Cuando hay coincidencia, el flujo continúa con tokenización sin evaluar fuentes posteriores.
+    El parser consulta *PrefixGuildManager.getGuildPrefix* con el ID del
+    servidor actual. Si encuentra una entrada, prueba cada prefijo registrado en
+    orden hasta encontrar match. Cuando hay coincidencia, el flujo continúa con
+    tokenización sin evaluar fuentes posteriores.
   </Step>
   <Step title="Fallback global">
-    Si no hay sobrescritura o la coincidencia falla, el parser valida el campo *prefix* de *PrefixConfig*. Este valor puede ser string único o array de strings según tu política de entrada. Si hay match, se resuelve el comando con el mismo pipeline de guards, args y handler.
+    Si no hay sobrescritura o la coincidencia falla, el parser valida el campo
+    *prefix* de *PrefixConfig*. Este valor puede ser string único o array de
+    strings según tu política de entrada. Si hay match, se resuelve el comando
+    con el mismo pipeline de guards, args y handler.
   </Step>
   <Step title="Prefijo por mención">
-    Si *mentionPrefix* está activo, el parser acepta también una mención al bot como prefijo universal. Este fallback ayuda cuando los usuarios no recuerdan el prefijo configurado en su servidor. El soporte de mención reduce fricción operativa en bots con muchas comunidades.
+    Si *mentionPrefix* está activo, el parser acepta también una mención al bot
+    como prefijo universal. Este fallback ayuda cuando los usuarios no recuerdan
+    el prefijo configurado en su servidor. El soporte de mención reduce fricción
+    operativa en bots con muchas comunidades.
   </Step>
 </Steps>
 
 ## Referencia de PrefixConfig
 
-*PrefixConfig* define política global del subsistema y punto de hidratación inicial. Debe permanecer enfocado en bootstrap y no en lógica de dominio de runtime. La lectura y escritura de prefijos por servidor debe quedar encapsulada en services de aplicación.
+_PrefixConfig_ define política global del subsistema y punto de hidratación inicial. Debe permanecer enfocado en bootstrap y no en lógica de dominio de runtime. La lectura y escritura de prefijos por servidor debe quedar encapsulada en services de aplicación.
 
 <DropdownGroup>
   <Dropdown title="prefix (string | string[], obligatorio)">
-    Define el prefijo global o una lista de prefijos globales para servidores sin sobrescritura. Puedes usar un solo valor o múltiples opciones como `['!', '?']`. Este campo es obligatorio y no debe omitirse en la configuración.
+    Define el prefijo global o una lista de prefijos globales para servidores
+    sin sobrescritura. Puedes usar un solo valor o múltiples opciones como
+    `['!', '?']`. Este campo es obligatorio y no debe omitirse en la
+    configuración.
   </Dropdown>
   <Dropdown title="guildPrefixProvider (PrefixGuildProvider)">
-    Es una función asíncrona que hidrata prefijos por servidor durante el arranque. Debe retornar un arreglo de entradas con `guildId` y `prefix`. Si no se define, la memoria inicia vacía y se completa solo por mutaciones de runtime.
+    Es una función asíncrona que hidrata prefijos por servidor durante el
+    arranque. Debe retornar un arreglo de entradas con `guildId` y `prefix`. Si
+    no se define, la memoria inicia vacía y se completa solo por mutaciones de
+    runtime.
   </Dropdown>
   <Dropdown title="caseSensitive (boolean, predeterminado false)">
-    Controla si la coincidencia de prefijo distingue mayúsculas y minúsculas. Con `false`, `!Ping` y `!ping` se tratan igual. Actívalo solo cuando exista una necesidad real de diferenciación.
+    Controla si la coincidencia de prefijo distingue mayúsculas y minúsculas.
+    Con `false`, `!Ping` y `!ping` se tratan igual. Actívalo solo cuando exista
+    una necesidad real de diferenciación.
   </Dropdown>
   <Dropdown title="mentionPrefix (boolean, predeterminado true)">
-    Permite que una mención al bot funcione como prefijo universal. Este fallback reduce fricción cuando el usuario no recuerda el prefijo configurado. Desactívalo únicamente si interfiere con otros flujos del bot.
+    Permite que una mención al bot funcione como prefijo universal. Este
+    fallback reduce fricción cuando el usuario no recuerda el prefijo
+    configurado. Desactívalo únicamente si interfiere con otros flujos del bot.
   </Dropdown>
   <Dropdown title="defaultCooldown (number, predeterminado 0)">
-    Aplica un cooldown global en segundos a comandos que no tienen *cooldown* propio. Si defines `3`, ese valor se usa como base del catálogo completo. Con `0`, no hay cooldown global por defecto.
+    Aplica un cooldown global en segundos a comandos que no tienen *cooldown*
+    propio. Si defines `3`, ese valor se usa como base del catálogo completo.
+    Con `0`, no hay cooldown global por defecto.
   </Dropdown>
   <Dropdown title="replyOnNotFound (boolean, predeterminado false)">
-    Envía respuesta automática cuando el prefijo es válido pero el comando no existe. Con `false`, ese caso se ignora de forma silenciosa. Con `true`, mejoras feedback para usuarios que escriben mal un comando.
+    Envía respuesta automática cuando el prefijo es válido pero el comando no
+    existe. Con `false`, ese caso se ignora de forma silenciosa. Con `true`,
+    mejoras feedback para usuarios que escriben mal un comando.
   </Dropdown>
 </DropdownGroup>
 
 ```typescript filename="config/prefix.config.ts"
-import { definePrefix } from '@spraxium/core';
-import { loadGuildPrefixes } from './prefix/guild-prefix.provider';
+import { definePrefix } from "@spraxium/core";
+import { loadGuildPrefixes } from "./prefix/guild-prefix.provider";
 
 export default definePrefix({
-  prefix: '!', caseSensitive: false, mentionPrefix: true, defaultCooldown: 3, guildPrefixProvider: loadGuildPrefixes,
+  prefix: "!",
+  caseSensitive: false,
+  mentionPrefix: true,
+  defaultCooldown: 3,
+  guildPrefixProvider: loadGuildPrefixes,
 });
 ```
 
 <Callout tone="info">
-  El archivo de config debe declarar solo política global e hidratación inicial del subsistema. La lectura, escritura, auditoría y sincronización por servidor deben vivir en services que inyectan *PrefixDispatcher*. La página *API de Prefijos vía Services* explica este patrón con más profundidad y escenarios de producción.
+  El archivo de config debe declarar solo política global e hidratación inicial
+  del subsistema. La lectura, escritura, auditoría y sincronización por servidor
+  deben vivir en services que inyectan *PrefixDispatcher*. La página *API de
+  Prefijos vía Services* explica este patrón con más profundidad y escenarios de
+  producción.
 </Callout>
 
 ## API de PrefixGuildManager
 
-*PrefixGuildManager* mantiene sobrescrituras de prefijo en memoria para cada servidor activo. El framework lo hidrata durante bootstrap con *guildPrefixProvider* y luego permite mutaciones en runtime sin reiniciar el proceso. Esta API habilita comandos administrativos, paneles y tareas de sincronización con efecto inmediato.
+_PrefixGuildManager_ mantiene sobrescrituras de prefijo en memoria para cada servidor activo. El framework lo hidrata durante bootstrap con _guildPrefixProvider_ y luego permite mutaciones en runtime sin reiniciar el proceso. Esta API habilita comandos administrativos, paneles y tareas de sincronización con efecto inmediato.
 
 <DropdownGroup>
   <Dropdown title="getGuildPrefix(guildId)">
-    Retorna el arreglo de prefijos activos de un servidor, o `undefined` si no existe sobrescritura. Es la lectura principal para mostrar el prefijo actual en comandos de administración. La consulta es síncrona porque opera sobre memoria.
+    Retorna el arreglo de prefijos activos de un servidor, o `undefined` si no
+    existe sobrescritura. Es la lectura principal para mostrar el prefijo actual
+    en comandos de administración. La consulta es síncrona porque opera sobre
+    memoria.
   </Dropdown>
   <Dropdown title="getGuildEntry(guildId)">
-    Retorna la entrada completa con `guildId`, `prefix` y `metadata`. Úsalo cuando necesites contexto adicional de auditoría. Si no hay entrada, retorna `undefined`.
+    Retorna la entrada completa con `guildId`, `prefix` y `metadata`. Úsalo
+    cuando necesites contexto adicional de auditoría. Si no hay entrada, retorna
+    `undefined`.
   </Dropdown>
   <Dropdown title="hasGuildPrefix(guildId)">
-    Indica con `true` o `false` si existe sobrescritura para el servidor. Es ideal para guards o bifurcaciones de flujo. Expresa intención de existencia sin leer el valor completo.
+    Indica con `true` o `false` si existe sobrescritura para el servidor. Es
+    ideal para guards o bifurcaciones de flujo. Expresa intención de existencia
+    sin leer el valor completo.
   </Dropdown>
   <Dropdown title="getAllGuildIds()">
-    Lista todos los IDs de servidor con configuración personalizada activa. Sirve para dashboards, diagnósticos o jobs de reconciliación. El resultado refleja solo el estado cargado en memoria.
+    Lista todos los IDs de servidor con configuración personalizada activa.
+    Sirve para dashboards, diagnósticos o jobs de reconciliación. El resultado
+    refleja solo el estado cargado en memoria.
   </Dropdown>
   <Dropdown title="setGuildPrefix(guildId, prefix, metadata?)">
-    Crea o reemplaza completamente la configuración de prefijo del servidor. Puedes adjuntar metadata para auditoría, como actor y timestamp. Conviene persistir en base de datos antes de mutar memoria.
+    Crea o reemplaza completamente la configuración de prefijo del servidor.
+    Puedes adjuntar metadata para auditoría, como actor y timestamp. Conviene
+    persistir en base de datos antes de mutar memoria.
   </Dropdown>
   <Dropdown title="updateGuildPrefix(guildId, prefix, metadata?)">
-    Actualiza de forma parcial una entrada existente y conserva campos no enviados. Si la entrada no existe, actúa como creación. Es útil para paneles que actualizan un campo a la vez.
+    Actualiza de forma parcial una entrada existente y conserva campos no
+    enviados. Si la entrada no existe, actúa como creación. Es útil para paneles
+    que actualizan un campo a la vez.
   </Dropdown>
   <Dropdown title="removeGuildPrefix(guildId)">
-    Elimina la sobrescritura en memoria y retorna si la entrada existía. Después de eliminar, ese servidor vuelve al prefijo global. Sigue patrón persist-first para evitar rehidratación accidental en reinicios.
+    Elimina la sobrescritura en memoria y retorna si la entrada existía. Después
+    de eliminar, ese servidor vuelve al prefijo global. Sigue patrón
+    persist-first para evitar rehidratación accidental en reinicios.
   </Dropdown>
   <Dropdown title="clear()">
-    Limpia todas las sobrescrituras de prefijo en memoria de una sola vez. Es útil para tests, reset controlado o mantenimiento operativo. En producción, suele combinarse con una recarga posterior.
+    Limpia todas las sobrescrituras de prefijo en memoria de una sola vez. Es
+    útil para tests, reset controlado o mantenimiento operativo. En producción,
+    suele combinarse con una recarga posterior.
   </Dropdown>
   <Dropdown title="loadFromProvider(provider)">
-    Recarga todo el estado desde una función asíncrona y reemplaza el contenido en memoria. Se usa en arranque y en recargas controladas tras cambios masivos. Permite mantener runtime alineado con storage.
+    Recarga todo el estado desde una función asíncrona y reemplaza el contenido
+    en memoria. Se usa en arranque y en recargas controladas tras cambios
+    masivos. Permite mantener runtime alineado con storage.
   </Dropdown>
   <Dropdown title="size (propiedad)">
-    Expone el total de entradas de prefijo por servidor actualmente cargadas en memoria. Sirve para métricas rápidas y health checks. Un valor inesperadamente bajo suele indicar problema de hidratación.
+    Expone el total de entradas de prefijo por servidor actualmente cargadas en
+    memoria. Sirve para métricas rápidas y health checks. Un valor
+    inesperadamente bajo suele indicar problema de hidratación.
   </Dropdown>
 </DropdownGroup>
 
@@ -111,10 +163,11 @@ import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({ name: 'set-prefix', cooldown: 10 })
 export class SetPrefixCommand {
-  @PrefixArg.String('newPrefix', { minLength: 1, maxLength: 5 })
-  build() {}
+@PrefixArg.String('newPrefix', { minLength: 1, maxLength: 5 })
+build() {}
 }
-```
+
+````
   </Tab>
   <Tab label="Service" language="typescript">
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
@@ -130,7 +183,8 @@ export class GuildPrefixService {
       updatedBy: actorId, updatedAt: new Date().toISOString(), });
   }
 }
-```
+````
+
   </Tab>
   <Tab label="Handler" language="typescript">
 ```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
@@ -141,20 +195,22 @@ import { GuildPrefixService } from '../../prefix/services/guild-prefix.service';
 
 @PrefixCommandHandler(SetPrefixCommand)
 export class SetPrefixHandler {
-  constructor(private readonly guildPrefixService: GuildPrefixService) {}
+constructor(private readonly guildPrefixService: GuildPrefixService) {}
 
-  async handle(
-    @Ctx() message: Message, @PrefixArg('newPrefix') newPrefix: string, ): Promise<void> {
-    const guildId = message.guildId;
-    if (!guildId) {
-      await message.reply('Este comando solo se puede usar dentro de un servidor.');
-      return;
-    }
+async handle(
+@Ctx() message: Message, @PrefixArg('newPrefix') newPrefix: string, ): Promise<void> {
+const guildId = message.guildId;
+if (!guildId) {
+await message.reply('Este comando solo se puede usar dentro de un servidor.');
+return;
+}
 
     this.guildPrefixService.setGuildPrefix(guildId, newPrefix, message.author.id);
     await message.reply(`Prefijo actualizado a \`${newPrefix}\` para este servidor.`);
-  }
+
 }
+}
+
 ```
   </Tab>
 </CodeTabs>
@@ -172,3 +228,4 @@ Los cooldowns viven en memoria y se limpian automáticamente al expirar o al rei
 ## Siguiente página
 
 [API de Prefijos vía Services](/prefix-commands-service-api)
+```

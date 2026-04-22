@@ -9,7 +9,7 @@ category: Guards
 
 ## Qué pasa cuando un guard retorna false
 
-Cuando el método *canActivate* de un guard retorna false, el framework detiene el pipeline de ejecución inmediatamente. El método handler nunca corre, y ningún guard siguiente en la cadena se evalua. detrás de escena, el framework envuelve la denegación en una *GuardDeniedException* y la pasa al pipeline de exceptions. Si tienes un exception layout mapeado a *GuardDeniedException*, el usuario ve la respuesta que ese layout renderiza. Si no tienes mapeo, el comportamiento por defecto de exception aplica.
+Cuando el método _canActivate_ de un guard retorna false, el framework detiene el pipeline de ejecución inmediatamente. El método handler nunca corre, y ningún guard siguiente en la cadena se evalua. detrás de escena, el framework envuelve la denegación en una _GuardDeniedException_ y la pasa al pipeline de exceptions. Si tienes un exception layout mapeado a _GuardDeniedException_, el usuario ve la respuesta que ese layout renderiza. Si no tienes mapeo, el comportamiento por defecto de exception aplica.
 
 Esto significa que no necesitas escribir ninguna lógica de respuesta dentro del guard. El guard retorna false, el framework crea la exception, y la capa de exceptions maneja la respuesta para el usuario. Esta separación mantiene los guards simples y te permite controlar la UX de denegación desde un lugar central en la configuración de exception layouts en lugar de esparcir lógica de respuesta por docenas de clases guard.
 
@@ -17,11 +17,11 @@ El beneficio práctico es consistencia. Toda denegación de guard en todo el bot
 
 ## Retornar false versus lanzar una exception
 
-Tienes dos opciones dentro de un guard: retornar false para una denegación estándar, o lanzar una exception personalizada para un escenario específico. La aproximación por defecto debe ser retornar false porqué es más simple, mantiene la clase guard mínima y deja que el framework maneje el resto a través de *GuardDeniedException*. La mayoría de los guards que escribas simplemente retornara false cuando el chequeo falla.
+Tienes dos opciones dentro de un guard: retornar false para una denegación estándar, o lanzar una exception personalizada para un escenario específico. La aproximación por defecto debe ser retornar false porqué es más simple, mantiene la clase guard mínima y deja que el framework maneje el resto a través de _GuardDeniedException_. La mayoría de los guards que escribas simplemente retornara false cuando el chequeo falla.
 
 ```typescript filename="guild-only.guard.ts"
-import { Guard } from '@spraxium/common';
-import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { Guard } from "@spraxium/common";
+import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
 
 @Guard()
 export class GuildOnlyGuard implements SpraxiumGuard {
@@ -32,26 +32,28 @@ export class GuildOnlyGuard implements SpraxiumGuard {
 }
 ```
 
-Sin embargo, a veces una respuesta genérica de "acceso denegado" no es suficiente. Cuando necesitas decirle al usuario exactamente por qué fue bloqueado, incluir datos específicos de dominio en la denegación, o renderizar un layout personalizado para un escenario particular de falla, lanza una exception personalizada en lugar de retornar false. La exception lanzada ignora el wrapping automatico de *GuardDeniedException* y va directamente por el pipeline de exceptions con su propia identidad de clase, code, message y props.
+Sin embargo, a veces una respuesta genérica de "acceso denegado" no es suficiente. Cuando necesitas decirle al usuario exactamente por qué fue bloqueado, incluir datos específicos de dominio en la denegación, o renderizar un layout personalizado para un escenario particular de falla, lanza una exception personalizada en lugar de retornar false. La exception lanzada ignora el wrapping automatico de _GuardDeniedException_ y va directamente por el pipeline de exceptions con su propia identidad de clase, code, message y props.
 
 ```typescript filename="moderator.guard.ts"
-import { Guard } from '@spraxium/common';
-import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
-import { PermissionDeniedException } from '@spraxium/core';
+import { Guard } from "@spraxium/common";
+import type { ExecutionContext, SpraxiumGuard } from "@spraxium/common";
+import { PermissionDeniedException } from "@spraxium/core";
 
 @Guard()
 export class ModeratorGuard implements SpraxiumGuard {
   canActivate(ctx: ExecutionContext): boolean {
     const member = ctx.getMember();
-    if (!member || !('roles' in member)) {
+    if (!member || !("roles" in member)) {
       throw new PermissionDeniedException({
-        reason: 'No fue posible resolver tu membresía en el servidor.', });
+        reason: "No fue posible resolver tu membresía en el servidor.",
+      });
     }
 
-    const hasRole = member.roles.cache.some((r) => r.name === 'Moderator');
+    const hasRole = member.roles.cache.some((r) => r.name === "Moderator");
     if (!hasRole) {
       throw new PermissionDeniedException({
-        reason: 'Necesitas el role Moderator para usar este comando.', });
+        reason: "Necesitas el role Moderator para usar este comando.",
+      });
     }
 
     return true;
@@ -63,24 +65,29 @@ La elección entre las dos aproximaciones se reduce a qué tan específica neces
 
 ## Mapeando layouts de denegación
 
-Para controlar lo que los usuarios ven cuando un guard niega ejecución, mapea clases de exception a layouts en tu archivo *spraxium.config.ts*. El framework chequea el nombre de clase de la exception contra el mapeo de layouts y usa el layout correspondiente para renderizar la respuesta. Si no existe mapeo específico, el layout por defecto aplica.
+Para controlar lo que los usuarios ven cuando un guard niega ejecución, mapea clases de exception a layouts en tu archivo _spraxium.config.ts_. El framework chequea el nombre de clase de la exception contra el mapeo de layouts y usa el layout correspondiente para renderizar la respuesta. Si no existe mapeo específico, el layout por defecto aplica.
 
 ```typescript filename="spraxium.config.ts"
-import { defineConfig } from '@spraxium/core';
-import { DefaultLayout } from './layouts/default.layout';
-import { AccessDeniedLayout } from './layouts/access-denied.layout';
-import { PermissionDeniedLayout } from './layouts/permission-denied.layout';
+import { defineConfig } from "@spraxium/core";
+import { DefaultLayout } from "./layouts/default.layout";
+import { AccessDeniedLayout } from "./layouts/access-denied.layout";
+import { PermissionDeniedLayout } from "./layouts/permission-denied.layout";
 
 export default defineConfig({
   exceptions: {
-    logUnhandled: true, layouts: {
-      default: DefaultLayout, GuardDeniedException: AccessDeniedLayout, PermissionDeniedException: PermissionDeniedLayout, }, },
+    logUnhandled: true,
+    layouts: {
+      default: DefaultLayout,
+      GuardDeniedException: AccessDeniedLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+    },
+  },
 });
 ```
 
-Con esta configuración, todo guard qué retorna false activa el *AccessDeniedLayout*. Todo guard que lanza *PermissionDeniedException* activa el *PermissionDeniedLayout*. Esta aproximación en capas significa que puedes tener un layout genérico de denegación para la mayoría de los guards mientras reservas layouts específicos para guards que lanzan exceptions de dominio.
+Con esta configuración, todo guard qué retorna false activa el _AccessDeniedLayout_. Todo guard que lanza _PermissionDeniedException_ activa el _PermissionDeniedLayout_. Esta aproximación en capas significa que puedes tener un layout genérico de denegación para la mayoría de los guards mientras reservas layouts específicos para guards que lanzan exceptions de dominio.
 
-El layout recibe la instancia de la exception, lo que te da acceso a los campos *code*, *message* y *props*. Tu layout puede usar estos para renderizar una respuesta detallada que le diga al usuario que paso y que puede hacer al respecto, todo sin que el guard sepa nada sobre el formato de la respuesta.
+El layout recibe la instancia de la exception, lo que te da acceso a los campos _code_, _message_ y _props_. Tu layout puede usar estos para renderizar una respuesta detallada que le diga al usuario que paso y que puede hacer al respecto, todo sin que el guard sepa nada sobre el formato de la respuesta.
 
 ## Ejemplo práctico: guard que lanza con contexto
 
@@ -94,20 +101,20 @@ import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
 import { SpraxiumException } from '@spraxium/core';
 
 class PremiumRequiredException extends SpraxiumException {
-  constructor(props: { requiredTier: string; currentTier: string }) {
-    super({
-      code: 'PREMIUM_REQUIRED', message: 'Esta feature requiere el plan {{requiredTier}}.', props, });
-  }
+constructor(props: { requiredTier: string; currentTier: string }) {
+super({
+code: 'PREMIUM_REQUIRED', message: 'Esta feature requiere el plan {{requiredTier}}.', props, });
+}
 }
 
 @Guard()
 export class PremiumGuard implements SpraxiumGuard {
-  @GuardOption({ required: true })
-  requiredTier!: string;
+@GuardOption({ required: true })
+requiredTier!: string;
 
-  async canActivate(ctx: ExecutionContext): Promise<boolean> {
-    const userId = ctx.getUserId();
-    const currentTier = await this.lookupTier(userId);
+async canActivate(ctx: ExecutionContext): Promise<boolean> {
+const userId = ctx.getUserId();
+const currentTier = await this.lookupTier(userId);
 
     if (!this.meetsRequirement(currentTier, this.requiredTier)) {
       throw new PremiumRequiredException({
@@ -115,19 +122,21 @@ export class PremiumGuard implements SpraxiumGuard {
     }
 
     return true;
-  }
 
-  private async lookupTier(userId: string): Promise<string | null> {
-    // reemplaza con la consulta real a la base de datos o API
-    return null;
-  }
-
-  private meetsRequirement(current: string | null, required: string): boolean {
-    const tierOrder = ['free', 'basic', 'pro', 'enterprise'];
-    return tierOrder.indexOf(current ?? 'free') >= tierOrder.indexOf(required);
-  }
 }
-```
+
+private async lookupTier(userId: string): Promise<string | null> {
+// reemplaza con la consulta real a la base de datos o API
+return null;
+}
+
+private meetsRequirement(current: string | null, required: string): boolean {
+const tierOrder = ['free', 'basic', 'pro', 'enterprise'];
+return tierOrder.indexOf(current ?? 'free') >= tierOrder.indexOf(required);
+}
+}
+
+````
   </Tab>
   <Tab label="Handler" language="typescript">
 ```typescript filename="analytics.handler.ts"
@@ -140,14 +149,18 @@ export class AnalyticsHandler {
     // solo usuarios tier pro llegan a este handler
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-El guard chequea el tier de suscripción del usuario de forma asíncrona, y si el requisito no se cumple, lanza *PremiumRequiredException* con el tier requerido y el actual. El exception layout puede entonces renderizar una respuesta como "Esta feature requiere el plan Pro. Actualmente estas en el plan Free." sin que el guard contenga ninguna lógica de formateo de respuesta.
+El guard chequea el tier de suscripción del usuario de forma asíncrona, y si el requisito no se cumple, lanza _PremiumRequiredException_ con el tier requerido y el actual. El exception layout puede entonces renderizar una respuesta como "Esta feature requiere el plan Pro. Actualmente estas en el plan Free." sin que el guard contenga ninguna lógica de formateo de respuesta.
 
 <Callout tone="warning" title="Mantén la lógica del guard enfocada">
-  Incluso al lanzar exceptions, un guard solo debe chequear condiciones de acceso. No pongas lógica de negocio como crear registros, enviar notificaciones externas o actualizar estado dentro del método canActivate de un guard.
+  Incluso al lanzar exceptions, un guard solo debe chequear condiciones de
+  acceso. No pongas lógica de negocio como crear registros, enviar
+  notificaciones externas o actualizar estado dentro del método canActivate de
+  un guard.
 </Callout>
 
 ## Siguiente estudio

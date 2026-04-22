@@ -19,10 +19,13 @@ Antes de criar o scaffold do seu primeiro projeto, tenha certeza de que as segui
 
 - **Node.js 20 ou superior.** O Spraxium é desenvolvido para as versões LTS atuais. Você pode verificar a versão instalada executando `node -v` no terminal, e tanto a LTS 20 quanto a LTS 22 são totalmente suportadas.
 - **Um token de bot do Discord.** Crie uma nova aplicação em [Discord Developer Portal](https://discord.com/developers/applications), adicione um Bot a ela e copie o token. Esse token é o que permite ao bot se autenticar com o gateway do Discord.
-- **Projeto TypeScript.** O scaffold da CLI configura automaticamente o *tsconfig.json* com *experimentalDecorators* e *emitDecoratorMetadata* habilitados, que são necessários para o sistema de injeção de dependência baseado em decorators do Spraxium.
+- **Projeto TypeScript.** O scaffold da CLI configura automaticamente o _tsconfig.json_ com _experimentalDecorators_ e _emitDecoratorMetadata_ habilitados, que são necessários para o sistema de injeção de dependência baseado em decorators do Spraxium.
 
 <Callout tone="warning" title="Nunca exponha seu token de bot">
-  O token funciona como a senha do seu bot, quem o tiver pode controlá-lo completamente. Adicione-o sempre ao arquivo .env e certifique-se de que .env está listado no .gitignore. O scaffold do Spraxium já inclui essa regra no .gitignore gerado automaticamente.
+  O token funciona como a senha do seu bot, quem o tiver pode controlá-lo
+  completamente. Adicione-o sempre ao arquivo .env e certifique-se de que .env
+  está listado no .gitignore. O scaffold do Spraxium já inclui essa regra no
+  .gitignore gerado automaticamente.
 </Callout>
 
 ## Criar o projeto
@@ -31,19 +34,13 @@ A forma mais rápida de começar é pelo comando oficial de criação, que gera 
 
 <CodeTabs>
   <Tab label="npm" language="bash">
-```bash
-npx spraxium@latest new meu-bot
-```
+    ```bash npx spraxium@latest new meu-bot ```
   </Tab>
   <Tab label="pnpm" language="bash">
-```bash
-pnpm create spraxium@latest meu-bot
-```
+    ```bash pnpm create spraxium@latest meu-bot ```
   </Tab>
   <Tab label="bun" language="bash">
-```bash
-bunx spraxium@latest new meu-bot
-```
+    ```bash bunx spraxium@latest new meu-bot ```
   </Tab>
 </CodeTabs>
 
@@ -66,17 +63,17 @@ O projeto gerado pelo scaffold segue uma convenção que o Spraxium mantém dura
   <File name=".env" />
 </FolderStructure>
 
-A separação aqui é intencional e arquitetural. O arquivo *main.ts* controla o fluxo de startup e nada mais, servindo como o ponto de entrada único que valida variáveis de ambiente e inicializa o framework. O arquivo *app.env.ts* define um schema tipado para variáveis de ambiente que são validadas no startup antes do bot conectar ao Discord, capturando tokens ausentes ou URLs malformadas imediatamente. O arquivo *app.module.ts* funciona como a raiz de composição que importa módulos de feature mas não contém lógica de negócio, mantendo o módulo de nível superior limpo e legível independente do tamanho do bot. Cada módulo de feature na pasta *modules* é responsável por exatamente um domínio, facilitando localizar, testar ou remover qualquer comportamento sem afetar o resto da base de código.
+A separação aqui é intencional e arquitetural. O arquivo _main.ts_ controla o fluxo de startup e nada mais, servindo como o ponto de entrada único que valida variáveis de ambiente e inicializa o framework. O arquivo _app.env.ts_ define um schema tipado para variáveis de ambiente que são validadas no startup antes do bot conectar ao Discord, capturando tokens ausentes ou URLs malformadas imediatamente. O arquivo _app.module.ts_ funciona como a raiz de composição que importa módulos de feature mas não contém lógica de negócio, mantendo o módulo de nível superior limpo e legível independente do tamanho do bot. Cada módulo de feature na pasta _modules_ é responsável por exatamente um domínio, facilitando localizar, testar ou remover qualquer comportamento sem afetar o resto da base de código.
 
 ## Bootstrap
 
-O arquivo de entrada *main.ts* é responsável por validar variáveis de ambiente, criar a instância da aplicação, carregar o grafo de módulos e iniciar a conexão com o Discord. Este é o único arquivo que interage diretamente com a factory do framework, e sua estrutura deve permanecer mínima e previsível.
+O arquivo de entrada _main.ts_ é responsável por validar variáveis de ambiente, criar a instância da aplicação, carregar o grafo de módulos e iniciar a conexão com o Discord. Este é o único arquivo que interage diretamente com a factory do framework, e sua estrutura deve permanecer mínima e previsível.
 
 ```typescript filename="src/main.ts"
-import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
-import { EnvValidator } from '@spraxium/env';
-import { AppEnv } from './app.env';
-import { AppModule } from './app.module';
+import { IntentPreset, SpraxiumFactory } from "@spraxium/core";
+import { EnvValidator } from "@spraxium/env";
+import { AppEnv } from "./app.env";
+import { AppModule } from "./app.module";
 
 async function main(): Promise<void> {
   const env = EnvValidator.validate(AppEnv);
@@ -90,15 +87,15 @@ async function main(): Promise<void> {
 main();
 ```
 
-A chamada `EnvValidator.validate` lê seu arquivo *.env*, valida cada campo contra o schema definido em *AppEnv*, e lança um erro descritivo no startup se algo estiver ausente ou malformado, em vez de deixar o bot crashar durante a operação quando um usuário acionar a feature afetada. Depois da validação, `SpraxiumFactory.create` cria a instância da aplicação, `useModule` carrega todo o grafo de módulos a partir do módulo raiz, e `app.listen()` dispara a sequência completa de boot incluindo resolução de DI, instanciação de providers, binding de listeners e finalmente o login no Discord.
+A chamada `EnvValidator.validate` lê seu arquivo _.env_, valida cada campo contra o schema definido em _AppEnv_, e lança um erro descritivo no startup se algo estiver ausente ou malformado, em vez de deixar o bot crashar durante a operação quando um usuário acionar a feature afetada. Depois da validação, `SpraxiumFactory.create` cria a instância da aplicação, `useModule` carrega todo o grafo de módulos a partir do módulo raiz, e `app.listen()` dispara a sequência completa de boot incluindo resolução de DI, instanciação de providers, binding de listeners e finalmente o login no Discord.
 
 ## Módulo raiz
 
-O módulo raiz é o ponto de entrada arquitetural e o único lugar onde todos os módulos de feature se encontram. Ele importa módulos de feature mas não possui providers ou listeners diretamente, mantendo o arquivo pequeno e legível independente de quantas features o bot tenha. Conforme o bot cresce, você simplesmente adiciona mais imports de módulos de feature aqui sem tocar no *main.ts* ou mudar como o contêiner de DI resolve dependências.
+O módulo raiz é o ponto de entrada arquitetural e o único lugar onde todos os módulos de feature se encontram. Ele importa módulos de feature mas não possui providers ou listeners diretamente, mantendo o arquivo pequeno e legível independente de quantas features o bot tenha. Conforme o bot cresce, você simplesmente adiciona mais imports de módulos de feature aqui sem tocar no _main.ts_ ou mudar como o contêiner de DI resolve dependências.
 
 ```typescript filename="src/app.module.ts"
-import { Module } from '@spraxium/common';
-import { DefaultModule } from './modules/default/default.module';
+import { Module } from "@spraxium/common";
+import { DefaultModule } from "./modules/default/default.module";
 
 @Module({
   imports: [DefaultModule],
@@ -111,7 +108,7 @@ export class AppModule {}
 O Spraxium segue um conjunto de convenções que trazem benefícios imediatos em organização de código, testabilidade e previsibilidade operacional. Essas regras não são sugestões, mas princípios fundamentais nos quais o framework se apoia para garantir resolução de dependências, segurança no boot e isolamento entre módulos.
 
 - **Um módulo por domínio de feature.** Cada domínio do bot, seja moderação, comandos, eventos ou integrações externas, recebe sua própria pasta de módulo com seus próprios arquivos de service, listener e module. Dependências entre features passam por imports e exports explícitos em vez de estado global compartilhado, o que torna fácil entender exatamente do que cada módulo depende.
-- **Injeção de dependência para tudo.** Nunca instancie services manualmente com a palavra-chave *new*. Em vez disso, declare dependências como parâmetros de construtor e deixe o contêiner de DI resolvê-las automaticamente. Isso mantém o acoplamento explícito, facilita testes com injeção de mocks, e garante que o framework controle o ciclo de vida de cada service.
+- **Injeção de dependência para tudo.** Nunca instancie services manualmente com a palavra-chave _new_. Em vez disso, declare dependências como parâmetros de construtor e deixe o contêiner de DI resolvê-las automaticamente. Isso mantém o acoplamento explícito, facilita testes com injeção de mocks, e garante que o framework controle o ciclo de vida de cada service.
 - **Validação no startup antes do Discord.** Todo o grafo de DI é resolvido e todos os providers são instanciados antes do login no Discord acontecer. Se algum service tiver configuração inválida ou uma dependência ausente, o erro aparece no boot com uma mensagem clara em vez de surgir após o deploy quando um usuário acionar o comando afetado.
 
 ## Próximo passo

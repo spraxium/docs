@@ -9,11 +9,11 @@ category: CLI
 
 ## Visão geral
 
-Três comandos cobrem o ciclo completo de desenvolvimento no Spraxium: *spraxium dev* para iteração local, *spraxium build* para gerar um artefato de produção, e *spraxium start* para executar esse artefato. Esta página cobre os três para que você não precise navegar entre páginas para entender como se conectam.
+Três comandos cobrem o ciclo completo de desenvolvimento no Spraxium: _spraxium dev_ para iteração local, _spraxium build_ para gerar um artefato de produção, e _spraxium start_ para executar esse artefato. Esta página cobre os três para que você não precise navegar entre páginas para entender como se conectam.
 
 ## spraxium dev
 
-O *spraxium dev* inicia um servidor de desenvolvimento com observação de arquivos que reinicia a aplicação automaticamente quando arquivos fonte são alterados. Ele usa SWC para carregar TypeScript sem uma etapa de compilação separada, mantendo os tempos de reinício curtos mesmo em projetos grandes. O watcher monitora com base nos padrões glob `include` e `exclude` da sua configuração e aplica um debounce configurável para agrupar salvamentos rápidos em um único reinício.
+O _spraxium dev_ inicia um servidor de desenvolvimento com observação de arquivos que reinicia a aplicação automaticamente quando arquivos fonte são alterados. Ele usa SWC para carregar TypeScript sem uma etapa de compilação separada, mantendo os tempos de reinício curtos mesmo em projetos grandes. O watcher monitora com base nos padrões glob `include` e `exclude` da sua configuração e aplica um debounce configurável para agrupar salvamentos rápidos em um único reinício.
 
 ```bash filename="terminal"
 spraxium dev
@@ -24,7 +24,12 @@ spraxium dev
 ```typescript filename="spraxium.config.ts"
 export default {
   dev: {
-    entrypoint: 'src/main.ts', include: ['src/**'], exclude: ['src/**/*.spec.ts'], debounce: 300, }, };
+    entrypoint: "src/main.ts",
+    include: ["src/**"],
+    exclude: ["src/**/*.spec.ts"],
+    debounce: 300,
+  },
+};
 ```
 
 <DropdownGroup>
@@ -33,11 +38,15 @@ export default {
 </Dropdown>
 
 <Dropdown title="include">
-  Padrões glob para arquivos que podem disparar um reinício. Restringir essa lista reduz reinícios desnecessários de arquivos que não deveriam afetar o comportamento em tempo de execução.
+  Padrões glob para arquivos que podem disparar um reinício. Restringir essa
+  lista reduz reinícios desnecessários de arquivos que não deveriam afetar o
+  comportamento em tempo de execução.
 </Dropdown>
 
 <Dropdown title="exclude">
-  Arquivos correspondidos aqui são ignorados pelo watcher mesmo que estejam dentro de um padrão `include`. Use para pular arquivos de teste, código gerado ou qualquer caminho que mude frequentemente sem afetar o processo em execução.
+  Arquivos correspondidos aqui são ignorados pelo watcher mesmo que estejam
+  dentro de um padrão `include`. Use para pular arquivos de teste, código gerado
+  ou qualquer caminho que mude frequentemente sem afetar o processo em execução.
 </Dropdown>
 
 <Dropdown title="debounce">
@@ -46,7 +55,9 @@ export default {
 </DropdownGroup>
 
 <Callout tone="info" title="Exclusões padrão sempre ativas">
-  Mesmo sem bloco de configuração, o watcher ignora node_modules, .git e .spraxium para evitar loops de reinício por instalações de dependências ou saída de build.
+  Mesmo sem bloco de configuração, o watcher ignora node_modules, .git e
+  .spraxium para evitar loops de reinício por instalações de dependências ou
+  saída de build.
 </Callout>
 
 ### Recuperação de falhas
@@ -57,7 +68,7 @@ Se o processo do bot travar, o servidor de desenvolvimento não encerra. Ele apl
 
 ## spraxium build
 
-O *spraxium build* valida os tipos e produz um bundle pronto para produção. Ele executa em duas etapas sequenciais: primeiro uma passagem de verificação de tipos e depois o bundler. Se a verificação de tipos falhar, o bundler nunca executa, então você obtém um código de saída limpo que pipelines de CI podem utilizar.
+O _spraxium build_ valida os tipos e produz um bundle pronto para produção. Ele executa em duas etapas sequenciais: primeiro uma passagem de verificação de tipos e depois o bundler. Se a verificação de tipos falhar, o bundler nunca executa, então você obtém um código de saída limpo que pipelines de CI podem utilizar.
 
 ```bash filename="terminal"
 spraxium build
@@ -67,24 +78,32 @@ spraxium build
 
 <Steps>
   <Step title="Verificação de tipos">
-    Executa `tsc --noEmit` no seu projeto. Qualquer erro de tipo faz o comando falhar imediatamente. Corrija todos os erros TypeScript antes que o bundler possa prosseguir.
+    Executa `tsc --noEmit` no seu projeto. Qualquer erro de tipo faz o comando
+    falhar imediatamente. Corrija todos os erros TypeScript antes que o bundler
+    possa prosseguir.
   </Step>
   <Step title="Bundle">
-    Executa `tsdown` com a configuração do seu projeto. Se um arquivo `tsdown.config.*` existir na raiz do projeto, a CLI o usa. Caso contrário, aplica estes padrões: entradas `src/main.ts` e `spraxium.config.ts`, diretório de saída `.spraxium/dist`, formato ESM, plataforma Node, `--clean` e `--no-dts`.
+    Executa `tsdown` com a configuração do seu projeto. Se um arquivo
+    `tsdown.config.*` existir na raiz do projeto, a CLI o usa. Caso contrário,
+    aplica estes padrões: entradas `src/main.ts` e `spraxium.config.ts`,
+    diretório de saída `.spraxium/dist`, formato ESM, plataforma Node, `--clean`
+    e `--no-dts`.
   </Step>
 </Steps>
 
-A saída compilada fica em `.spraxium/dist/` por padrão. Esse diretório é o artefato que o *spraxium start* procura.
+A saída compilada fica em `.spraxium/dist/` por padrão. Esse diretório é o artefato que o _spraxium start_ procura.
 
 <Callout tone="warning" title="Build não executa testes">
-  Executar *spraxium build* não roda sua suíte de testes. Execute os testes separadamente antes ou depois, e trate o build apenas como uma porta de types e bundle.
+  Executar *spraxium build* não roda sua suíte de testes. Execute os testes
+  separadamente antes ou depois, e trate o build apenas como uma porta de types
+  e bundle.
 </Callout>
 
 ---
 
 ## spraxium start
 
-O *spraxium start* executa o artefato compilado produzido pelo *spraxium build*. Ele define `NODE_ENV=production` antes de iniciar e herda o stdio do processo atual para que os logs da aplicação apareçam diretamente no terminal.
+O _spraxium start_ executa o artefato compilado produzido pelo _spraxium build_. Ele define `NODE_ENV=production` antes de iniciar e herda o stdio do processo atual para que os logs da aplicação apareçam diretamente no terminal.
 
 ```bash filename="terminal"
 spraxium start
@@ -102,14 +121,17 @@ A CLI verifica os seguintes caminhos em ordem e executa o primeiro que encontrar
 6. `build/main.js`
 
 <Callout tone="warning" title="Sem build, sem start">
-  Se nenhum dos caminhos candidatos existir, o comando falha e exibe uma mensagem pedindo para executar *spraxium build* primeiro. Certifique-se de que variáveis de ambiente como DISCORD_TOKEN estão carregadas antes de executar este comando.
+  Se nenhum dos caminhos candidatos existir, o comando falha e exibe uma
+  mensagem pedindo para executar *spraxium build* primeiro. Certifique-se de que
+  variáveis de ambiente como DISCORD_TOKEN estão carregadas antes de executar
+  este comando.
 </Callout>
 
 ---
 
 ## Fluxo típico
 
-Uma iteração completa do desenvolvimento à produção segue esta ordem: execute *spraxium dev* durante o trabalho ativo, mude para *spraxium build* ao preparar um release e execute *spraxium start* para verificar ou implantar o artefato compilado. Em CI, pule o passo dev completamente e execute build e start em sequência como seu pipeline de validação.
+Uma iteração completa do desenvolvimento à produção segue esta ordem: execute _spraxium dev_ durante o trabalho ativo, mude para _spraxium build_ ao preparar um release e execute _spraxium start_ para verificar ou implantar o artefato compilado. Em CI, pule o passo dev completamente e execute build e start em sequência como seu pipeline de validação.
 
 ## Próxima página
 
@@ -127,7 +149,8 @@ spraxium dev
 
 <Steps>
   <Step title="1) Detecta entrypoint">
-    Procura <code>src/main.ts</code> (ou <code>main.ts</code>) no diretório atual.
+    Procura <code>src/main.ts</code> (ou <code>main.ts</code>) no diretório
+    atual.
   </Step>
   <Step title="2) Lê config dev">
     Carrega <code>spraxium.config.ts</code> e aplica o bloco <code>dev</code>.
@@ -145,7 +168,12 @@ spraxium dev
 ```typescript
 export default {
   dev: {
-    entrypoint: 'src/main.ts', include: ['src/**'], exclude: ['src/**/*.spec.ts'], debounce: 300, }, };
+    entrypoint: "src/main.ts",
+    include: ["src/**"],
+    exclude: ["src/**/*.spec.ts"],
+    debounce: 300,
+  },
+};
 ```
 
 <Table variant="striped">
@@ -158,22 +186,30 @@ export default {
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell><code>entrypoint</code></TableCell>
+      <TableCell>
+        <code>entrypoint</code>
+      </TableCell>
       <TableCell>Arquivo inicial do processo em dev</TableCell>
       <TableCell>Projeto com bootstrap fora do padrão</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell><code>include</code></TableCell>
+      <TableCell>
+        <code>include</code>
+      </TableCell>
       <TableCell>Escopo de arquivos que disparam restart</TableCell>
       <TableCell>Reduzir reinícios desnecessários</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell><code>exclude</code></TableCell>
+      <TableCell>
+        <code>exclude</code>
+      </TableCell>
       <TableCell>Arquivos ignorados no watcher</TableCell>
       <TableCell>Evitar loops em arquivos gerados</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell><code>debounce</code></TableCell>
+      <TableCell>
+        <code>debounce</code>
+      </TableCell>
       <TableCell>Atraso antes de reiniciar</TableCell>
       <TableCell>Salvar múltiplos arquivos ao mesmo tempo</TableCell>
     </TableRow>
@@ -181,8 +217,8 @@ export default {
 </Table>
 
 <Callout tone="info" title="Exclusões padrão já aplicadas">
-  Mesmo sem config, a CLI já ignora <code>node_modules</code>, <code>.git</code> e
-  <code>.spraxium</code> para evitar restart ruidoso.
+  Mesmo sem config, a CLI já ignora <code>node_modules</code>, <code>.git</code>{" "}
+  e<code>.spraxium</code> para evitar restart ruidoso.
 </Callout>
 
 ## Onde e para quem usar

@@ -4,7 +4,7 @@ description: |
   Organize HTTP files with clear transport boundaries and maintainable growth paths.
   Keep AppModule as the single metadata owner while splitting controllers, services, DTOs, and middleware.
 order: 3
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Why structure matters early
@@ -19,36 +19,72 @@ This matters more in HTTP modules than in typical Discord command code because H
 
 <FolderStructure title="Suggested HTTP architecture">
   <Folder name="src" open>
-    <File name="app.module.ts" comment="Imports HttpModule, hosts @HttpClientModule with controllers/services/guards/middleware" />
+    <File
+      name="app.module.ts"
+      comment="Imports HttpModule, hosts @HttpClientModule with controllers/services/guards/middleware"
+    />
     <File name="main.ts" comment="Application bootstrap entry point" />
     <Folder name="http" open>
       <Folder name="controllers" open>
-        <File name="guild-http.controller.ts" comment="Route contracts, parameter mapping, and response shaping" />
-        <File name="moderation-http.controller.ts" comment="Ban, kick, timeout, and role management endpoints" />
+        <File
+          name="guild-http.controller.ts"
+          comment="Route contracts, parameter mapping, and response shaping"
+        />
+        <File
+          name="moderation-http.controller.ts"
+          comment="Ban, kick, timeout, and role management endpoints"
+        />
       </Folder>
       <Folder name="services" open>
-        <File name="guild-http.service.ts" comment="Business operations shared by guild routes, injects BotBridge and AppEnv" />
-        <File name="moderation-http.service.ts" comment="Moderation logic consuming BotBridge" />
+        <File
+          name="guild-http.service.ts"
+          comment="Business operations shared by guild routes, injects BotBridge and AppEnv"
+        />
+        <File
+          name="moderation-http.service.ts"
+          comment="Moderation logic consuming BotBridge"
+        />
       </Folder>
       <Folder name="guards" open>
-        <File name="admin.guard.ts" comment="Custom DI-resolved guard for admin endpoints" />
+        <File
+          name="admin.guard.ts"
+          comment="Custom DI-resolved guard for admin endpoints"
+        />
       </Folder>
       <Folder name="dto" open>
-        <File name="update-guild-config.dto.ts" comment="Validation contract for guild config PATCH" />
-        <File name="ban-member.dto.ts" comment="Validation contract for ban POST" />
+        <File
+          name="update-guild-config.dto.ts"
+          comment="Validation contract for guild config PATCH"
+        />
+        <File
+          name="ban-member.dto.ts"
+          comment="Validation contract for ban POST"
+        />
       </Folder>
       <Folder name="middleware" open>
-        <File name="request-audit.middleware.ts" comment="Route-level middleware for audit logging" />
+        <File
+          name="request-audit.middleware.ts"
+          comment="Route-level middleware for audit logging"
+        />
       </Folder>
       <Folder name="errors" open>
-        <File name="guild-locked.error.ts" comment="Custom ForbiddenError subclass for locked guilds" />
+        <File
+          name="guild-locked.error.ts"
+          comment="Custom ForbiddenError subclass for locked guilds"
+        />
       </Folder>
     </Folder>
   </Folder>
   <Folder name="config" open>
-    <File name="http.config.ts" comment="Single defineHttp entry exported as httpPlugin" />
+    <File
+      name="http.config.ts"
+      comment="Single defineHttp entry exported as httpPlugin"
+    />
   </Folder>
-  <File name="spraxium.config.ts" comment="Registers httpPlugin in defineConfig plugins" />
+  <File
+    name="spraxium.config.ts"
+    comment="Registers httpPlugin in defineConfig plugins"
+  />
 </FolderStructure>
 
 ## Role of each folder
@@ -61,15 +97,28 @@ Understanding what each directory owns prevents responsibility leaks across boun
 </Dropdown>
 
 <Dropdown title="services/">
-  Contains classes that hold business rules, *BotBridge* calls, and data transformations. Services are declared in *@HttpClientModule({ services })* and injected into controllers and other services as constructor parameters. *RouteRegistry* resolves them using topological sort before instantiating any controller, so circular dependencies produce an explicit startup error that lists the involved class names.
+  Contains classes that hold business rules, *BotBridge* calls, and data
+  transformations. Services are declared in *@HttpClientModule({services})* and
+  injected into controllers and other services as constructor parameters.
+  *RouteRegistry* resolves them using topological sort before instantiating any
+  controller, so circular dependencies produce an explicit startup error that
+  lists the involved class names.
 </Dropdown>
 
 <Dropdown title="dto/">
-  Contains classes with *class-validator* decorators that define the validation contract for mutation payloads. Each DTO file covers one specific request shape and is referenced as the argument of *@HttpBody(DtoClass)*. DTOs should hold only structural and constraint declarations, not business logic or service calls.
+  Contains classes with *class-validator* decorators that define the validation
+  contract for mutation payloads. Each DTO file covers one specific request
+  shape and is referenced as the argument of *@HttpBody(DtoClass)*. DTOs should
+  hold only structural and constraint declarations, not business logic or
+  service calls.
 </Dropdown>
 
 <Dropdown title="middleware/">
-  Contains classes implementing the *HttpMiddleware* interface for route-level concerns. Middleware placed here is registered in *@HttpClientModule({ middleware })* as global instances or in *middlewareProviders* for per-route use with *@HttpUseMiddleware*. Keep middleware stateless where possible so instances can be safely shared across multiple routes.
+  Contains classes implementing the *HttpMiddleware* interface for route-level
+  concerns. Middleware placed here is registered in *@HttpClientModule(
+  {middleware})* as global instances or in *middlewareProviders* for per-route
+  use with *@HttpUseMiddleware*. Keep middleware stateless where possible so
+  instances can be safely shared across multiple routes.
 </Dropdown>
 
 <Dropdown title="errors/">
@@ -89,23 +138,26 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
 export class GuildHttpController {
-  constructor(private readonly service: GuildHttpService) {}
+constructor(private readonly service: GuildHttpService) {}
 
-  @HttpGet('/:guildId')
-  async getGuild(@HttpParam('guildId') guildId: string) {
-    const guild = await this.service.getGuildSummary(guildId);
-    if (!guild) throw new NotFoundError('Guild not found');
-    return { ok: true, ...guild };
-  }
-
-  @HttpPatch('/:guildId/config')
-  @HttpStatus(200)
-  async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
-    return this.service.updateConfig(guildId, body);
-  }
+@HttpGet('/:guildId')
+async getGuild(@HttpParam('guildId') guildId: string) {
+const guild = await this.service.getGuildSummary(guildId);
+if (!guild) throw new NotFoundError('Guild not found');
+return { ok: true, ...guild };
 }
-```
+
+@HttpPatch('/:guildId/config')
+@HttpStatus(200)
+async updateConfig(
+  @HttpParam('guildId') guildId: string,
+  @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+) {
+return this.service.updateConfig(guildId, body);
+}
+}
+
+````
   </Tab>
   <Tab label="http/services/guild-http.service.ts" language="typescript">
 ```typescript filename="http/services/guild-http.service.ts"
@@ -129,7 +181,8 @@ export class GuildHttpService {
     return { ok: true, guildId, applied: dto };
   }
 }
-```
+````
+
   </Tab>
   <Tab label="http/dto/update-guild-config.dto.ts" language="typescript">
 ```typescript filename="http/dto/update-guild-config.dto.ts"
@@ -140,10 +193,11 @@ export class UpdateGuildConfigDto {
   @Length(1, 5)
   prefix!: string;
 
-  @IsOptional()
-  @IsBoolean()
-  maintenanceMode?: boolean;
+@IsOptional()
+@IsBoolean()
+maintenanceMode?: boolean;
 }
+
 ```
   </Tab>
 </CodeTabs>
@@ -209,3 +263,4 @@ When the API surface grows beyond a few controllers, flat folders become noisy. 
 ## Next page
 
 Continue with [Routing Pipeline and Decorators](/guide/http-routing-runtime-pipeline).
+```

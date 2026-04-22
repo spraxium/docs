@@ -9,9 +9,9 @@ category: Getting Started
 
 ## What is a provider
 
-A provider is any class decorated with *@Injectable()* and registered in a module's *providers* array. Providers hold your bot's runtime behavior, including database queries, moderation logic, caching, API calls, and anything else that needs to be shared across listeners or other providers. The DI container creates one instance of each provider per module and wires dependencies automatically through constructor parameters, so you never need to manage object creation or dependency graphs manually.
+A provider is any class decorated with _@Injectable()_ and registered in a module's _providers_ array. Providers hold your bot's runtime behavior, including database queries, moderation logic, caching, API calls, and anything else that needs to be shared across listeners or other providers. The DI container creates one instance of each provider per module and wires dependencies automatically through constructor parameters, so you never need to manage object creation or dependency graphs manually.
 
-The key rule is that you never instantiate providers yourself using the *new* keyword. You declare what a class needs as constructor parameters, and the framework handles resolution, instantiation, and injection automatically. This keeps class constructors focused on dependency declaration rather than object construction or startup logic, which makes every provider straightforward to test with mock dependencies.
+The key rule is that you never instantiate providers yourself using the _new_ keyword. You declare what a class needs as constructor parameters, and the framework handles resolution, instantiation, and injection automatically. This keeps class constructors focused on dependency declaration rather than object construction or startup logic, which makes every provider straightforward to test with mock dependencies.
 
 <CodeTabs>
   <Tab label="Service" language="typescript">
@@ -20,9 +20,10 @@ import { Injectable } from '@spraxium/common';
 
 @Injectable()
 export class MetricsService {
-  // business logic lives here
+// business logic lives here
 }
-```
+
+````
   </Tab>
   <Tab label="Module" language="typescript">
 ```typescript filename="src/modules/metrics/metrics.module.ts"
@@ -33,7 +34,8 @@ import { MetricsService } from './metrics.service';
   providers: [MetricsService],
 })
 export class MetricsModule {}
-```
+````
+
   </Tab>
 </CodeTabs>
 
@@ -42,7 +44,7 @@ export class MetricsModule {}
 When a provider needs another provider, you add it as a constructor parameter and the framework takes care of the rest. Spraxium reads the TypeScript type metadata at boot, resolves the dependency graph using a topological sort, and injects each class in the correct order so that dependencies are always ready before the classes that depend on them. If a circular dependency exists anywhere in the graph, the framework detects it and reports the issue clearly at startup before any bot logic runs, rather than causing mysterious runtime failures.
 
 ```typescript filename="src/modules/metrics/metrics.service.ts"
-import { Injectable } from '@spraxium/common';
+import { Injectable } from "@spraxium/common";
 
 @Injectable()
 export class MetricsRepository {
@@ -59,7 +61,11 @@ export class MetricsService {
 Avoid heavy I/O operations in constructors because the constructor's only job is dependency wiring, not initialization logic. Tasks like connecting to a database, warming a cache, or fetching initial state from an external service belong in lifecycle hooks where the execution stage is explicit and predictable. This separation ensures that the DI resolution phase remains fast and deterministic, and that initialization failures are properly captured by the lifecycle system instead of breaking the entire boot process.
 
 <Callout tone="info" title="Keep constructors for dependency wiring only">
-  Never run I/O, database connections, cache warming, or external API calls, inside a constructor. The constructor's sole role is to declare what the class needs. All initialization logic belongs in *SpraxiumOnBoot*, where the execution stage is explicit and failures are captured cleanly by the lifecycle system.
+  Never run I/O, database connections, cache warming, or external API calls,
+  inside a constructor. The constructor's sole role is to declare what the class
+  needs. All initialization logic belongs in *SpraxiumOnBoot*, where the
+  execution stage is explicit and failures are captured cleanly by the lifecycle
+  system.
 </Callout>
 
 ## Lifecycle hooks
@@ -68,27 +74,44 @@ Spraxium exposes three lifecycle interfaces that providers can implement to reac
 
 <Steps>
   <Step title="SpraxiumOnBoot">
-    This hook runs after the DI graph is fully instantiated but before the Discord login happens. Use it for startup work that does not require a connected Discord client, such as connecting to a database, validating external configuration, or pre-warming a cache with data from an external API.
+    This hook runs after the DI graph is fully instantiated but before the
+    Discord login happens. Use it for startup work that does not require a
+    connected Discord client, such as connecting to a database, validating
+    external configuration, or pre-warming a cache with data from an external
+    API.
   </Step>
   <Step title="SpraxiumOnReady">
-    This hook runs after the Discord ready event fires and the client is fully connected. Use it for any logic that depends on an active Discord client, such as fetching guild data, syncing application commands, or starting scheduled presence updates.
+    This hook runs after the Discord ready event fires and the client is fully
+    connected. Use it for any logic that depends on an active Discord client,
+    such as fetching guild data, syncing application commands, or starting
+    scheduled presence updates.
   </Step>
   <Step title="SpraxiumOnShutdown">
-    This hook runs when the process receives a termination signal. Use it for cleanup tasks like closing database connections, flushing write buffers, and cancelling active timers. Keep shutdown logic fast and idempotent so the process exits cleanly under time pressure.
+    This hook runs when the process receives a termination signal. Use it for
+    cleanup tasks like closing database connections, flushing write buffers, and
+    cancelling active timers. Keep shutdown logic fast and idempotent so the
+    process exits cleanly under time pressure.
   </Step>
 </Steps>
 
 ```typescript filename="src/modules/metrics/metrics.service.ts"
-import { Injectable, type SpraxiumOnBoot, type SpraxiumOnReady, type SpraxiumOnShutdown } from '@spraxium/common';
-import type { Client } from 'discord.js';
-import { Logger } from '@spraxium/core';
+import {
+  Injectable,
+  type SpraxiumOnBoot,
+  type SpraxiumOnReady,
+  type SpraxiumOnShutdown,
+} from "@spraxium/common";
+import type { Client } from "discord.js";
+import { Logger } from "@spraxium/core";
 
 @Injectable()
-export class MetricsService implements SpraxiumOnBoot, SpraxiumOnReady, SpraxiumOnShutdown {
+export class MetricsService
+  implements SpraxiumOnBoot, SpraxiumOnReady, SpraxiumOnShutdown
+{
   private readonly logger = new Logger(MetricsService.name);
 
   async onBoot(): Promise<void> {
-    this.logger.info('Preparing metrics resources...');
+    this.logger.info("Preparing metrics resources...");
   }
 
   async onReady(client: Client<true>): Promise<void> {
@@ -96,30 +119,32 @@ export class MetricsService implements SpraxiumOnBoot, SpraxiumOnReady, Spraxium
   }
 
   async onShutdown(): Promise<void> {
-    this.logger.info('Releasing metrics resources...');
+    this.logger.info("Releasing metrics resources...");
   }
 }
 ```
 
-You do not need to implement all three hooks in every provider. Implement only the ones that match your provider's actual responsibilities, keeping each class focused on its own concerns. A service that only needs startup initialization implements *SpraxiumOnBoot* alone, a service that only needs cleanup implements *SpraxiumOnShutdown* alone, and you should only add *SpraxiumOnReady* when your logic truly depends on the Discord client being in a connected and ready state.
+You do not need to implement all three hooks in every provider. Implement only the ones that match your provider's actual responsibilities, keeping each class focused on its own concerns. A service that only needs startup initialization implements _SpraxiumOnBoot_ alone, a service that only needs cleanup implements _SpraxiumOnShutdown_ alone, and you should only add _SpraxiumOnReady_ when your logic truly depends on the Discord client being in a connected and ready state.
 
 ## Sharing providers across modules
 
-By default, a provider is scoped to its own module, meaning other modules cannot inject it unless the owning module explicitly exports it. To share a provider, add it to the module's *exports* array and import that module wherever the provider is needed. This explicit sharing model keeps dependencies visible and prevents hidden coupling between modules that would otherwise be difficult to trace during debugging or refactoring.
+By default, a provider is scoped to its own module, meaning other modules cannot inject it unless the owning module explicitly exports it. To share a provider, add it to the module's _exports_ array and import that module wherever the provider is needed. This explicit sharing model keeps dependencies visible and prevents hidden coupling between modules that would otherwise be difficult to trace during debugging or refactoring.
 
 ```typescript filename="src/modules/metrics/metrics.module.ts"
 @Module({
-  providers: [MetricsService, MetricsRepository], exports: [MetricsService],
+  providers: [MetricsService, MetricsRepository],
+  exports: [MetricsService],
 })
 export class MetricsModule {}
 
 @Module({
-  imports: [MetricsModule], listeners: [EventsListener],
+  imports: [MetricsModule],
+  listeners: [EventsListener],
 })
 export class EventsModule {}
 ```
 
-For services that are genuinely needed throughout the entire project, such as logging, configuration, and analytics, use *@Global()* on the module so its exports become available without explicit imports. Use global modules sparingly because they bypass encapsulation and make dependency tracking harder, so reserve them exclusively for cross-cutting infrastructure that every module in the application truly needs access to.
+For services that are genuinely needed throughout the entire project, such as logging, configuration, and analytics, use _@Global()_ on the module so its exports become available without explicit imports. Use global modules sparingly because they bypass encapsulation and make dependency tracking harder, so reserve them exclusively for cross-cutting infrastructure that every module in the application truly needs access to.
 
 ## Next study
 

@@ -4,18 +4,18 @@ description: |
   Modela fallos HTTP predecibles con la jerarquía HttpError y detalles de validación.
   Mantén respuestas de error estables entre controllers, middleware y endpoints basados en bridge.
 order: 7
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Por qué importan las excepciones explícitas
 
-Los clientes HTTP dependen de status codes y formatos de respuesta estables. Lanzar clases *HttpError* explícitas vuelve los fallos observables, testeables y más fáciles de monitorear en producción. Cada clase de error exportada por el paquete lleva un status code semántico y un mensaje por defecto, permitiendo que el servidor normalice respuestas sin lógica condicional en cada handler.
+Los clientes HTTP dependen de status codes y formatos de respuesta estables. Lanzar clases _HttpError_ explícitas vuelve los fallos observables, testeables y más fáciles de monitorear en producción. Cada clase de error exportada por el paquete lleva un status code semántico y un mensaje por defecto, permitiendo que el servidor normalice respuestas sin lógica condicional en cada handler.
 
 Cuando los controllers retornan errores genéricos, los clientes pierden contexto semántico y las estrategias de retry se vuelven frágiles. El paquete evita esto ofreciendo una clase dedicada para cada escenario de fallo, todas extendiendo la misma base, garantizando serialización consistente en toda la superficie de la API.
 
 ## Clase base HttpError
 
-Cada error de la jerarquía extiende *HttpError*, que a su vez extiende la clase nativa *Error*. Agrega la propiedad read-only *statusCode* y sobreescribe el constructor para aceptar un mensaje y un status HTTP numérico. Este contrato es la única interfaz que lee la capa de normalización del servidor, así que cualquier clase que extienda *HttpError* participa automáticamente en el manejo centralizado sin configuración adicional.
+Cada error de la jerarquía extiende _HttpError_, que a su vez extiende la clase nativa _Error_. Agrega la propiedad read-only _statusCode_ y sobreescribe el constructor para aceptar un mensaje y un status HTTP numérico. Este contrato es la única interfaz que lee la capa de normalización del servidor, así que cualquier clase que extienda _HttpError_ participa automáticamente en el manejo centralizado sin configuración adicional.
 
 La clase base también define `this.name` con el nombre concreto de la clase, haciendo stack traces y dashboards de monitoreo inmediatamente distinguibles entre tipos de error. Las subclases solo necesitan llamar `super(message, statusCode)` con sus propios defaults para mantener el contrato.
 
@@ -27,43 +27,53 @@ La clase base también define `this.name` con el nombre concreto de la clase, ha
 </Dropdown>
 
 <Dropdown title="ValidationError: 400, Fallo de validación DTO">
-  Mensaje por defecto: "Validation failed". Incluye un array *details* con entradas por campo. Producido automáticamente por *ValidationPipe*.
+  Mensaje por defecto: "Validation failed". Incluye un array *details* con
+  entradas por campo. Producido automáticamente por *ValidationPipe*.
 </Dropdown>
 
 <Dropdown title="UnauthorizedError: 401, Autenticación ausente o inválida">
-  Mensaje por defecto: "Unauthorized". Úsalo cuando el contexto de autenticación está ausente o es inválido.
+  Mensaje por defecto: "Unauthorized". Úsalo cuando el contexto de autenticación
+  está ausente o es inválido.
 </Dropdown>
 
 <Dropdown title="ForbiddenError: 403, Sin permiso suficiente">
-  Mensaje por defecto: "Forbidden". Request autenticado sin el permiso requerido para el recurso.
+  Mensaje por defecto: "Forbidden". Request autenticado sin el permiso requerido
+  para el recurso.
 </Dropdown>
 
 <Dropdown title="NotFoundError: 404, Recurso inexistente">
-  Mensaje por defecto: "Not found". Recurso solicitado inexistente o no disponible según el contrato.
+  Mensaje por defecto: "Not found". Recurso solicitado inexistente o no
+  disponible según el contrato.
 </Dropdown>
 
 <Dropdown title="MethodNotAllowedError: 405, Método no soportado">
-  Mensaje por defecto: "Method not allowed". El método HTTP del request no es soportado por el endpoint destino.
+  Mensaje por defecto: "Method not allowed". El método HTTP del request no es
+  soportado por el endpoint destino.
 </Dropdown>
 
 <Dropdown title="ConflictError: 409, Conflicto de estado">
-  Mensaje por defecto: "Conflict". Conflicto de estado durante operaciones de mutación (ej.: valor ya existe).
+  Mensaje por defecto: "Conflict". Conflicto de estado durante operaciones de
+  mutación (ej.: valor ya existe).
 </Dropdown>
 
 <Dropdown title="UnprocessableEntityError: 422, Restricciones semánticas no aceptables">
-  Mensaje por defecto: "Unprocessable entity". Request parseado con restricciones semánticas que no pueden cumplirse.
+  Mensaje por defecto: "Unprocessable entity". Request parseado con
+  restricciones semánticas que no pueden cumplirse.
 </Dropdown>
 
 <Dropdown title="TooManyRequestsError: 429, Violación de rate limit">
-  Mensaje por defecto: "Too many requests". Violación de política de rate limit o cuota.
+  Mensaje por defecto: "Too many requests". Violación de política de rate limit
+  o cuota.
 </Dropdown>
 
 <Dropdown title="InternalServerError: 500, Fallo interno inesperado">
-  Mensaje por defecto: "Internal server error". Úsalo cuando aún se requiere respuesta controlada pese al fallo interno.
+  Mensaje por defecto: "Internal server error". Úsalo cuando aún se requiere
+  respuesta controlada pese al fallo interno.
 </Dropdown>
 
 <Dropdown title="NotImplementedError: 501, Funcionalidad no implementada">
-  Mensaje por defecto: "Not implemented". Funcionalidad reconocida pero aún no disponible en la versión actual.
+  Mensaje por defecto: "Not implemented". Funcionalidad reconocida pero aún no
+  disponible en la versión actual.
 </Dropdown>
 
 <Dropdown title="ServiceUnavailableError: 503, Dependencia temporalmente no disponible">
@@ -73,9 +83,9 @@ La clase base también define `this.name` con el nombre concreto de la clase, ha
 
 ## ValidationError y detalles estructurados
 
-*ValidationError* es la única clase de error que lleva más que un mensaje. Incluye un array *details* donde cada entrada mapea un nombre de propiedad a las constraints que fallaron. Esta estructura es producida automáticamente por *ValidationPipe* cuando la validación de body ejecuta reglas de *class-validator*.
+_ValidationError_ es la única clase de error que lleva más que un mensaje. Incluye un array _details_ donde cada entrada mapea un nombre de propiedad a las constraints que fallaron. Esta estructura es producida automáticamente por _ValidationPipe_ cuando la validación de body ejecuta reglas de _class-validator_.
 
-La interfaz *ValidationDetail* expone dos campos: *property* (nombre del campo en el DTO) y *constraints* (registro de nombres de regla a mensajes legibles). Como el pipeline usa `whitelist: true` y `forbidNonWhitelisted: true`, cualquier campo inesperado en el body también dispara error de validación, impidiendo que payloads contaminados alcancen la lógica de negocio.
+La interfaz _ValidationDetail_ expone dos campos: _property_ (nombre del campo en el DTO) y _constraints_ (registro de nombres de regla a mensajes legibles). Como el pipeline usa `whitelist: true` y `forbidNonWhitelisted: true`, cualquier campo inesperado en el body también dispara error de validación, impidiendo que payloads contaminados alcancen la lógica de negocio.
 
 Los clientes reciben una estructura predecible donde `details` siempre es un array, incluso para un solo campo inválido. Esto permite que consumidores de la API iteren el array y mapeen cada entrada a errores inline de formulario o resúmenes de error sin condiciones especiales en la forma de respuesta.
 
@@ -85,16 +95,26 @@ Los clientes reciben una estructura predecible donde `details` siempre es un arr
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody, HttpController, HttpGet, HttpParam, HttpPatch, HttpStatus, } from '@spraxium/http';
+  HttpBody,
+  HttpController,
+  HttpGet,
+  HttpParam,
+  HttpPatch,
+  HttpStatus,
+} from '@spraxium/http';
 import {
-  NotFoundError, ForbiddenError, ConflictError, ServiceUnavailableError, } from '@spraxium/http';
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  ServiceUnavailableError,
+} from '@spraxium/http';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
 export class GuildHttpController {
-  @HttpGet('/:guildId')
-  async getGuild(@HttpParam('guildId') guildId: string) {
-    const guild = await this.findGuild(guildId);
+@HttpGet('/:guildId')
+async getGuild(@HttpParam('guildId') guildId: string) {
+const guild = await this.findGuild(guildId);
 
     if (!guild) {
       throw new NotFoundError('Guild no encontrada');
@@ -105,14 +125,17 @@ export class GuildHttpController {
     }
 
     return { ok: true, guildId: guild.id, name: guild.name };
-  }
 
-  @HttpPatch('/:guildId/config')
-  @HttpStatus(200)
-  async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
-    const guild = await this.findGuild(guildId);
-    if (!guild) throw new NotFoundError('Guild no encontrada');
+}
+
+@HttpPatch('/:guildId/config')
+@HttpStatus(200)
+async updateConfig(
+  @HttpParam('guildId') guildId: string,
+  @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+) {
+const guild = await this.findGuild(guildId);
+if (!guild) throw new NotFoundError('Guild no encontrada');
 
     if (guild.locked) {
       throw new ForbiddenError('Configuración del guild bloqueada por admin');
@@ -123,13 +146,15 @@ export class GuildHttpController {
     }
 
     return { ok: true, guildId, applied: body };
-  }
 
-  private async findGuild(_guildId: string) {
-    return null;
-  }
 }
-```
+
+private async findGuild(\_guildId: string) {
+return null;
+}
+}
+
+````
   </Tab>
   <Tab label="dto/update-guild-config.dto.ts" language="typescript">
 ```typescript filename="dto/update-guild-config.dto.ts"
@@ -144,7 +169,8 @@ export class UpdateGuildConfigDto {
   @IsBoolean()
   maintenanceMode?: boolean;
 }
-```
+````
+
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
@@ -153,11 +179,15 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], })
+  controllers: [GuildHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController], })
+  imports: [HttpModule],
+  providers: [GuildHttpController],
+})
 export class AppModule {}
-```
+
+````
   </Tab>
 </CodeTabs>
 
@@ -210,7 +240,8 @@ export class GuildLockedError extends ForbiddenError {
     this.name = 'GuildLockedError';
   }
 }
-```
+````
+
   </Tab>
   <Tab label="http/errors/bridge-unavailable.error.ts" language="typescript">
 ```typescript filename="http/errors/bridge-unavailable.error.ts"
@@ -233,20 +264,24 @@ import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
 export class GuildHttpController {
-  @HttpPatch('/:guildId/config')
-  async updateConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
-    const guild = await this.fetchGuild(guildId);
-    if (!guild) throw new BridgeUnavailableError();
-    if (guild.locked) throw new GuildLockedError(guildId);
+@HttpPatch('/:guildId/config')
+async updateConfig(
+  @HttpParam('guildId') guildId: string,
+  @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+) {
+const guild = await this.fetchGuild(guildId);
+if (!guild) throw new BridgeUnavailableError();
+if (guild.locked) throw new GuildLockedError(guildId);
 
     return { ok: true, guildId, applied: body };
-  }
 
-  private async fetchGuild(_guildId: string) {
-    return null;
-  }
 }
+
+private async fetchGuild(\_guildId: string) {
+return null;
+}
+}
+
 ```
   </Tab>
 </CodeTabs>
@@ -284,3 +319,4 @@ Como el comportamiento de guard está fuera del camino de normalización de *Htt
 ## Siguiente estudio
 
 Continúa con [Fundamentos de Signal](/guide/signal-overview).
+```

@@ -9,19 +9,21 @@ category: Slash Commands
 
 ## La clase handler
 
-Una clase handler es una clase standalone decorada con *@SlashCommandHandler* que contiene la lógica de ejecución para un slash command. El decorador recibe la clase de definición del comando como primer argumento, creando un vínculo de metadatos entre el schema y la lógica. La clase handler es instanciada por el contenedor DI durante la carga de módulos, así que los parámetros de constructor se resuelven automáticamente de los providers del módulo.
+Una clase handler es una clase standalone decorada con _@SlashCommandHandler_ que contiene la lógica de ejecución para un slash command. El decorador recibe la clase de definición del comando como primer argumento, creando un vínculo de metadatos entre el schema y la lógica. La clase handler es instanciada por el contenedor DI durante la carga de módulos, así que los parámetros de constructor se resuelven automáticamente de los providers del módulo.
 
-El handler debe exponer un método *handle*. Cuando llega una interacción que coincide con el nombre del comando (y opcionalmente el subcomando y grupo), el *SlashInvoker* llama a este método después de que el pipeline de guards pasa. La lista de parámetros del *handle* se construye dinámicamente a partir de metadatos: *@Ctx()* inyecta la interacción cruda, *@SlashOpt(name)* inyecta un valor de opción resuelto, y cualquier parámetro sin decorador recibe `undefined`.
+El handler debe exponer un método _handle_. Cuando llega una interacción que coincide con el nombre del comando (y opcionalmente el subcomando y grupo), el _SlashInvoker_ llama a este método después de que el pipeline de guards pasa. La lista de parámetros del _handle_ se construye dinámicamente a partir de metadatos: _@Ctx()_ inyecta la interacción cruda, _@SlashOpt(name)_ inyecta un valor de opción resuelto, y cualquier parámetro sin decorador recibe `undefined`.
 
 ```typescript filename="handlers/ping.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { PingCommand } from '../commands/ping.command';
+import { Ctx, SlashCommandHandler, SlashOpt } from "@spraxium/common";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { PingCommand } from "../commands/ping.command";
 
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
   async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('service') service: string | null, ): Promise<void> {
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOpt("service") service: string | null,
+  ): Promise<void> {
     const ws = interaction.client.ws.ping;
     if (service) {
       await interaction.reply(`Service: ${service}, Latency: ${ws}ms`);
@@ -36,7 +38,7 @@ Spraxium exporta el tipo `SlashContext` desde `@spraxium/common`, que es un alia
 
 ## El decorador @SlashCommandHandler
 
-El decorador *@SlashCommandHandler* acepta un argumento obligatorio y uno opcional. El primer argumento es la clase decorada con *@SlashCommand* a la que pertenece este handler. El segundo argumento es un objeto de opciones con propiedades *sub* y *group* para enrutamiento a subcomandos específicos.
+El decorador _@SlashCommandHandler_ acepta un argumento obligatorio y uno opcional. El primer argumento es la clase decorada con _@SlashCommand_ a la que pertenece este handler. El segundo argumento es un objeto de opciones con propiedades _sub_ y _group_ para enrutamiento a subcomandos específicos.
 
 <Table variant="striped">
   <TableHead>
@@ -52,24 +54,32 @@ El decorador *@SlashCommandHandler* acepta un argumento obligatorio y uno opcion
       <TableCell>*command*</TableCell>
       <TableCell>Constructor de clase</TableCell>
       <TableCell>Sí</TableCell>
-      <TableCell>La clase decorada con *@SlashCommand* para la cual este handler ejecuta.</TableCell>
+      <TableCell>
+        La clase decorada con *@SlashCommand* para la cual este handler ejecuta.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.sub*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>El nombre del subcomando que este handler responde. Omitir para handlers de comando raíz.</TableCell>
+      <TableCell>
+        El nombre del subcomando que este handler responde. Omitir para handlers
+        de comando raíz.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.group*</TableCell>
       <TableCell>`string`</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>El nombre del grupo de subcomandos que este handler responde. Debe usarse con *sub*.</TableCell>
+      <TableCell>
+        El nombre del grupo de subcomandos que este handler responde. Debe
+        usarse con *sub*.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-La resolución de enrutamiento sigue una regla de coincidencia estricta. Cuando el binder recibe una interacción, extrae el nombre del comando, subcomando opcional y grupo de subcomandos opcional del objeto de interacción Discord. El registry entonces encuentra el handler donde los tres valores coinciden exactamente. Esto significa que un handler raíz (sin *sub* o *group*) nunca recibirá interacciones de subcomando, y un handler de subcomando nunca recibirá interacciones raíz.
+La resolución de enrutamiento sigue una regla de coincidencia estricta. Cuando el binder recibe una interacción, extrae el nombre del comando, subcomando opcional y grupo de subcomandos opcional del objeto de interacción Discord. El registry entonces encuentra el handler donde los tres valores coinciden exactamente. Esto significa que un handler raíz (sin _sub_ o _group_) nunca recibirá interacciones de subcomando, y un handler de subcomando nunca recibirá interacciones raíz.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="Handler raíz" language="typescript">
@@ -80,12 +90,13 @@ import { InfoCommand } from '../commands/info.command';
 
 @SlashCommandHandler(InfoCommand)
 export class InfoHandler {
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const ws = interaction.client.ws.ping;
-    await interaction.reply(`Bot latency: ${ws}ms`);
-  }
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const ws = interaction.client.ws.ping;
+await interaction.reply(`Bot latency: ${ws}ms`);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Handler de subcomando" language="typescript">
 ```typescript filename="handlers/config-view.handler.ts"
@@ -99,7 +110,8 @@ export class ConfigViewHandler {
     await interaction.reply('Current configuration: ...');
   }
 }
-```
+````
+
   </Tab>
   <Tab label="Handler de grupo + subcomando" language="typescript">
 ```typescript filename="handlers/config-automod.handler.ts"
@@ -109,12 +121,13 @@ import { ConfigCommand } from '../commands/config.command';
 
 @SlashCommandHandler(ConfigCommand, { sub: 'automod', group: 'moderation' })
 export class ConfigAutomodHandler {
-  async handle(
-    @Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
-    await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
-  }
+async handle(
+@Ctx() interaction: ChatInputCommandInteraction, @SlashOpt('enabled') enabled: boolean, @SlashOpt('filter') filter: string | null, ): Promise<void> {
+await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
 }
-```
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -215,9 +228,9 @@ export class LocaleHandler {
     await interaction.reply({ content: msg, flags: 'Ephemeral' });
   }
 }
-```
+````
 
-El *I18nService* se inyecta por el contenedor porque está registrado como provider en el árbol de módulos. El handler no necesita importar el servicio del contenedor manualmente; el framework lee el metadato `design:paramtypes` emitido por TypeScript y resuelve los parámetros del constructor automáticamente.
+El _I18nService_ se inyecta por el contenedor porque está registrado como provider en el árbol de módulos. El handler no necesita importar el servicio del contenedor manualmente; el framework lee el metadato `design:paramtypes` emitido por TypeScript y resuelve los parámetros del constructor automáticamente.
 
 ## Patrones de handler
 
@@ -230,12 +243,13 @@ import { SecretCommand } from '../commands/secret.command';
 
 @SlashCommandHandler(SecretCommand)
 export class SecretHandler {
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    await interaction.reply({
-      content: 'This message is only visible to you.', flags: 'Ephemeral', });
-  }
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+await interaction.reply({
+content: 'This message is only visible to you.', flags: 'Ephemeral', });
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Respuesta diferida" language="typescript">
 ```typescript filename="handlers/slow-task.handler.ts"
@@ -255,7 +269,8 @@ export class SlowTaskHandler {
     return 'done';
   }
 }
-```
+````
+
   </Tab>
   <Tab label="Respuesta con embed" language="typescript">
 ```typescript filename="handlers/info.handler.ts"
@@ -265,16 +280,18 @@ import { InfoCommand } from '../commands/info.command';
 
 @SlashCommandHandler(InfoCommand)
 export class InfoHandler {
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('Bot Info')
-      .addFields(
-        { name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true }, { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true }, );
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const embed = new EmbedBuilder()
+.setColor(0x5865f2)
+.setTitle('Bot Info')
+.addFields(
+{ name: 'Latency', value: `${interaction.client.ws.ping}ms`, inline: true }, { name: 'Guilds', value: `${interaction.client.guilds.cache.size}`, inline: true }, );
 
     await interaction.reply({ embeds: [embed] });
-  }
+
 }
+}
+
 ```
   </Tab>
 </CodeTabs>
@@ -302,3 +319,4 @@ export class InfoHandler {
 ## Siguiente página
 
 [Subcomandos y Grupos](/guide/slash-commands-subcommands-groups)
+```

@@ -13,7 +13,7 @@ Cuando un usuario ejecuta un comando y algo sale mal, lo que ve en el chat es el
 
 Esta separación hace que el código de dominio se mantenga enfocado en reglas de negocio y nunca necesite saber cómo lucen los errores para el usuario. Un guard que deniega acceso lanza `PermissionDeniedException`. No construye un embed, no compone un string de mensaje ni decide si la respuesta debe ser efímera. Todo eso vive en el layout, que puede ser cambiado o sobreescrito de forma independiente sin tocar ninguna lógica de dominio.
 
-El método *build* retorna un objeto *ExceptionLayoutPayload*. Todos los campos son opcionales y se pueden combinar libremente. Un layout puede retornar solo texto, solo embeds, o una combinación con componentes interactivos.
+El método _build_ retorna un objeto _ExceptionLayoutPayload_. Todos los campos son opcionales y se pueden combinar libremente. Un layout puede retornar solo texto, solo embeds, o una combinación con componentes interactivos.
 
 <Table variant="striped">
   <TableHead>
@@ -32,22 +32,32 @@ El método *build* retorna un objeto *ExceptionLayoutPayload*. Todos los campos 
     <TableRow>
       <TableCell>*embeds*</TableCell>
       <TableCell>`EmbedBuilder[]`</TableCell>
-      <TableCell>Cards de embed con color, título, descripción y campos</TableCell>
+      <TableCell>
+        Cards de embed con color, título, descripción y campos
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*components*</TableCell>
       <TableCell>`ActionRowBuilder[]`</TableCell>
-      <TableCell>Componentes interactivos como botones o menús de selección</TableCell>
+      <TableCell>
+        Componentes interactivos como botones o menús de selección
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*ephemeral*</TableCell>
       <TableCell>`boolean`</TableCell>
-      <TableCell>Si la respuesta es visible solo para el usuario que disparó el error, por defecto `true`</TableCell>
+      <TableCell>
+        Si la respuesta es visible solo para el usuario que disparó el error,
+        por defecto `true`
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*flags*</TableCell>
       <TableCell>`MessageFlags`</TableCell>
-      <TableCell>Flags de mensaje de Discord de bajo nivel para control avanzado de respuesta</TableCell>
+      <TableCell>
+        Flags de mensaje de Discord de bajo nivel para control avanzado de
+        respuesta
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -60,12 +70,13 @@ Spraxium resuelve layouts en un orden fijo, y conocer este orden es esencial par
 2. Mapeo en el config que corresponda al nombre de la clase de exception
 3. Decorator a nivel de clase con `@WithLayout()`
 4. La entrada por defecto en el mapa de layout de la configuración
-5. El *DefaultExceptionLayout* integrado del framework
+5. El _DefaultExceptionLayout_ integrado del framework
 
 <Callout tone="warning" title="Consecuencia práctica">
-  Si mapeas una clase en el mapa de layout del config, ese mapeo tiene prioridad sobre
-  el decorator a nivel de clase, lo que permite que la configuración de la aplicación sobreescriba
-  valores por defecto de biblioteca cuando sea necesario.
+  Si mapeas una clase en el mapa de layout del config, ese mapeo tiene prioridad
+  sobre el decorator a nivel de clase, lo que permite que la configuración de la
+  aplicación sobreescriba valores por defecto de biblioteca cuando sea
+  necesario.
 </Callout>
 
 ## Cuando usar @WithLayout
@@ -96,7 +107,7 @@ Usa el decorator cuando la propia clase de exception debería llevar un layout p
 
 ## Cuando mapear en configuración
 
-Mapea en *spraxium.config.ts* cuando la política de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia específica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicación porque centraliza toda la lógica de presentación de error en un lugar, facilitando la gestión de cambios ya que puedes intercambiar la política de layout sin modificar ninguna clase de exception de dominio.
+Mapea en _spraxium.config.ts_ cuando la política de layout esta orientada por decisiones de producto como branding, tono de lenguaje o estrategia específica por entorno. Este es generalmente el mejor default para gobernanza a nivel de aplicación porque centraliza toda la lógica de presentación de error en un lugar, facilitando la gestión de cambios ya que puedes intercambiar la política de layout sin modificar ninguna clase de exception de dominio.
 
 <Table variant="striped">
   <TableHead>
@@ -129,23 +140,30 @@ Usa el override por instancia solo para casos contextuales donde la misma clase 
 El siguiente ejemplo muestra como crear una clase de exception con un layout a nivel de decorator y luego sobreescribirlo en la configuración de la aplicación. El mapeo en config tiene prioridad sobre el decorator, lo que significa que el layout con branding del equipo renderiza en producción mientras el decorator sirve como fallback para cualquier consumidor que no configure un mapeo específico.
 
 ```typescript filename="policy.exception.ts"
-import { WithLayout } from '@spraxium/common';
-import { defineExceptionLayout, SpraxiumException } from '@spraxium/core';
-import { EmbedBuilder } from 'discord.js';
+import { WithLayout } from "@spraxium/common";
+import { defineExceptionLayout, SpraxiumException } from "@spraxium/core";
+import { EmbedBuilder } from "discord.js";
 
 const PolicyLayout = defineExceptionLayout((exception) => ({
   embeds: [
     new EmbedBuilder()
       .setColor(0xffb020)
-      .setTitle('Acción bloqueada por política')
-      .setDescription(String(exception.props.reason ?? 'Razón no proporcionada')), ], ephemeral: true,
+      .setTitle("Acción bloqueada por política")
+      .setDescription(
+        String(exception.props.reason ?? "Razón no proporcionada"),
+      ),
+  ],
+  ephemeral: true,
 }));
 
 @WithLayout(PolicyLayout)
 export class PolicyException extends SpraxiumException {
   constructor(props: { reason: string }) {
     super({
-      code: 'POLICY_BLOCKED', message: 'Action blocked: {{reason}}', props, });
+      code: "POLICY_BLOCKED",
+      message: "Action blocked: {{reason}}",
+      props,
+    });
   }
 }
 ```

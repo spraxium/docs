@@ -9,11 +9,11 @@ category: Schedule
 
 ## Jobs cron e intervalo
 
-Los decorators *@Cron* y *@Interval* crean jobs que se ejecutan repetidamente. Los jobs cron se ejecutan en horarios específicos definidos por una expresión cron, mientras que los jobs de intervalo se ejecutan cada N milisegundos continuamente. Ambos soportan las opciones *name* y *disabled* para control de identidad y estado. Los jobs cron adicionalmente aceptan *timezone* y *runOnInit*.
+Los decorators _@Cron_ y _@Interval_ crean jobs que se ejecutan repetidamente. Los jobs cron se ejecutan en horarios específicos definidos por una expresión cron, mientras que los jobs de intervalo se ejecutan cada N milisegundos continuamente. Ambos soportan las opciones _name_ y _disabled_ para control de identidad y estado. Los jobs cron adicionalmente aceptan _timezone_ y _runOnInit_.
 
-El decorator *@Cron* acepta una expresión de 5 o 6 campos como primer argumento. Puedes escribir la expresión directamente como string o usar el enum helper *CronExpression* que proporciona más de 45 presets con nombre. La opción *runOnInit* dispara el job inmediatamente al inicio del bot además del schedule cron normal, lo cual es útil para jobs que deben capturar datos perdidos durante el tiempo de inactividad.
+El decorator _@Cron_ acepta una expresión de 5 o 6 campos como primer argumento. Puedes escribir la expresión directamente como string o usar el enum helper _CronExpression_ que proporciona más de 45 presets con nombre. La opción _runOnInit_ dispara el job inmediatamente al inicio del bot además del schedule cron normal, lo cual es útil para jobs que deben capturar datos perdidos durante el tiempo de inactividad.
 
-El decorator *@Interval* acepta un número de milisegundos como primer argumento o un valor del enum *IntervalExpression*. Los intervalos comienzan inmediatamente después del inicio del bot y se repiten indefinidamente hasta que el bot se detiene o el job se destruye manualmente a través del *ScheduleService*.
+El decorator _@Interval_ acepta un número de milisegundos como primer argumento o un valor del enum _IntervalExpression_. Los intervalos comienzan inmediatamente después del inicio del bot y se repiten indefinidamente hasta que el bot se detiene o el job se destruye manualmente a través del _ScheduleService_.
 
 <CodeTabs>
   <Tab label="Job cron" language="typescript">
@@ -23,13 +23,14 @@ import { Cron, CronExpression } from '@spraxium/schedule';
 
 @Injectable()
 export class AnalyticsJobsService {
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
-    name: 'daily-stats', timezone: 'America/New_York', })
-  async collectDailyStats(): Promise<void> {
-    // Agregar estad\u00edsticas del d\u00eda y enviar al canal de anal\u00edticas
-  }
+@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+name: 'daily-stats', timezone: 'America/New_York', })
+async collectDailyStats(): Promise<void> {
+// Agregar estad\u00edsticas del d\u00eda y enviar al canal de anal\u00edticas
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Job de intervalo" language="typescript">
 ```typescript filename="src/modules/monitoring/services/health-jobs.service.ts"
@@ -44,17 +45,18 @@ export class HealthJobsService {
     // Verificar latencia del websocket y uso de memoria
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Jobs timeout y post-online
 
-Los decorators *@Timeout* y *@AfterOnline* crean jobs que se ejecutan una única vez. Los timeouts se disparan después de un delay desde el inicio del bot, mientras que los jobs post-online esperan a que el bot esté completamente conectado a Discord antes de contar el delay. Esta distinción es importante para tareas que necesitan del cliente de Discord completamente inicializado.
+Los decorators _@Timeout_ y _@AfterOnline_ crean jobs que se ejecutan una única vez. Los timeouts se disparan después de un delay desde el inicio del bot, mientras que los jobs post-online esperan a que el bot esté completamente conectado a Discord antes de contar el delay. Esta distinción es importante para tareas que necesitan del cliente de Discord completamente inicializado.
 
-El decorator *@Timeout* es útil para lógica de inicialización diferida que no necesita la conexión de Discord. Por ejemplo, podrías usarlo para pre-calentar cachés, programar tareas de mantenimiento únicas o registrar que el bot inició correctamente. El delay se cuenta desde el momento en que el módulo de schedule completa su fase de arranque.
+El decorator _@Timeout_ es útil para lógica de inicialización diferida que no necesita la conexión de Discord. Por ejemplo, podrías usarlo para pre-calentar cachés, programar tareas de mantenimiento únicas o registrar que el bot inició correctamente. El delay se cuenta desde el momento en que el módulo de schedule completa su fase de arranque.
 
-El decorator *@AfterOnline* está diseñado específicamente para tareas que dependen de la conexión a Discord. La fase de ready garantiza que el cliente tiene acceso al caché de servidores, caché de canales y datos de usuario. Úsalo para tareas de sincronización, actualizaciones de estado o cualquier trabajo que necesite consultar la API de Discord.
+El decorator _@AfterOnline_ está diseñado específicamente para tareas que dependen de la conexión a Discord. La fase de ready garantiza que el cliente tiene acceso al caché de servidores, caché de canales y datos de usuario. Úsalo para tareas de sincronización, actualizaciones de estado o cualquier trabajo que necesite consultar la API de Discord.
 
 <CodeTabs>
   <Tab label="Job timeout" language="typescript">
@@ -64,13 +66,14 @@ import { Timeout, TimeoutExpression } from '@spraxium/schedule';
 
 @Injectable()
 export class WarmupJobsService {
-  @Timeout(TimeoutExpression.AFTER_5_SECONDS, {
-    name: 'cache-warmup', })
-  async warmupCaches(): Promise<void> {
-    // Pre-cargar datos usados frecuentemente en cach\u00e9
-  }
+@Timeout(TimeoutExpression.AFTER_5_SECONDS, {
+name: 'cache-warmup', })
+async warmupCaches(): Promise<void> {
+// Pre-cargar datos usados frecuentemente en cach\u00e9
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Job post-online" language="typescript">
 ```typescript filename="src/modules/status/services/status-jobs.service.ts"
@@ -85,13 +88,14 @@ export class StatusJobsService {
     // Establecer el estado del bot despu\u00e9s de conectar a Discord
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Opciones de decorator
 
-Todos los decorators de schedule aceptan un objeto de opciones como segundo argumento. Las opciones disponibles varían según el tipo de decorator, pero *name* y *disabled* están disponibles en los cuatro. La opción *name* es especialmente importante porque el *ScheduleService* usa el nombre del job para control en runtime.
+Todos los decorators de schedule aceptan un objeto de opciones como segundo argumento. Las opciones disponibles varían según el tipo de decorator, pero _name_ y _disabled_ están disponibles en los cuatro. La opción _name_ es especialmente importante porque el _ScheduleService_ usa el nombre del job para control en runtime.
 
 <Table>
   <TableHead>
@@ -107,7 +111,9 @@ Todos los decorators de schedule aceptan un objeto de opciones como segundo argu
       <TableCell>*name*</TableCell>
       <TableCell>Todos</TableCell>
       <TableCell>Nombre del método</TableCell>
-      <TableCell>Identifica el job para control en runtime vía *ScheduleService*</TableCell>
+      <TableCell>
+        Identifica el job para control en runtime vía *ScheduleService*
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*disabled*</TableCell>
@@ -119,13 +125,17 @@ Todos los decorators de schedule aceptan un objeto de opciones como segundo argu
       <TableCell>*runOnInit*</TableCell>
       <TableCell>*@Cron*, *@Interval*</TableCell>
       <TableCell>`false`</TableCell>
-      <TableCell>Ejecuta el job inmediatamente al inicio además de su schedule normal</TableCell>
+      <TableCell>
+        Ejecuta el job inmediatamente al inicio además de su schedule normal
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*timezone*</TableCell>
       <TableCell>*@Cron*</TableCell>
       <TableCell>Config global o UTC</TableCell>
-      <TableCell>Zona horaria IANA para la evaluación de la expresión cron</TableCell>
+      <TableCell>
+        Zona horaria IANA para la evaluación de la expresión cron
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -134,7 +144,7 @@ Todos los decorators de schedule aceptan un objeto de opciones como segundo argu
 
 El paquete schedule exporta tres enums que proporcionan expresiones de schedule con nombre como alternativa a valores codificados. Usar estos enums hace que las definiciones de jobs sean más legibles y previene errores tipográficos en expresiones cron. Los enums están completamente tipados, así que tu editor los autocompleta y valida.
 
-El enum *CronExpression* proporciona más de 45 presets que cubren patrones comunes como *EVERY_HOUR*, *EVERY_DAY_AT_MIDNIGHT*, *EVERY_MONDAY_AT_MIDNIGHT* y *EVERY_WEEK*. El enum *IntervalExpression* proporciona 26 presets desde *EVERY_SECOND* hasta *EVERY_24_HOURS*. El enum *TimeoutExpression* proporciona 20 presets desde *AFTER_1_SECOND* hasta *AFTER_24_HOURS*.
+El enum _CronExpression_ proporciona más de 45 presets que cubren patrones comunes como _EVERY_HOUR_, _EVERY_DAY_AT_MIDNIGHT_, _EVERY_MONDAY_AT_MIDNIGHT_ y _EVERY_WEEK_. El enum _IntervalExpression_ proporciona 26 presets desde _EVERY_SECOND_ hasta _EVERY_24_HOURS_. El enum _TimeoutExpression_ proporciona 20 presets desde _AFTER_1_SECOND_ hasta _AFTER_24_HOURS_.
 
 Los enums se resuelven a valores primitivos en tiempo de compilación, así que no hay sobrecarga en runtime. Puedes mezclar valores de enum con valores literales en la misma base de código sin conflictos. Usa los enums cuando los presets nombrados coincidan con tu intención, y los valores literales cuando necesites expresiones personalizadas como `0 */6 * * 1-5` para cada 6 horas entre semana.
 

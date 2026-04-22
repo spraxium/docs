@@ -58,34 +58,47 @@ Cada tipo de job mapeia para um decorator que você coloca em um método dentro 
 
 ## Ciclo de vida do runtime
 
-O módulo de schedule opera em duas fases alinhadas com a sequência de boot do framework. Compreender essas fases ajuda a prever quando cada tipo de job começa a executar e por que *@AfterOnline* existe como um decorator separado ao invés de ser uma variante de cron.
+O módulo de schedule opera em duas fases alinhadas com a sequência de boot do framework. Compreender essas fases ajuda a prever quando cada tipo de job começa a executar e por que _@AfterOnline_ existe como um decorator separado ao invés de ser uma variante de cron.
 
 <Steps>
   <Step title="Fase de boot">
-    No startup da aplicação, o framework escaneia todos os providers e registra cada método decorado com *@Cron*, *@Interval* ou *@Timeout*. Jobs com *runOnInit* habilitado executam imediatamente durante esta fase. Timers de *@Interval* e *@Timeout* começam a contar a partir deste momento.
+    No startup da aplicação, o framework escaneia todos os providers e registra
+    cada método decorado com *@Cron*, *@Interval* ou *@Timeout*. Jobs com
+    *runOnInit* habilitado executam imediatamente durante esta fase. Timers de
+    *@Interval* e *@Timeout* começam a contar a partir deste momento.
   </Step>
   <Step title="Fase de ready">
-    Após o client Discord emitir seu evento *ready*, o framework registra os jobs *@AfterOnline* e inicia seus timers de atraso. A separação existe porque algumas tarefas precisam de uma conexão ativa com o Discord, como buscar dados de servidores ou enviar mensagens de boas-vindas. Executá-las durante o boot falharia porque o client não está conectado ainda.
+    Após o client Discord emitir seu evento *ready*, o framework registra os
+    jobs *@AfterOnline* e inicia seus timers de atraso. A separação existe
+    porque algumas tarefas precisam de uma conexão ativa com o Discord, como
+    buscar dados de servidores ou enviar mensagens de boas-vindas. Executá-las
+    durante o boot falharia porque o client não está conectado ainda.
   </Step>
   <Step title="Gerenciamento em runtime">
-    Uma vez que todos os jobs estão registrados, o *ScheduleService* fornece uma API pública para pausar, retomar, destruir e acionar manualmente jobs por nome. Você pode injetar *ScheduleService* em qualquer provider para controlar jobs programaticamente a partir de slash commands, prefix commands ou endpoints HTTP.
+    Uma vez que todos os jobs estão registrados, o *ScheduleService* fornece uma
+    API pública para pausar, retomar, destruir e acionar manualmente jobs por
+    nome. Você pode injetar *ScheduleService* em qualquer provider para
+    controlar jobs programaticamente a partir de slash commands, prefix commands
+    ou endpoints HTTP.
   </Step>
 </Steps>
 
 ## Configuração mínima
 
-Para usar o módulo de schedule, instale o pacote `@spraxium/schedule`, crie um arquivo de configuração usando *defineSchedule* e registre o *ScheduleModule* na sua aplicação. O módulo é global por padrão, então você só precisa registrá-lo uma vez. Qualquer provider em qualquer módulo pode então usar os decorators de schedule.
+Para usar o módulo de schedule, instale o pacote `@spraxium/schedule`, crie um arquivo de configuração usando _defineSchedule_ e registre o _ScheduleModule_ na sua aplicação. O módulo é global por padrão, então você só precisa registrá-lo uma vez. Qualquer provider em qualquer módulo pode então usar os decorators de schedule.
 
 ```typescript filename="config/schedule.config.ts"
-import { defineSchedule } from '@spraxium/schedule';
+import { defineSchedule } from "@spraxium/schedule";
 
 export default defineSchedule({
-  timezone: 'America/Sao_Paulo',
+  timezone: "America/Sao_Paulo",
 });
 ```
 
 <Callout type="info">
-  O módulo de schedule usa o *MemoryDriver* por padrão, que armazena estado de jobs em memória. Para bots distribuídos rodando múltiplos shards ou processos, troque para o *RedisScheduleDriver* para prevenir execuções duplicadas.
+  O módulo de schedule usa o *MemoryDriver* por padrão, que armazena estado de
+  jobs em memória. Para bots distribuídos rodando múltiplos shards ou processos,
+  troque para o *RedisScheduleDriver* para prevenir execuções duplicadas.
 </Callout>
 
 ## Estrutura do projeto

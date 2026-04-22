@@ -28,34 +28,39 @@ one cohesive system so you rarely need to think about the mechanics while writin
 
 ## How locale resolution works
 
-When a handler calls *tUser*, the service resolves the locale for that user through a three-tier
+When a handler calls _tUser_, the service resolves the locale for that user through a three-tier
 priority chain: a saved user preference beats a saved guild preference, and a saved guild preference
 beats the configured default locale. This ordering is the correct model for Discord bots because it
 respects individual choices first, then community-level settings, and falls back to the bot-wide
 default only when no preference has been set at all.
 
-User and guild preferences are stored in the active *I18nStore* backend and survive bot restarts as
-long as the store backend is persistent. The built-in *MemoryStore* works for local development and
+User and guild preferences are stored in the active _I18nStore_ backend and survive bot restarts as
+long as the store backend is persistent. The built-in _MemoryStore_ works for local development and
 bots that do not need persistent preferences, while production bots should use a database-backed
 store such as those illustrated in the Store API page.
 
 Slash command localizations follow a different path: when the bot registers commands with Discord's
 REST API, names and descriptions can have per-locale variants that Discord renders natively in the
-command picker. The i18n module wires those localizations automatically during the boot sequence, so declaring an *i18n* field on a slash decorator is all that is needed to produce a fully localized
+command picker. The i18n module wires those localizations automatically during the boot sequence, so declaring an _i18n_ field on a slash decorator is all that is needed to produce a fully localized
 command entry in Discord's UI.
 
 ## Configuring the module
 
 ```typescript filename="config/i18n.config.ts"
-import { defineI18n } from '@spraxium/i18n';
+import { defineI18n } from "@spraxium/i18n";
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'en-US', references: [
-    { name: 'commands', path: './locales/commands'  }, { name: 'messages', path: './locales/messages'  }, { name: 'errors', path: './locales/errors'    }, ], });
+  defaultLocale: "en-US",
+  references: [
+    { name: "commands", path: "./locales/commands" },
+    { name: "messages", path: "./locales/messages" },
+    { name: "errors", path: "./locales/errors" },
+  ],
+});
 ```
 
 Add the config object to the `plugins` array in your Spraxium config. The module is self-contained
-and registers its own *I18nLifecycle*, which runs at boot automatically before any slash commands
+and registers its own _I18nLifecycle_, which runs at boot automatically before any slash commands
 are registered.
 
 <Table variant="striped">
@@ -70,7 +75,9 @@ are registered.
     <TableRow>
       <TableCell>*defaultLocale*</TableCell>
       <TableCell>string</TableCell>
-      <TableCell>Fallback locale used when no user or guild preference is set</TableCell>
+      <TableCell>
+        Fallback locale used when no user or guild preference is set
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*references*</TableCell>
@@ -80,14 +87,16 @@ are registered.
     <TableRow>
       <TableCell>*pluralRules*</TableCell>
       <TableCell>Record</TableCell>
-      <TableCell>Optional custom plural functions per locale, overriding Intl.PluralRules</TableCell>
+      <TableCell>
+        Optional custom plural functions per locale, overriding Intl.PluralRules
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## The I18nService API
 
-Inject *I18nService* into any handler or provider. It exposes both synchronous and asynchronous
+Inject _I18nService_ into any handler or provider. It exposes both synchronous and asynchronous
 translation methods to cover every usage pattern your bot needs.
 
 <CodeTabs>
@@ -100,15 +109,16 @@ import { PingCommand } from '../commands/ping.command';
 
 @SlashCommandHandler(PingCommand)
 export class PingHandler {
-  constructor(private readonly i18n: I18nService) {}
+constructor(private readonly i18n: I18nService) {}
 
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const locale = interaction.locale;
-    const message = this.i18n.t('commands.ping.response', locale);
-    await interaction.reply(message);
-  }
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const locale = interaction.locale;
+const message = this.i18n.t('commands.ping.response', locale);
+await interaction.reply(message);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="User-resolved" language="typescript">
 ```typescript filename="greet.handler.ts"
@@ -127,12 +137,17 @@ export class GreetHandler {
 
     // Resolves locale priority: user pref > guild pref > default
     const message = await this.i18n.tUser(
-      userId, 'commands.greet.welcome', { name: interaction.user.username }, guildId, );
+      userId,
+      'commands.greet.welcome',
+      { name: interaction.user.username },
+      guildId,
+    );
 
     await interaction.reply(message);
   }
 }
-```
+````
+
   </Tab>
   <Tab label="Pluralization" language="typescript">
 ```typescript filename="items.handler.ts"
@@ -143,17 +158,19 @@ import { ItemsCommand } from '../commands/items.command';
 
 @SlashCommandHandler(ItemsCommand)
 export class ItemsHandler {
-  constructor(private readonly i18n: I18nService) {}
+constructor(private readonly i18n: I18nService) {}
 
-  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const userId = interaction.user.id;
-    const count  = 5;
+async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+const userId = interaction.user.id;
+const count = 5;
 
     const message = await this.i18n.tpUser(userId, 'commands.items', count, { count });
     await interaction.reply(message);
-  }
+
 }
-```
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -228,8 +245,13 @@ export class ItemsHandler {
 
   ```typescript filename="welcome.handler.ts"
   const message = await this.i18n.tUser(
-    interaction.user.id, 'commands.welcome.text', { username: interaction.user.username }, interaction.guildId ?? undefined, );
-  ```
+    interaction.user.id,
+    'commands.welcome.text',
+    { username: interaction.user.username },
+    interaction.guildId ?? undefined,
+  );
+````
+
 </Dropdown>
 
 <Dropdown title="tpUser, combining pluralization with preference resolution">
@@ -239,14 +261,20 @@ export class ItemsHandler {
   selects the correct plural category for the resolved locale and looks up the corresponding keyed
   variant.
 
-  Use *tpUser* whenever the response text changes depending on a numeric value and the locale
-  preference chain should still apply. Common examples include inventory counts, queue positions, leaderboard rankings, and any quantity-dependent feedback message.
+Use _tpUser_ whenever the response text changes depending on a numeric value and the locale
+preference chain should still apply. Common examples include inventory counts, queue positions, leaderboard rankings, and any quantity-dependent feedback message.
 
-  ```typescript filename="inventory.handler.ts"
-  const count = await getItemCount(interaction.user.id);
-  const message = await this.i18n.tpUser(
-    interaction.user.id, 'commands.inventory.items', count, {}, interaction.guildId ?? undefined, );
-  ```
+```typescript filename="inventory.handler.ts"
+const count = await getItemCount(interaction.user.id);
+const message = await this.i18n.tpUser(
+  interaction.user.id,
+  "commands.inventory.items",
+  count,
+  {},
+  interaction.guildId ?? undefined,
+);
+```
+
 </Dropdown>
 
 <Dropdown title="setUserLocale and setGuildLocale, saving preferences">
@@ -255,17 +283,22 @@ export class ItemsHandler {
   from a string option or a select menu. After the preference is saved, every subsequent call to
   *tUser* for that user or guild will reflect the new setting without any cache invalidation step.
 
-  *setGuildLocale* should be restricted to members with the *Manage Guild* permission since it
-  affects the default language for every user in the server who has not set a personal preference.
-  Using a guard to enforce this restriction is the recommended pattern rather than checking
-  permissions manually inside the handler body.
+_setGuildLocale_ should be restricted to members with the _Manage Guild_ permission since it
+affects the default language for every user in the server who has not set a personal preference.
+Using a guard to enforce this restriction is the recommended pattern rather than checking
+permissions manually inside the handler body.
 
-  ```typescript filename="language.handler.ts"
-  const locale = interaction.options.getString('language', true);
-  await this.i18n.setUserLocale(interaction.user.id, locale);
-  const confirmation = await this.i18n.tUser(interaction.user.id, 'system.locale_saved', { locale });
-  await interaction.reply({ content: confirmation, ephemeral: true });
-  ```
+```typescript filename="language.handler.ts"
+const locale = interaction.options.getString("language", true);
+await this.i18n.setUserLocale(interaction.user.id, locale);
+const confirmation = await this.i18n.tUser(
+  interaction.user.id,
+  "system.locale_saved",
+  { locale },
+);
+await interaction.reply({ content: confirmation, ephemeral: true });
+```
+
 </Dropdown>
 
 <Dropdown title="resolveLocale, reading the resolved locale without translating">
@@ -275,16 +308,19 @@ export class ItemsHandler {
   formatter, or when passing a locale string to an external service that handles its own
   localization.
 
-  Since *resolveLocale* only reads from the store and never writes, it is safe to call as many
-  times as needed. The result changes only when the user or guild preference is updated through
-  *setUserLocale* or *setGuildLocale*, so it is predictable and side-effect free.
+Since _resolveLocale_ only reads from the store and never writes, it is safe to call as many
+times as needed. The result changes only when the user or guild preference is updated through
+_setUserLocale_ or _setGuildLocale_, so it is predictable and side-effect free.
 
-  ```typescript filename="profile.handler.ts"
-  const locale = await this.i18n.resolveLocale(
-    interaction.user.id, interaction.guildId ?? undefined, );
-  const formatted = new Intl.DateTimeFormat(locale).format(new Date());
-  await interaction.reply(`Your account was created on ${formatted}.`);
-  ```
+```typescript filename="profile.handler.ts"
+const locale = await this.i18n.resolveLocale(
+  interaction.user.id,
+  interaction.guildId ?? undefined,
+);
+const formatted = new Intl.DateTimeFormat(locale).format(new Date());
+await interaction.reply(`Your account was created on ${formatted}.`);
+```
+
 </Dropdown>
 </DropdownGroup>
 

@@ -9,69 +9,76 @@ category: Environment
 
 ## Qué resuelve @spraxium/env
 
-Todo bot de Discord necesita configuración que cambia entre entornos: el token del bot, URIs de bases de datos, números de puerto y feature flags. Leer estos valores directamente de `process.env` es frágil porque las variables de entorno siempre son strings, pueden estar ausentes, y los errores tipográficos solo aparecen en runtime cuando una funcionalidad falla. El paquete *@spraxium/env* reemplaza lecturas manuales de `process.env` con un sistema basado en schema que valida, transforma y tipa cada variable antes de que el bot arranque.
+Todo bot de Discord necesita configuración que cambia entre entornos: el token del bot, URIs de bases de datos, números de puerto y feature flags. Leer estos valores directamente de `process.env` es frágil porque las variables de entorno siempre son strings, pueden estar ausentes, y los errores tipográficos solo aparecen en runtime cuando una funcionalidad falla. El paquete _@spraxium/env_ reemplaza lecturas manuales de `process.env` con un sistema basado en schema que valida, transforma y tipa cada variable antes de que el bot arranque.
 
-Defines una clase donde cada propiedad mapea a una variable de entorno a través del decorator *@Env*. Decorators de validación como *IsString*, *IsPort* o *IsDiscordToken* declaran el formato esperado. En el momento del arranque el framework ejecuta cada validador, imprime una tabla de inicio con todos los valores resueltos y detiene el proceso si algo es inválido. Esto captura errores de configuración inmediatamente en lugar de dejarlos propagarse como fallos en runtime.
+Defines una clase donde cada propiedad mapea a una variable de entorno a través del decorator _@Env_. Decorators de validación como _IsString_, _IsPort_ o _IsDiscordToken_ declaran el formato esperado. En el momento del arranque el framework ejecuta cada validador, imprime una tabla de inicio con todos los valores resueltos y detiene el proceso si algo es inválido. Esto captura errores de configuración inmediatamente en lugar de dejarlos propagarse como fallos en runtime.
 
-El paquete también incluye una clase base llamada *SpraxiumBaseEnv* que ya declara los bindings de `DISCORD_TOKEN` y `NODE_ENV`. Puedes extenderla para que tu schema herede estos campos comunes y solo agregue las variables específicas del proyecto. La clase del schema es inyectable, así que cualquier provider puede solicitarla por el constructor y acceder a valores tipados y validados.
+El paquete también incluye una clase base llamada _SpraxiumBaseEnv_ que ya declara los bindings de `DISCORD_TOKEN` y `NODE_ENV`. Puedes extenderla para que tu schema herede estos campos comunes y solo agregue las variables específicas del proyecto. La clase del schema es inyectable, así que cualquier provider puede solicitarla por el constructor y acceder a valores tipados y validados.
 
 ## Definiendo un schema
 
-Un schema es una clase simple decorada con *@EnvSchema*. Cada propiedad usa *@Env* para especificar qué variable de entorno lee, y uno o más decorators de validación para declarar el tipo esperado. La clase actúa como la única fuente de verdad para toda la configuración que tu bot necesita en runtime.
+Un schema es una clase simple decorada con _@EnvSchema_. Cada propiedad usa _@Env_ para especificar qué variable de entorno lee, y uno o más decorators de validación para declarar el tipo esperado. La clase actúa como la única fuente de verdad para toda la configuración que tu bot necesita en runtime.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsString, IsPort, IsBoolean, IsOptional } from '@spraxium/env';
+import {
+  EnvSchema,
+  Env,
+  IsString,
+  IsPort,
+  IsBoolean,
+  IsOptional,
+} from "@spraxium/env";
 
 @EnvSchema()
 export class AppEnv {
-  @Env('DATABASE_URL')
+  @Env("DATABASE_URL")
   @IsString()
   DATABASE_URL!: string;
 
-  @Env('PORT')
+  @Env("PORT")
   @IsPort()
   PORT!: number;
 
-  @Env('ENABLE_CACHE')
+  @Env("ENABLE_CACHE")
   @IsBoolean()
   @IsOptional()
   ENABLE_CACHE?: boolean;
 }
 ```
 
-El decorator *@EnvSchema* marca la clase para el pipeline de validación. Sin él, el framework imprime una advertencia y aún valida, pero siempre se recomienda incluirlo para que la intención sea explícita. El decorator *@Env* recibe el nombre exacto de la variable de entorno como primer argumento y un objeto de opciones opcional como segundo.
+El decorator _@EnvSchema_ marca la clase para el pipeline de validación. Sin él, el framework imprime una advertencia y aún valida, pero siempre se recomienda incluirlo para que la intención sea explícita. El decorator _@Env_ recibe el nombre exacto de la variable de entorno como primer argumento y un objeto de opciones opcional como segundo.
 
-Cada propiedad debe tener al menos un validador de tipo. Los validadores se ejecutan en orden de declaración de arriba hacia abajo: primero una fase de *transform* convierte la string cruda en el tipo destino, luego una fase de *validate* verifica si el valor convertido es aceptable. Si algún validador falla, el framework recopila todos los errores y los imprime antes de salir.
+Cada propiedad debe tener al menos un validador de tipo. Los validadores se ejecutan en orden de declaración de arriba hacia abajo: primero una fase de _transform_ convierte la string cruda en el tipo destino, luego una fase de _validate_ verifica si el valor convertido es aceptable. Si algún validador falla, el framework recopila todos los errores y los imprime antes de salir.
 
 ## Extendiendo la clase base
 
-La clase *SpraxiumBaseEnv* viene con tres campos preconfigurados que prácticamente todo bot necesita: `DISCORD_TOKEN` con *IsDiscordToken*, `DISCORD_CLIENT_ID` con *IsDiscordId* e *IsOptional*, y `NODE_ENV` con *IsEnum* restringido a cinco valores. Extender esta clase evita duplicar estas declaraciones en cada proyecto.
+La clase _SpraxiumBaseEnv_ viene con tres campos preconfigurados que prácticamente todo bot necesita: `DISCORD_TOKEN` con _IsDiscordToken_, `DISCORD_CLIENT_ID` con _IsDiscordId_ e _IsOptional_, y `NODE_ENV` con _IsEnum_ restringido a cinco valores. Extender esta clase evita duplicar estas declaraciones en cada proyecto.
 
 ```typescript filename="src/app.env.ts"
-import { EnvSchema, Env, IsMongoUri, IsPort } from '@spraxium/env';
-import { SpraxiumBaseEnv } from '@spraxium/env';
+import { EnvSchema, Env, IsMongoUri, IsPort } from "@spraxium/env";
+import { SpraxiumBaseEnv } from "@spraxium/env";
 
 @EnvSchema()
 export class AppEnv extends SpraxiumBaseEnv {
-  @Env('MONGO_URI')
+  @Env("MONGO_URI")
   @IsMongoUri()
   MONGO_URI!: string;
 
-  @Env('API_PORT')
+  @Env("API_PORT")
   @IsPort()
   API_PORT!: number;
 }
 ```
 
-La clase hija hereda los campos de token, client ID y node environment automáticamente. El pipeline de validación recopila campos de toda la cadena de prototipos, así que validadores definidos en *SpraxiumBaseEnv* se ejecutan junto con los tuyos. El método *get* también se hereda, permitiendo acceder a cualquier campo por su nombre de propiedad con tipado seguro.
+La clase hija hereda los campos de token, client ID y node environment automáticamente. El pipeline de validación recopila campos de toda la cadena de prototipos, así que validadores definidos en _SpraxiumBaseEnv_ se ejecutan junto con los tuyos. El método _get_ también se hereda, permitiendo acceder a cualquier campo por su nombre de propiedad con tipado seguro.
 
-Accedes al schema validado inyectándolo en cualquier provider. Antes de que el framework pueda resolver la inyección, necesitas registrar la instancia validada en el contenedor DI raíz desde `main.ts`. El framework no puede hacer esto automáticamente porque llamar `new AppEnv()` directamente saltaría el pipeline de validación y dejaría todos los campos como `undefined`. El método *app.provide* hace este puente: acepta cualquier token y una instancia pre-construida, almacenándola en el contenedor raíz para que todo provider que declare *AppEnv* en su constructor reciba el mismo objeto validado.
+Accedes al schema validado inyectándolo en cualquier provider. Antes de que el framework pueda resolver la inyección, necesitas registrar la instancia validada en el contenedor DI raíz desde `main.ts`. El framework no puede hacer esto automáticamente porque llamar `new AppEnv()` directamente saltaría el pipeline de validación y dejaría todos los campos como `undefined`. El método _app.provide_ hace este puente: acepta cualquier token y una instancia pre-construida, almacenándola en el contenedor raíz para que todo provider que declare _AppEnv_ en su constructor reciba el mismo objeto validado.
 
 ```typescript filename="src/main.ts"
-import { SpraxiumFactory } from '@spraxium/core';
-import { EnvValidator } from '@spraxium/env';
-import { AppEnv } from './app.env';
-import { AppModule } from './app.module';
+import { SpraxiumFactory } from "@spraxium/core";
+import { EnvValidator } from "@spraxium/env";
+import { AppEnv } from "./app.env";
+import { AppModule } from "./app.module";
 
 async function main() {
   const env = EnvValidator.validate(AppEnv);
@@ -86,11 +93,11 @@ async function main() {
 main();
 ```
 
-Cada valor ya está parseado y tipado, así que nunca necesitas llamar `parseInt` o comparar strings manualmente. Una vez registrado, cualquier provider en cualquier módulo puede inyectar *AppEnv* a través de su constructor y acceder al mismo singleton validado. El patrón singleton garantiza que todos los providers compartan exactamente los mismos valores validados, sin riesgo de leer configuración desactualizada o inconsistente a través de los módulos.
+Cada valor ya está parseado y tipado, así que nunca necesitas llamar `parseInt` o comparar strings manualmente. Una vez registrado, cualquier provider en cualquier módulo puede inyectar _AppEnv_ a través de su constructor y acceder al mismo singleton validado. El patrón singleton garantiza que todos los providers compartan exactamente los mismos valores validados, sin riesgo de leer configuración desactualizada o inconsistente a través de los módulos.
 
 ```typescript filename="src/services/database.service.ts"
-import { Injectable } from '@spraxium/core';
-import { AppEnv } from '../app.env';
+import { Injectable } from "@spraxium/core";
+import { AppEnv } from "../app.env";
 
 @Injectable()
 export class DatabaseService {
@@ -104,7 +111,7 @@ export class DatabaseService {
 
 ## El objeto de opciones de @Env
 
-El segundo argumento de *@Env* acepta dos opciones que controlan valores por defecto y enmascaramiento en la tabla de inicio. La opción *default* proporciona un respaldo cuando la variable de entorno está ausente, lo que también hace el campo implícitamente opcional. La opción *secret* controla si el valor aparece en la tabla de inicio o se enmascara con puntos.
+El segundo argumento de _@Env_ acepta dos opciones que controlan valores por defecto y enmascaramiento en la tabla de inicio. La opción _default_ proporciona un respaldo cuando la variable de entorno está ausente, lo que también hace el campo implícitamente opcional. La opción _secret_ controla si el valor aparece en la tabla de inicio o se enmascara con puntos.
 
 <DropdownGroup>
 <Dropdown title="default">
@@ -132,7 +139,7 @@ El framework soporta archivos `.env.local` y `.env` de forma nativa, cargados en
 
 ## Estructura del proyecto
 
-Un bot típico mantiene la clase de schema en la raíz de `src` para que el contrato de entorno sea visible durante el bootstrap. Los services importan *AppEnv* desde `src/app.env.ts`, lo que mantiene rutas relativas cortas y predecibles entre módulos. Los archivos `.env` permanecen en la raíz del proyecto, y la validación se ejecuta antes de que cualquier provider inicie.
+Un bot típico mantiene la clase de schema en la raíz de `src` para que el contrato de entorno sea visible durante el bootstrap. Los services importan _AppEnv_ desde `src/app.env.ts`, lo que mantiene rutas relativas cortas y predecibles entre módulos. Los archivos `.env` permanecen en la raíz del proyecto, y la validación se ejecuta antes de que cualquier provider inicie.
 
 <FolderStructure>
   <Folder name="src">

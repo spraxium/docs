@@ -4,14 +4,14 @@ description: |
   Understand how route metadata becomes executable handlers in @spraxium/http.
   Follow the flow from decorators to parameter resolution, validation, and response shaping.
 order: 4
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Decorator surface
 
-Decorators define transport intent at class load time, while runtime services turn that intent into executable Hono handlers during server startup. Keeping that separation in mind helps you debug route behavior quickly because the decorator is always the source of truth and the runtime merely reads what the decorator stored in *reflect-metadata*.
+Decorators define transport intent at class load time, while runtime services turn that intent into executable Hono handlers during server startup. Keeping that separation in mind helps you debug route behavior quickly because the decorator is always the source of truth and the runtime merely reads what the decorator stored in _reflect-metadata_.
 
-All decorators in the package write to keys defined in *HTTP_METADATA_KEYS*. *@HttpController* sets the prefix, route method decorators push entries to a *ROUTES* array, *@HttpUseMiddleware* appends to a *MIDDLEWARE* array, *@HttpGuards* appends to a *GUARDS* array, and parameter decorators push to a *PARAMS* array keyed by handler name. This metadata is immutable after class initialization, so the runtime can read it safely at startup without side effects.
+All decorators in the package write to keys defined in _HTTP_METADATA_KEYS_. _@HttpController_ sets the prefix, route method decorators push entries to a _ROUTES_ array, _@HttpUseMiddleware_ appends to a _MIDDLEWARE_ array, _@HttpGuards_ appends to a _GUARDS_ array, and parameter decorators push to a _PARAMS_ array keyed by handler name. This metadata is immutable after class initialization, so the runtime can read it safely at startup without side effects.
 
 <DropdownGroup>
 <Dropdown title="@HttpController(prefix)">
@@ -19,35 +19,71 @@ All decorators in the package write to keys defined in *HTTP_METADATA_KEYS*. *@H
 </Dropdown>
 
 <Dropdown title="@HttpGet · @HttpPost · @HttpPut · @HttpPatch · @HttpDelete">
-  Method decorators that register an HTTP method and optional sub-path pair on the enclosing controller. Each call pushes a *RouteDefinition* entry with the method, sub-path, and handler name to the `ROUTES` metadata array on the controller class. *RouteBuilder* reads this array at startup and creates a Hono route for each entry, computing the full path by joining the controller prefix with the method sub-path.
+  Method decorators that register an HTTP method and optional sub-path pair on
+  the enclosing controller. Each call pushes a *RouteDefinition* entry with the
+  method, sub-path, and handler name to the `ROUTES` metadata array on the
+  controller class. *RouteBuilder* reads this array at startup and creates a
+  Hono route for each entry, computing the full path by joining the controller
+  prefix with the method sub-path.
 </Dropdown>
 
 <Dropdown title="@HttpStatus(code)">
-  A method decorator that overrides the default success status code from 200 to any valid HTTP status number. *RouteBuilder* reads this metadata when serializing the handler return value via `ctx.json(result, statusCode)`. This decorator has no effect when the handler returns a native `Response` object, because that response bypasses the normal JSON serialization path.
+  A method decorator that overrides the default success status code from 200 to
+  any valid HTTP status number. *RouteBuilder* reads this metadata when
+  serializing the handler return value via `ctx.json(result, statusCode)`. This
+  decorator has no effect when the handler returns a native `Response` object,
+  because that response bypasses the normal JSON serialization path.
 </Dropdown>
 
 <Dropdown title="@HttpGuards(...classes)">
-  A class or method decorator that attaches guard class tokens to a controller or individual route. Guards are resolved through the DI system at startup and run before the handler by *GuardExecutor*, with class-level guards executing before method-level ones. A single `false` return terminates the request at the guard layer with status 401, before any middleware or handler code runs.
+  A class or method decorator that attaches guard class tokens to a controller
+  or individual route. Guards are resolved through the DI system at startup and
+  run before the handler by *GuardExecutor*, with class-level guards executing
+  before method-level ones. A single `false` return terminates the request at
+  the guard layer with status 401, before any middleware or handler code runs.
 </Dropdown>
 
 <Dropdown title="@HttpUseMiddleware(...classes)">
-  A class or method decorator that attaches middleware class tokens resolved through *middlewareProviders*. Class-level *@HttpUseMiddleware* runs before method-level declarations, and both run after global middleware and guard execution. The class tokens must be registered in *@HttpClientModule({ middlewareProviders })* or the binding is silently skipped during route setup.
+  A class or method decorator that attaches middleware class tokens resolved
+  through *middlewareProviders*. Class-level *@HttpUseMiddleware* runs before
+  method-level declarations, and both run after global middleware and guard
+  execution. The class tokens must be registered in *@HttpClientModule(
+  {middlewareProviders})* or the binding is silently skipped during route setup.
 </Dropdown>
 
 <Dropdown title="@HttpParam(key)">
-  A parameter decorator that extracts a named URL path parameter from `ctx.req.param(key)` and injects it at the matching handler argument position. The key must match the placeholder name defined in the route path, for example `:guildId` in `'/:guildId'` is extracted with `@HttpParam('guildId')`. The value is always a string because URL path segments are always strings.
+  A parameter decorator that extracts a named URL path parameter from
+  `ctx.req.param(key)` and injects it at the matching handler argument position.
+  The key must match the placeholder name defined in the route path, for example
+  `:guildId` in `'/:guildId'` is extracted with `@HttpParam('guildId')`. The
+  value is always a string because URL path segments are always strings.
 </Dropdown>
 
 <Dropdown title="@HttpQuery(key)">
-  A parameter decorator that reads a query string parameter from `ctx.req.query(key)` and injects it as a handler argument. The resolved value is a string when the key is present in the query string or `undefined` when it is absent, so handlers using optional query parameters should check for both cases. Multiple query parameters on the same handler each need their own *@HttpQuery* decorator.
+  A parameter decorator that reads a query string parameter from
+  `ctx.req.query(key)` and injects it as a handler argument. The resolved value
+  is a string when the key is present in the query string or `undefined` when it
+  is absent, so handlers using optional query parameters should check for both
+  cases. Multiple query parameters on the same handler each need their own
+  *@HttpQuery* decorator.
 </Dropdown>
 
 <Dropdown title="@HttpBody(DtoClass?)">
-  A parameter decorator that parses the JSON request body and injects it as a handler argument. When a DTO class is provided, *ValidationPipe* runs `plainToInstance` followed by `validate` with `whitelist: true` and `forbidNonWhitelisted: true`, throwing a *ValidationError* with structured details if any constraint fails. Omitting the DTO class injects the raw parsed body as an anonymous object without validation.
+  A parameter decorator that parses the JSON request body and injects it as a
+  handler argument. When a DTO class is provided, *ValidationPipe* runs
+  `plainToInstance` followed by `validate` with `whitelist: true` and
+  `forbidNonWhitelisted: true`, throwing a *ValidationError* with structured
+  details if any constraint fails. Omitting the DTO class injects the raw parsed
+  body as an anonymous object without validation.
 </Dropdown>
 
 <Dropdown title="@HttpHeader(key)">
-  A parameter decorator that reads a specific request header from `ctx.req.header(key)` and injects its value as a handler argument. Header names are case-insensitive per the HTTP specification and Hono normalizes them before lookup, so `'x-request-id'` and `'X-Request-Id'` resolve to the same value. The resolved value is a string or `undefined` when the header is absent.
+  A parameter decorator that reads a specific request header from
+  `ctx.req.header(key)` and injects its value as a handler argument. Header
+  names are case-insensitive per the HTTP specification and Hono normalizes them
+  before lookup, so `'x-request-id'` and `'X-Request-Id'` resolve to the same
+  value. The resolved value is a string or `undefined` when the header is
+  absent.
 </Dropdown>
 
 <Dropdown title="@HttpCtx()">
@@ -57,11 +93,11 @@ All decorators in the package write to keys defined in *HTTP_METADATA_KEYS*. *@H
 
 ## Parameter resolution in depth
 
-*ParamResolver* is the service that reads *PARAMS* metadata and extracts values from the Hono *Context* for each handler invocation. It supports five source types, each mapped to a specific extraction strategy.
+_ParamResolver_ is the service that reads _PARAMS_ metadata and extracts values from the Hono _Context_ for each handler invocation. It supports five source types, each mapped to a specific extraction strategy.
 
-When a handler has no parameter decorators at all, *ParamResolver* falls back to injecting the full *Context* as the sole argument. This default behavior means you can write simple handlers that accept `ctx` directly without any decorators, which is useful for migration scenarios or handlers that need full control. As soon as one parameter decorator appears, only decorated parameters are resolved.
+When a handler has no parameter decorators at all, _ParamResolver_ falls back to injecting the full _Context_ as the sole argument. This default behavior means you can write simple handlers that accept `ctx` directly without any decorators, which is useful for migration scenarios or handlers that need full control. As soon as one parameter decorator appears, only decorated parameters are resolved.
 
-The body source deserves special attention. *ParamResolver* parses JSON from the request body only once per handler invocation and caches the result even if multiple *@HttpBody* decorators exist on the same method. When a DTO class is provided, *ValidationPipe* runs `plainToInstance` from *class-transformer* to create a typed instance and then `validate` from *class-validator* with `whitelist: true` and `forbidNonWhitelisted: true`. This means unexpected properties in the payload are rejected automatically before business logic runs.
+The body source deserves special attention. _ParamResolver_ parses JSON from the request body only once per handler invocation and caches the result even if multiple _@HttpBody_ decorators exist on the same method. When a DTO class is provided, _ValidationPipe_ runs `plainToInstance` from _class-transformer_ to create a typed instance and then `validate` from _class-validator_ with `whitelist: true` and `forbidNonWhitelisted: true`. This means unexpected properties in the payload are rejected automatically before business logic runs.
 
 ## Focused example with all parameter sources
 
@@ -69,39 +105,59 @@ The body source deserves special attention. *ParamResolver* parses JSON from the
   <Tab label="http/controllers/guild-http.controller.ts" language="typescript">
 ```typescript filename="http/controllers/guild-http.controller.ts"
 import {
-  HttpBody, HttpController, HttpCtx, HttpGet, HttpHeader, HttpParam, HttpPatch, HttpQuery, HttpStatus, NotFoundError, } from '@spraxium/http';
+  HttpBody,
+  HttpController,
+  HttpCtx,
+  HttpGet,
+  HttpHeader,
+  HttpParam,
+  HttpPatch,
+  HttpQuery,
+  HttpStatus,
+  NotFoundError,
+} from '@spraxium/http';
 import type { Context } from 'hono';
 import { GuildHttpService } from '../services/guild-http.service';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
 @HttpController('/guilds')
 export class GuildHttpController {
-  constructor(private readonly service: GuildHttpService) {}
+constructor(private readonly service: GuildHttpService) {}
 
-  @HttpGet('/:guildId')
-  async getGuild(
-    @HttpParam('guildId') guildId: string, @HttpQuery('includeMembers') includeMembers?: string, @HttpHeader('x-request-id') requestId?: string, ) {
-    const guild = await this.service.getGuildSummary(guildId);
-    if (!guild) throw new NotFoundError('Guild not found');
-    return {
-      ok: true, ...guild, includeMembers: includeMembers === 'true', requestId, };
-  }
-
-  @HttpPatch('/:guildId/config')
-  @HttpStatus(200)
-  async updateGuildConfig(
-    @HttpParam('guildId') guildId: string, @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto, ) {
-    return this.service.updateConfig(guildId, body);
-  }
-
-  @HttpGet('/:guildId/raw')
-  async getRawContext(@HttpCtx() ctx: Context) {
-    const guildId = ctx.req.param('guildId');
-    ctx.header('X-Custom-Header', 'spraxium');
-    return ctx.json({ ok: true, guildId }, 200);
-  }
+@HttpGet('/:guildId')
+async getGuild(
+  @HttpParam('guildId') guildId: string,
+  @HttpQuery('includeMembers') includeMembers?: string,
+  @HttpHeader('x-request-id') requestId?: string,
+) {
+const guild = await this.service.getGuildSummary(guildId);
+if (!guild) throw new NotFoundError('Guild not found');
+return {
+  ok: true,
+  ...guild,
+  includeMembers: includeMembers === 'true',
+  requestId,
+};
 }
-```
+
+@HttpPatch('/:guildId/config')
+@HttpStatus(200)
+async updateGuildConfig(
+  @HttpParam('guildId') guildId: string,
+  @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
+) {
+return this.service.updateConfig(guildId, body);
+}
+
+@HttpGet('/:guildId/raw')
+async getRawContext(@HttpCtx() ctx: Context) {
+const guildId = ctx.req.param('guildId');
+ctx.header('X-Custom-Header', 'spraxium');
+return ctx.json({ ok: true, guildId }, 200);
+}
+}
+
+````
   </Tab>
   <Tab label="http/dto/update-guild-config.dto.ts" language="typescript">
 ```typescript filename="http/dto/update-guild-config.dto.ts"
@@ -116,7 +172,8 @@ export class UpdateGuildConfigDto {
   @IsBoolean()
   maintenanceMode?: boolean;
 }
-```
+````
+
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
@@ -126,10 +183,15 @@ import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-  controllers: [GuildHttpController], services: [GuildHttpService], })
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+})
 @Module({
-  imports: [HttpModule], providers: [GuildHttpController, GuildHttpService], })
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
+})
 export class AppModule {}
+
 ```
   </Tab>
 </CodeTabs>
@@ -177,3 +239,4 @@ When a handler returns a native `Response` (constructed with `ctx.json()`, `ctx.
 ## Next page
 
 Continue with [Security, Guards, and Middleware](/guide/http-security-guards-middleware).
+```

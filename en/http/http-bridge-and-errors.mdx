@@ -4,27 +4,29 @@ description: |
   Understand how BotBridge works in direct and sharded runtimes.
   Design endpoint contracts that stay stable regardless of Discord process topology.
 order: 6
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Why the bridge exists
 
-*BotBridge* is the abstraction layer between HTTP controllers and Discord operations. Controllers should depend on *BotBridge* methods, not on raw discord.js internals like `client.guilds.cache` or `guild.members.ban()`. This keeps route behavior stable even when your deployment topology changes from a single process to sharded workers, because the controller code does not change.
+_BotBridge_ is the abstraction layer between HTTP controllers and Discord operations. Controllers should depend on _BotBridge_ methods, not on raw discord.js internals like `client.guilds.cache` or `guild.members.ban()`. This keeps route behavior stable even when your deployment topology changes from a single process to sharded workers, because the controller code does not change.
 
-Without the bridge, moving from direct mode to sharded mode would require rewriting every controller that interacts with Discord. The bridge pattern isolates that difference into two concrete classes, *DirectBotBridge* and *ShardedBotBridge*, both implementing the same abstract contract. *BridgeFactory* selects the correct implementation at server startup and injects it into the DI dependency map, so controllers and services can declare `BotBridge` as a constructor parameter and receive the right implementation automatically.
+Without the bridge, moving from direct mode to sharded mode would require rewriting every controller that interacts with Discord. The bridge pattern isolates that difference into two concrete classes, _DirectBotBridge_ and _ShardedBotBridge_, both implementing the same abstract contract. _BridgeFactory_ selects the correct implementation at server startup and injects it into the DI dependency map, so controllers and services can declare `BotBridge` as a constructor parameter and receive the right implementation automatically.
 
-The bridge also forces serialization at the boundary. Discord.js objects contain circular references, live caches, and methods that are not safe to serialize to JSON. The bridge returns plain typed objects like *SerializedGuild*, *SerializedMember*, and *SerializedBan* that are safe for HTTP transport.
+The bridge also forces serialization at the boundary. Discord.js objects contain circular references, live caches, and methods that are not safe to serialize to JSON. The bridge returns plain typed objects like _SerializedGuild_, _SerializedMember_, and _SerializedBan_ that are safe for HTTP transport.
 
 ## Runtime mode selection
 
-*BridgeFactory.create(client, manager)* selects the bridge implementation based on which runtime reference is available. The factory follows a strict precedence: *ShardingManager* takes priority over *Client*. If neither is provided, the factory throws an error at startup, preventing the server from running without Discord connectivity.
+_BridgeFactory.create(client, manager)_ selects the bridge implementation based on which runtime reference is available. The factory follows a strict precedence: _ShardingManager_ takes priority over _Client_. If neither is provided, the factory throws an error at startup, preventing the server from running without Discord connectivity.
 
 <Table variant="striped">
   <TableHead>
     <TableRow>
       <TableCell header="Mode">Mode</TableCell>
       <TableCell header="Implementation">Implementation</TableCell>
-      <TableCell header="How it accesses Discord">How it accesses Discord</TableCell>
+      <TableCell header="How it accesses Discord">
+        How it accesses Discord
+      </TableCell>
       <TableCell header="When to use">When to use</TableCell>
     </TableRow>
   </TableHead>
@@ -32,21 +34,33 @@ The bridge also forces serialization at the boundary. Discord.js objects contain
     <TableRow>
       <TableCell>Direct</TableCell>
       <TableCell>*DirectBotBridge*</TableCell>
-      <TableCell>Uses the local Discord *Client* instance. Reads from guild cache and calls API methods directly on the same process.</TableCell>
-      <TableCell>Single-process bots or development environments where sharding is unnecessary.</TableCell>
+      <TableCell>
+        Uses the local Discord *Client* instance. Reads from guild cache and
+        calls API methods directly on the same process.
+      </TableCell>
+      <TableCell>
+        Single-process bots or development environments where sharding is
+        unnecessary.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Sharded</TableCell>
       <TableCell>*ShardedBotBridge*</TableCell>
-      <TableCell>Uses `manager.broadcastEval()` to send a function to all shards. Returns the first non-null (reads) or first `true` (actions) result.</TableCell>
-      <TableCell>Production bots in multiple shards where the HTTP server runs in the parent process without a local *Client*.</TableCell>
+      <TableCell>
+        Uses `manager.broadcastEval()` to send a function to all shards. Returns
+        the first non-null (reads) or first `true` (actions) result.
+      </TableCell>
+      <TableCell>
+        Production bots in multiple shards where the HTTP server runs in the
+        parent process without a local *Client*.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## BotBridge capability contract
 
-The abstract *BotBridge* class defines 12 methods organized into three operation groups. Every concrete implementation must fulfill all 13 methods, ensuring controllers have a complete and consistent API regardless of runtime mode.
+The abstract _BotBridge_ class defines 12 methods organized into three operation groups. Every concrete implementation must fulfill all 13 methods, ensuring controllers have a complete and consistent API regardless of runtime mode.
 
 <DropdownGroup>
 <Dropdown title="Read operations: getGuild · getMember · getMembers · getBan · getBans">
@@ -54,7 +68,15 @@ The abstract *BotBridge* class defines 12 methods organized into three operation
 </Dropdown>
 
 <Dropdown title="Moderation: banMember · unbanMember · kickMember · timeoutMember · removeTimeoutMember">
-  *banMember(guildId, userId, reason, options?)* bans a member with an optional *deleteMessageSeconds* value to purge recent messages, returning `true` on success. *unbanMember(guildId, userId)* lifts an active ban and *kickMember(guildId, userId, reason)* removes the member without blocking them from rejoining, both returning `true` on success. *timeoutMember(guildId, userId, durationMs, reason)* applies a Discord communication timeout for the given duration in milliseconds, and *removeTimeoutMember(guildId, userId)* clears it by setting the timeout to `null`; both return `true` on success and `false` if the operation fails.
+  *banMember(guildId, userId, reason, options?)* bans a member with an optional
+  *deleteMessageSeconds* value to purge recent messages, returning `true` on
+  success. *unbanMember(guildId, userId)* lifts an active ban and
+  *kickMember(guildId, userId, reason)* removes the member without blocking them
+  from rejoining, both returning `true` on success. *timeoutMember(guildId,
+  userId, durationMs, reason)* applies a Discord communication timeout for the
+  given duration in milliseconds, and *removeTimeoutMember(guildId, userId)*
+  clears it by setting the timeout to `null`; both return `true` on success and
+  `false` if the operation fails.
 </Dropdown>
 
 <Dropdown title="Role: addRole · removeRole">
@@ -62,11 +84,11 @@ The abstract *BotBridge* class defines 12 methods organized into three operation
 </Dropdown>
 </DropdownGroup>
 
-Read methods return serialized objects or `null`. Action methods return boolean success flags. Every bridge method wraps its body in a try/catch: on failure, read methods return `null` (or empty array for *getBans*) and action methods return `false`. This means controllers never need to handle unexpected exceptions from bridge calls.
+Read methods return serialized objects or `null`. Action methods return boolean success flags. Every bridge method wraps its body in a try/catch: on failure, read methods return `null` (or empty array for _getBans_) and action methods return `false`. This means controllers never need to handle unexpected exceptions from bridge calls.
 
 ## How the sharded bridge works
 
-*ShardedBotBridge* uses `manager.broadcastEval()` to execute a closure on every shard in the cluster. The closure receives the shard's local *Client* and a serialized context object with the parameters (guild ID, user ID, etc). Only the shard that owns the target guild will find it in its cache, so the others return `null` or `false`.
+_ShardedBotBridge_ uses `manager.broadcastEval()` to execute a closure on every shard in the cluster. The closure receives the shard's local _Client_ and a serialized context object with the parameters (guild ID, user ID, etc). Only the shard that owns the target guild will find it in its cache, so the others return `null` or `false`.
 
 For read operations, the bridge collects results from all shards and returns the first non-null value using `.find(r => r !== null)`. For action operations, it returns `true` if any shard returned `true` using `.some(r => r === true)`. This fan-out pattern means every operation reaches the correct shard without requiring the HTTP server to know shard topology or guild-to-shard mapping.
 
@@ -83,32 +105,42 @@ import { BanMemberDto } from '../dto/ban-member.dto';
 
 @HttpController('/guilds/:guildId/moderation')
 export class ModerationHttpController {
-  constructor(private readonly bridge: BotBridge) {}
+constructor(private readonly bridge: BotBridge) {}
 
-  @HttpGet('/bans')
-  async listBans(@HttpParam('guildId') guildId: string) {
-    const bans = await this.bridge.getBans(guildId);
-    return { ok: true, guildId, bans, count: bans.length };
-  }
-
-  @HttpGet('/members/:userId')
-  async getMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, ) {
-    const member = await this.bridge.getMember(guildId, userId);
-    if (!member) throw new NotFoundError('Member not found in guild');
-    return { ok: true, member };
-  }
-
-  @HttpPost('/bans/:userId')
-  @HttpStatus(201)
-  async banMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, @HttpBody(BanMemberDto) body: BanMemberDto, ) {
-    const success = await this.bridge.banMember(
-      guildId, userId, body.reason, { deleteMessageSeconds: body.deleteMessageSeconds }, );
-    return { ok: success, guildId, userId };
-  }
+@HttpGet('/bans')
+async listBans(@HttpParam('guildId') guildId: string) {
+const bans = await this.bridge.getBans(guildId);
+return { ok: true, guildId, bans, count: bans.length };
 }
-```
+
+@HttpGet('/members/:userId')
+async getMember(
+  @HttpParam('guildId') guildId: string,
+  @HttpParam('userId') userId: string,
+) {
+const member = await this.bridge.getMember(guildId, userId);
+if (!member) throw new NotFoundError('Member not found in guild');
+return { ok: true, member };
+}
+
+@HttpPost('/bans/:userId')
+@HttpStatus(201)
+async banMember(
+  @HttpParam('guildId') guildId: string,
+  @HttpParam('userId') userId: string,
+  @HttpBody(BanMemberDto) body: BanMemberDto,
+) {
+const success = await this.bridge.banMember(
+  guildId,
+  userId,
+  body.reason,
+  { deleteMessageSeconds: body.deleteMessageSeconds },
+);
+return { ok: success, guildId, userId };
+}
+}
+
+````
   </Tab>
   <Tab label="http/dto/ban-member.dto.ts" language="typescript">
 ```typescript filename="http/dto/ban-member.dto.ts"
@@ -125,7 +157,8 @@ export class BanMemberDto {
   @Max(604800)
   deleteMessageSeconds?: number;
 }
-```
+````
+
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
@@ -134,10 +167,14 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { ModerationHttpController } from './http/controllers/moderation-http.controller';
 
 @HttpClientModule({
-  controllers: [ModerationHttpController], })
+  controllers: [ModerationHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [ModerationHttpController], })
+  imports: [HttpModule],
+  providers: [ModerationHttpController],
+})
 export class AppModule {}
+
 ```
   </Tab>
 </CodeTabs>
@@ -202,3 +239,4 @@ In direct mode, serializers run in the same process as the Discord client. In sh
 ## Next page
 
 Continue with [Exceptions and Error Handling](/guide/http-exceptions-and-error-handling).
+```

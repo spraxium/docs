@@ -9,15 +9,15 @@ category: Environment
 
 ## How validators work
 
-Every validator is a property decorator that attaches a validation rule to the field metadata. When the schema runs at boot time, rules execute in the order they were declared on the property. Each rule can include a *transform* step that converts the raw string into the target type and a *validate* step that checks whether the converted value is acceptable. If any rule returns an error message, the field fails validation.
+Every validator is a property decorator that attaches a validation rule to the field metadata. When the schema runs at boot time, rules execute in the order they were declared on the property. Each rule can include a _transform_ step that converts the raw string into the target type and a _validate_ step that checks whether the converted value is acceptable. If any rule returns an error message, the field fails validation.
 
-You can stack multiple validators on a single property. A field like a Redis URI might use *IsRedisUri* for format checking and *Secret* for masking. The pipeline runs every rule sequentially, so *Transform* runs its conversion before *Validate* sees the value. Understanding this order matters when you combine custom transforms with built-in type validators.
+You can stack multiple validators on a single property. A field like a Redis URI might use _IsRedisUri_ for format checking and _Secret_ for masking. The pipeline runs every rule sequentially, so _Transform_ runs its conversion before _Validate_ sees the value. Understanding this order matters when you combine custom transforms with built-in type validators.
 
 The validators are organized into six families: string, number, boolean, network, Discord, and data validators. A seventh group, common validators, contains utility decorators that modify field behavior without checking types.
 
 ## String validator
 
-The *IsString* validator confirms that the value is a non-empty string. It does not perform any transformation because environment variables are already strings. Use it for free-form text fields where you want to guarantee the variable exists and is not empty.
+The _IsString_ validator confirms that the value is a non-empty string. It does not perform any transformation because environment variables are already strings. Use it for free-form text fields where you want to guarantee the variable exists and is not empty.
 
 ```typescript filename="src/app.env.ts"
 @Env('APP_NAME')
@@ -56,7 +56,7 @@ Three validators handle numeric values. Each one transforms the raw string into 
   </TableBody>
 </Table>
 
-All three transform the string with `Number()` before validating. *IsNumber* rejects `NaN` and empty strings. *IsInteger* further requires `Number.isInteger()` to pass. *IsPort* adds a range check from 1 to 65535 on top of the integer requirement.
+All three transform the string with `Number()` before validating. _IsNumber_ rejects `NaN` and empty strings. _IsInteger_ further requires `Number.isInteger()` to pass. _IsPort_ adds a range check from 1 to 65535 on top of the integer requirement.
 
 ```typescript filename="src/app.env.ts"
 @Env('RATE_LIMIT')
@@ -74,7 +74,7 @@ HTTP_PORT!: number;
 
 ## Boolean validator
 
-The *IsBoolean* validator transforms string representations into native booleans. It accepts four raw values: `"true"`, `"false"`, `"1"`, and `"0"`. The comparison is case-insensitive and trims whitespace, so `" TRUE "` resolves to `true`. Any other value fails validation.
+The _IsBoolean_ validator transforms string representations into native booleans. It accepts four raw values: `"true"`, `"false"`, `"1"`, and `"0"`. The comparison is case-insensitive and trims whitespace, so `" TRUE "` resolves to `true`. Any other value fails validation.
 
 After transformation, the property holds a real JavaScript boolean. You never need to compare against the string `"true"` in your code. This is the recommended way to handle feature flags and toggle switches stored in environment variables.
 
@@ -125,7 +125,7 @@ Four validators cover common network-related formats. Each one checks the string
   </TableBody>
 </Table>
 
-Network validators work well with *Secret* to mask credentials in the startup log. A MongoDB connection string contains a password, so the default masking behavior protects it automatically. Hostnames and ports are safe to display, so mark them with `secret: false` in the *@Env* options.
+Network validators work well with _Secret_ to mask credentials in the startup log. A MongoDB connection string contains a password, so the default masking behavior protects it automatically. Hostnames and ports are safe to display, so mark them with `secret: false` in the _@Env_ options.
 
 ```typescript filename="src/app.env.ts"
 @Env('MONGO_URI')
@@ -145,9 +145,9 @@ API_HOST!: string;
 
 Two validators target Discord-specific formats. They are strict about shape because invalid tokens or IDs cause hard-to-debug authentication failures at connect time.
 
-*IsDiscordToken* checks for a three-segment base64url string between 59 and 100 characters. It validates that each segment is non-empty, uses only base64url characters, and that the total length falls within the expected range. This catches common mistakes like pasting a token with trailing whitespace or copying only part of it from the Developer Portal.
+_IsDiscordToken_ checks for a three-segment base64url string between 59 and 100 characters. It validates that each segment is non-empty, uses only base64url characters, and that the total length falls within the expected range. This catches common mistakes like pasting a token with trailing whitespace or copying only part of it from the Developer Portal.
 
-*IsDiscordId* checks for a numeric snowflake between 17 and 19 digits. Discord snowflakes are always numeric strings in this range, so the validator rejects anything that contains non-digit characters or falls outside the length bounds. The strict length requirement also rejects truncated IDs that might appear valid in other contexts but would cause API errors when used in Discord requests.
+_IsDiscordId_ checks for a numeric snowflake between 17 and 19 digits. Discord snowflakes are always numeric strings in this range, so the validator rejects anything that contains non-digit characters or falls outside the length bounds. The strict length requirement also rejects truncated IDs that might appear valid in other contexts but would cause API errors when used in Discord requests.
 
 ```typescript filename="src/app.env.ts"
 @Env('DISCORD_TOKEN')
@@ -163,9 +163,9 @@ GUILD_ID!: string;
 
 Two validators handle structured data stored as strings in environment variables.
 
-*IsJson* parses the raw value with `JSON.parse` during the transform phase. If parsing succeeds, the property holds the parsed JavaScript object or array. If parsing fails, the raw string passes through and the validate phase rejects it. This is useful for complex configuration that you want to store as a JSON string in a single environment variable.
+_IsJson_ parses the raw value with `JSON.parse` during the transform phase. If parsing succeeds, the property holds the parsed JavaScript object or array. If parsing fails, the raw string passes through and the validate phase rejects it. This is useful for complex configuration that you want to store as a JSON string in a single environment variable.
 
-*IsEnum* accepts an array of allowed values and checks that the resolved value matches one of them. It does not transform the value, so it works on strings by default. You can combine it with a type validator like *IsNumber* if your enum values are numeric, since *IsEnum* runs its check after all transforms complete.
+_IsEnum_ accepts an array of allowed values and checks that the resolved value matches one of them. It does not transform the value, so it works on strings by default. You can combine it with a type validator like _IsNumber_ if your enum values are numeric, since _IsEnum_ runs its check after all transforms complete.
 
 ```typescript filename="src/app.env.ts"
 @Env('FEATURE_FLAGS')
@@ -187,15 +187,26 @@ The common validators do not check types. Instead they modify how the field beha
 </Dropdown>
 
 <Dropdown title="Secret">
-  Forces masking of the field value in the startup log, regardless of the *@Env* `secret` option. By default, fields with the *@Env* decorator mask their values unless `secret: false` is set explicitly. Use *Secret* as a decorator-level override when you want to guarantee masking even if someone changes the *@Env* options later.
+  Forces masking of the field value in the startup log, regardless of the *@Env*
+  `secret` option. By default, fields with the *@Env* decorator mask their
+  values unless `secret: false` is set explicitly. Use *Secret* as a
+  decorator-level override when you want to guarantee masking even if someone
+  changes the *@Env* options later.
 </Dropdown>
 
 <Dropdown title="Default">
-  Sets a static fallback value and automatically marks the field as optional. If the environment variable is absent, the field resolves to the provided default instead of failing validation. This combines the behavior of *IsOptional* with a concrete fallback, so the property always has a value at runtime.
+  Sets a static fallback value and automatically marks the field as optional. If
+  the environment variable is absent, the field resolves to the provided default
+  instead of failing validation. This combines the behavior of *IsOptional* with
+  a concrete fallback, so the property always has a value at runtime.
 </Dropdown>
 
 <Dropdown title="Transform">
-  Runs a custom function on the raw string before any validation step in the same rule and before rules declared below it. The function receives the raw string and returns the transformed value, which becomes the new input for subsequent validators. Use this to normalize data like trimming whitespace, splitting comma-separated lists, or converting formats.
+  Runs a custom function on the raw string before any validation step in the
+  same rule and before rules declared below it. The function receives the raw
+  string and returns the transformed value, which becomes the new input for
+  subsequent validators. Use this to normalize data like trimming whitespace,
+  splitting comma-separated lists, or converting formats.
 </Dropdown>
 
 <Dropdown title="Validate">
@@ -203,11 +214,11 @@ The common validators do not check types. Instead they modify how the field beha
 </Dropdown>
 </DropdownGroup>
 
-*IsOptional* and *Default* both make the field optional, but *Default* also provides a concrete fallback. If you use *Default*, the field always resolves to a value. If you use *IsOptional* alone, the property can be `undefined` at runtime.
+_IsOptional_ and _Default_ both make the field optional, but _Default_ also provides a concrete fallback. If you use _Default_, the field always resolves to a value. If you use _IsOptional_ alone, the property can be `undefined` at runtime.
 
-*Transform* intercepts the raw string and returns the new value. It runs before any *validate* step in the same rule and before rules declared below it. This lets you normalize data, like trimming whitespace or splitting comma-separated lists, before the type validator sees the value.
+_Transform_ intercepts the raw string and returns the new value. It runs before any _validate_ step in the same rule and before rules declared below it. This lets you normalize data, like trimming whitespace or splitting comma-separated lists, before the type validator sees the value.
 
-*Validate* adds a custom check to the pipeline. The function receives the already-transformed value and returns `true` when it is acceptable or a string error message when it is not. This is the escape hatch for business rules that the built-in validators do not cover.
+_Validate_ adds a custom check to the pipeline. The function receives the already-transformed value and returns `true` when it is acceptable or a string error message when it is not. This is the escape hatch for business rules that the built-in validators do not cover.
 
 <CodeTabs>
   <Tab label="Transform" language="typescript">

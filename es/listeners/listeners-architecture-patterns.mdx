@@ -22,15 +22,16 @@ import { XpService } from '../services/xp.service';
 
 @Listener(Events.MessageCreate)
 export class MessageCreateListener {
-  constructor(private readonly xp: XpService) {}
+constructor(private readonly xp: XpService) {}
 
-  @On()
-  async onMessage(message: Message): Promise<void> {
-    if (message.author.bot) return;
-    await this.xp.awardMessagePoints(message.author.id, message.guildId);
-  }
+@On()
+async onMessage(message: Message): Promise<void> {
+if (message.author.bot) return;
+await this.xp.awardMessagePoints(message.author.id, message.guildId);
 }
-```
+}
+
+````
   </Tab>
   <Tab label="Servicio" language="typescript">
 ```typescript filename="src/events/services/xp.service.ts"
@@ -44,11 +45,12 @@ export class XpService {
     console.log(`Awarded points to ${userId} in guild ${guildId}`);
   }
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
-El listener extrae el ID de usuario y el ID de guild del mensaje, luego delega al *XpService*. Si mas tarde necesitas que un slash command también otorgue XP, simplemente inyectas el mismo servicio en el handler del comando. El servicio se convierte en la fuente única de verdad para la lógica de XP.
+El listener extrae el ID de usuario y el ID de guild del mensaje, luego delega al _XpService_. Si mas tarde necesitas que un slash command también otorgue XP, simplemente inyectas el mismo servicio en el handler del comando. El servicio se convierte en la fuente única de verdad para la lógica de XP.
 
 ## Organización de carpetas a escala
 
@@ -91,21 +93,22 @@ En esta estructura, el módulo de moderación posee sus listeners de eventos y s
 
 ## Registro de módulo con servicios
 
-El módulo que contiene listeners también necesita registrar cualquier servicio que esos listeners inyectan. El array *providers* del módulo es donde registras los servicios, y el array *listeners* es donde registras las clases listener. El framework resuelve las dependencias del constructor del listener desde los providers del módulo.
+El módulo que contiene listeners también necesita registrar cualquier servicio que esos listeners inyectan. El array _providers_ del módulo es donde registras los servicios, y el array _listeners_ es donde registras las clases listener. El framework resuelve las dependencias del constructor del listener desde los providers del módulo.
 
 ```typescript filename="src/leveling/leveling.module.ts"
-import { Module } from '@spraxium/common';
-import { MessageCreateListener } from './listeners/message-create.listener';
-import { VoiceStateListener } from './listeners/voice-state.listener';
-import { XpService } from './services/xp.service';
+import { Module } from "@spraxium/common";
+import { MessageCreateListener } from "./listeners/message-create.listener";
+import { VoiceStateListener } from "./listeners/voice-state.listener";
+import { XpService } from "./services/xp.service";
 
 @Module({
-  providers: [XpService], listeners: [MessageCreateListener, VoiceStateListener],
+  providers: [XpService],
+  listeners: [MessageCreateListener, VoiceStateListener],
 })
 export class LevelingModule {}
 ```
 
-Si un servicio necesita ser compartido entre múltiples módulos, exportalo desde el módulo que lo posee y luego importa ese módulo desde los demas. No registres el mismo servicio en el array *providers* de múltiples módulos porque eso crea instancias separadas que no comparten estado. El sistema de módulos de Spraxium sigue las mismas reglas de import y export que se aplican a commands y otros inyectables.
+Si un servicio necesita ser compartido entre múltiples módulos, exportalo desde el módulo que lo posee y luego importa ese módulo desde los demas. No registres el mismo servicio en el array _providers_ de múltiples módulos porque eso crea instancias separadas que no comparten estado. El sistema de módulos de Spraxium sigue las mismas reglas de import y export que se aplican a commands y otros inyectables.
 
 ## El patron de tres pasos
 
@@ -113,20 +116,34 @@ Cuando construyes un listener que va más allá de un simple log, un patron prob
 
 <Steps>
   <Step title="Filtrar el payload">
-    Lo primero que tu método handler debería hacer es verificar si el evento le interesa en absoluto. Muchos eventos de Discord disparan con mucha frecuencia y tu listener no necesita reaccionar a cada uno. Para MessageCreate, probablemente quieres ignorar bots. Para GuildMemberAdd, quizás quieres ignorar cuentas que ya procesaste. Los filtros tempranos evitan trabajo innecesario y mantienen tus logs limpios.
+    Lo primero que tu método handler debería hacer es verificar si el evento le
+    interesa en absoluto. Muchos eventos de Discord disparan con mucha
+    frecuencia y tu listener no necesita reaccionar a cada uno. Para
+    MessageCreate, probablemente quieres ignorar bots. Para GuildMemberAdd,
+    quizás quieres ignorar cuentas que ya procesaste. Los filtros tempranos
+    evitan trabajo innecesario y mantienen tus logs limpios.
   </Step>
   <Step title="Delegar a un servicio">
-    Una vez que sabes que el evento te interesa, extrae los datos que necesitas del payload de Discord.js y pasalos a un método de servicio. El servicio maneja la lógica de negocio, sea actualizar una base de datos, calcular un score, verificar cooldowns, o cualquier otra operación. El listener no debería saber como funciona la lógica internamente.
+    Una vez que sabes que el evento te interesa, extrae los datos que necesitas
+    del payload de Discord.js y pasalos a un método de servicio. El servicio
+    maneja la lógica de negocio, sea actualizar una base de datos, calcular un
+    score, verificar cooldowns, o cualquier otra operación. El listener no
+    debería saber como funciona la lógica internamente.
   </Step>
   <Step title="Responder si aplica">
-    No todos los listeners necesitan responder. Un listener de ready solo loguea. Un listener de message-create que trackea XP no necesita responder al usuario. Pero si necesitas enviar un mensaje de bienvenida o un embed de log, hazlo como el ultimo paso despues de que la lógica de negocio termino. Si la lógica de servicio fallo, puedes manejar el error en vez de enviar una respuesta con datos corruptos.
+    No todos los listeners necesitan responder. Un listener de ready solo
+    loguea. Un listener de message-create que trackea XP no necesita responder
+    al usuario. Pero si necesitas enviar un mensaje de bienvenida o un embed de
+    log, hazlo como el ultimo paso despues de que la lógica de negocio termino.
+    Si la lógica de servicio fallo, puedes manejar el error en vez de enviar una
+    respuesta con datos corruptos.
   </Step>
 </Steps>
 
 ```typescript filename="src/moderation/listeners/message-delete.listener.ts"
-import { Events, Listener, On } from '@spraxium/common';
-import type { Message } from 'discord.js';
-import { AuditLogService } from '../services/audit-log.service';
+import { Events, Listener, On } from "@spraxium/common";
+import type { Message } from "discord.js";
+import { AuditLogService } from "../services/audit-log.service";
 
 @Listener(Events.MessageDelete)
 export class MessageDeleteListener {
@@ -139,15 +156,19 @@ export class MessageDeleteListener {
 
     // Step 2: Delegate
     await this.audit.logDeletion({
-      userId: message.author.id, channelId: message.channelId, content: message.content, guildId: message.guild.id, });
+      userId: message.author.id,
+      channelId: message.channelId,
+      content: message.content,
+      guildId: message.guild.id,
+    });
 
     // Step 3: Respond (log to mod channel)
     const logChannel = message.guild.channels.cache.find(
-      (ch) => ch.name === 'mod-log'
+      (ch) => ch.name === "mod-log",
     );
     if (logChannel?.isTextBased()) {
       await logChannel.send(
-        `Message by ${message.author.username} was deleted in #${message.channel.name}`
+        `Message by ${message.author.username} was deleted in #${message.channel.name}`,
       );
     }
   }
@@ -155,7 +176,9 @@ export class MessageDeleteListener {
 ```
 
 <Callout tone="info" title="No todo listener necesita los tres pasos">
-  Un listener de ready típicamente solo loguea y no delega ni responde. Un listener de voice state puede solo filtrar y delegar sin responder. El patron es una guia, no una regla rígida. Usa los pasos que apliquen para tu caso.
+  Un listener de ready típicamente solo loguea y no delega ni responde. Un
+  listener de voice state puede solo filtrar y delegar sin responder. El patron
+  es una guia, no una regla rígida. Usa los pasos que apliquen para tu caso.
 </Callout>
 
 ## Siguiente página

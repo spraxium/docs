@@ -9,9 +9,9 @@ category: Schedule
 
 ## Qué es el módulo schedule
 
-El módulo *schedule* proporciona un sistema basado en decorators para ejecutar jobs temporizados en tu bot. En lugar de configurar temporizadores manuales con *setInterval* o bibliotecas cron externas, declaras el comportamiento de scheduling directamente en tus métodos usando *@Cron*, *@Interval*, *@Timeout* y *@AfterOnline*. El framework se encarga de la creación de timers, gestión del ciclo de vida y limpieza.
+El módulo _schedule_ proporciona un sistema basado en decorators para ejecutar jobs temporizados en tu bot. En lugar de configurar temporizadores manuales con _setInterval_ o bibliotecas cron externas, declaras el comportamiento de scheduling directamente en tus métodos usando _@Cron_, _@Interval_, _@Timeout_ y _@AfterOnline_. El framework se encarga de la creación de timers, gestión del ciclo de vida y limpieza.
 
-El módulo se instala como un paquete separado *@spraxium/schedule* y se registra como un módulo de Spraxium. Soporta zonas horarias, drivers de bloqueo distribuido para despliegues multi-instancia y control de jobs en runtime. El API es intencional y pequeño, cubre los cuatro patrones de scheduling que los bots de Discord realmente necesitan.
+El módulo se instala como un paquete separado _@spraxium/schedule_ y se registra como un módulo de Spraxium. Soporta zonas horarias, drivers de bloqueo distribuido para despliegues multi-instancia y control de jobs en runtime. El API es intencional y pequeño, cubre los cuatro patrones de scheduling que los bots de Discord realmente necesitan.
 
 Cada tipo de job cumple un rol diferente en el ciclo de vida del bot. Los jobs cron ejecutan tareas repetitivas en horarios predecibles, los jobs de intervalo producen operaciones de alta frecuencia, los timeouts disparan lógica diferida una única vez, y los planificadores post-online esperan a que el bot esté listo en Discord antes de ejecutarse. La tabla siguiente resume los cuatro tipos.
 
@@ -27,7 +27,9 @@ Cada tipo de job cumple un rol diferente en el ciclo de vida del bot. Los jobs c
     <TableRow>
       <TableCell>Cron</TableCell>
       <TableCell>*@Cron*</TableCell>
-      <TableCell>Se ejecuta según una expresión cron (ej. cada día a medianoche)</TableCell>
+      <TableCell>
+        Se ejecuta según una expresión cron (ej. cada día a medianoche)
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Intervalo</TableCell>
@@ -37,12 +39,17 @@ Cada tipo de job cumple un rol diferente en el ciclo de vida del bot. Los jobs c
     <TableRow>
       <TableCell>Timeout</TableCell>
       <TableCell>*@Timeout*</TableCell>
-      <TableCell>Se ejecuta una vez después de N milisegundos desde el inicio</TableCell>
+      <TableCell>
+        Se ejecuta una vez después de N milisegundos desde el inicio
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Post-online</TableCell>
       <TableCell>*@AfterOnline*</TableCell>
-      <TableCell>Se ejecuta una vez N milisegundos después de que el bot esté listo en Discord</TableCell>
+      <TableCell>
+        Se ejecuta una vez N milisegundos después de que el bot esté listo en
+        Discord
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -53,28 +60,43 @@ El sistema de schedule se inicializa en tres fases durante el inicio del bot. Co
 
 <Steps>
   <Step title="Fase de escaneo">
-    El framework recorre todas las clases del módulo y descubre los métodos decorados con *@Cron*, *@Interval*, *@Timeout* y *@AfterOnline*. Por cada método encontrado, registra el nombre, tipo, expresión de schedule y opciones configuradas. Este registro ocurre una única vez durante el arranque del bot.
+    El framework recorre todas las clases del módulo y descubre los métodos
+    decorados con *@Cron*, *@Interval*, *@Timeout* y *@AfterOnline*. Por cada
+    método encontrado, registra el nombre, tipo, expresión de schedule y
+    opciones configuradas. Este registro ocurre una única vez durante el
+    arranque del bot.
   </Step>
   <Step title="Fase de inicio">
-    Durante el arranque, el framework programa los jobs *@Cron*, *@Interval* y *@Timeout* con su temporización correspondiente. Si *runOnInit* está habilitado en algún job, se ejecuta inmediatamente en esta fase. Los intervalos y timeouts empiezan a contar desde este momento.
+    Durante el arranque, el framework programa los jobs *@Cron*, *@Interval* y
+    *@Timeout* con su temporización correspondiente. Si *runOnInit* está
+    habilitado en algún job, se ejecuta inmediatamente en esta fase. Los
+    intervalos y timeouts empiezan a contar desde este momento.
   </Step>
   <Step title="Fase de ready">
-    Después de que el bot emite el evento *ready* de Discord, el framework programa los jobs *@AfterOnline*. Estos jobs esperan el delay especificado en milisegundos después de que el bot esté online antes de ejecutar su lógica. Esto es útil para tareas que necesitan del cliente de Discord completamente conectado, como obtener recuentos de servidores o sincronizar datos de canales.
+    Después de que el bot emite el evento *ready* de Discord, el framework
+    programa los jobs *@AfterOnline*. Estos jobs esperan el delay especificado
+    en milisegundos después de que el bot esté online antes de ejecutar su
+    lógica. Esto es útil para tareas que necesitan del cliente de Discord
+    completamente conectado, como obtener recuentos de servidores o sincronizar
+    datos de canales.
   </Step>
 </Steps>
 
 ## Configuración básica
 
-La configuración mínima requiere registrar el módulo schedule en tu configuración de Spraxium. Todos los campos de configuración son opcionales e incluyen valores predeterminados. El driver predeterminado es *MemoryDriver*, que funciona para despliegues de instancia única sin configuración adicional.
+La configuración mínima requiere registrar el módulo schedule en tu configuración de Spraxium. Todos los campos de configuración son opcionales e incluyen valores predeterminados. El driver predeterminado es _MemoryDriver_, que funciona para despliegues de instancia única sin configuración adicional.
 
 ```typescript filename="config/schedule.config.ts"
-import { defineSchedule } from '@spraxium/schedule';
+import { defineSchedule } from "@spraxium/schedule";
 
 export default defineSchedule();
 ```
 
 <Callout type="info">
-  El módulo de schedule usa el *MemoryDriver* por defecto, que almacena el estado de los jobs en memoria. Para bots distribuidos con múltiples shards o procesos, cambia al *RedisScheduleDriver* para prevenir ejecuciones duplicadas.
+  El módulo de schedule usa el *MemoryDriver* por defecto, que almacena el
+  estado de los jobs en memoria. Para bots distribuidos con múltiples shards o
+  procesos, cambia al *RedisScheduleDriver* para prevenir ejecuciones
+  duplicadas.
 </Callout>
 
 ## Estructura del módulo

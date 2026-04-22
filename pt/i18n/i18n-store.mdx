@@ -9,7 +9,7 @@ category: i18n
 
 ## Por que as preferências de locale precisam de uma store persistente
 
-*I18nService.tUser()* resolve o locale para um usuário por uma cadeia de prioridades: preferência do
+_I18nService.tUser()_ resolve o locale para um usuário por uma cadeia de prioridades: preferência do
 usuário, depois preferência do servidor, depois o padrão configurado. Para que essa cadeia funcione
 entre reinicializações do bot, algo precisa lembrar essas preferências. A store é esse elemento. É
 a única interface responsável por persistir e recuperar as escolhas de locale de usuários e servidores.
@@ -21,29 +21,31 @@ próxima vez que o bot reiniciar.
 
 ## Como o I18nStoreRegistry funciona
 
-*I18nStoreRegistry* é uma classe estática que mantém a referência da store ativa. O lifecycle do i18n
-sempre chama *I18nStoreRegistry.get()* na inicialização para recuperar a store, independentemente de
+_I18nStoreRegistry_ é uma classe estática que mantém a referência da store ativa. O lifecycle do i18n
+sempre chama _I18nStoreRegistry.get()_ na inicialização para recuperar a store, independentemente de
 uma customizada ter sido registrada ou não. Se nenhuma store customizada foi definida, o registro cria
-e retorna uma instância de *MemoryStore* automaticamente. Nenhum erro é lançado e nenhuma configuração
+e retorna uma instância de _MemoryStore_ automaticamente. Nenhum erro é lançado e nenhuma configuração
 extra é necessária para o uso básico.
 
 A propriedade principal desse design é que o registro da store é independente do objeto de configuração
-do plugin. Você chama *I18nStoreRegistry.set* em qualquer momento antes do lifecycle do i18n ser
+do plugin. Você chama _I18nStoreRegistry.set_ em qualquer momento antes do lifecycle do i18n ser
 executado, seja no arquivo principal de bootstrap, dentro de um lifecycle hook customizado, ou em
 qualquer outro ponto da sequência de inicialização do bot.
 
 ## Registrando uma store customizada
 
 ```typescript filename="src/main.ts"
-import { I18nStoreRegistry } from '@spraxium/i18n';
-import { SpraxiumFactory } from '@spraxium/core';
-import { IntentPreset } from '@spraxium/common';
-import { DrizzleLocaleStore } from './stores/drizzle-locale.store';
-import { db } from './database/connection';
+import { I18nStoreRegistry } from "@spraxium/i18n";
+import { SpraxiumFactory } from "@spraxium/core";
+import { IntentPreset } from "@spraxium/common";
+import { DrizzleLocaleStore } from "./stores/drizzle-locale.store";
+import { db } from "./database/connection";
 
 async function main(): Promise<void> {
   I18nStoreRegistry.set(new DrizzleLocaleStore(db));
-  const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN!,
+  });
   app.intents(IntentPreset.Standard);
   await app.listen();
 }
@@ -51,13 +53,13 @@ async function main(): Promise<void> {
 main();
 ```
 
-A store é definida antes de *SpraxiumFactory.create* ser chamado, garantindo que esteja disponível
+A store é definida antes de _SpraxiumFactory.create_ ser chamado, garantindo que esteja disponível
 antes do lifecycle do i18n ser executado. Registrá-la no arquivo de bootstrap principal mantém a
 dependência explícita e visível.
 
 ## Implementando uma store customizada
 
-Qualquer classe que implementa *I18nStore* é uma store válida. Use a ORM que já faz parte do projeto:
+Qualquer classe que implementa _I18nStore_ é uma store válida. Use a ORM que já faz parte do projeto:
 
 <CodeTabs>
   <Tab label="Drizzle ORM" language="typescript">
@@ -68,47 +70,47 @@ import type { I18nStore } from '@spraxium/i18n';
 export class DrizzleLocaleStore implements I18nStore {
   constructor(private readonly db: DrizzleDatabase) {}
 
-  async init(): Promise<void> {
-    await this.db.execute(sql`
-      CREATE TABLE IF NOT EXISTS locale_preferences (
+async init(): Promise<void> {
+await this.db.execute(sql`       CREATE TABLE IF NOT EXISTS locale_preferences (
         user_id TEXT PRIMARY KEY, locale  TEXT NOT NULL
       )
     `);
-  }
-
-  async getUser(userId: string): Promise<string | undefined> {
-    const linha = await this.db
-      .select()
-      .from(localePreferences)
-      .where(eq(localePreferences.userId, userId))
-      .limit(1);
-    return linha[0]?.locale ?? undefined;
-  }
-
-  async setUser(userId: string, locale: string): Promise<void> {
-    await this.db
-      .insert(localePreferences)
-      .values({ userId, locale })
-      .onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
-  }
-
-  async getGuild(guildId: string): Promise<string | undefined> {
-    const linha = await this.db
-      .select()
-      .from(guildLocalePreferences)
-      .where(eq(guildLocalePreferences.guildId, guildId))
-      .limit(1);
-    return linha[0]?.locale ?? undefined;
-  }
-
-  async setGuild(guildId: string, locale: string): Promise<void> {
-    await this.db
-      .insert(guildLocalePreferences)
-      .values({ guildId, locale })
-      .onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
-  }
 }
-```
+
+async getUser(userId: string): Promise<string | undefined> {
+const linha = await this.db
+.select()
+.from(localePreferences)
+.where(eq(localePreferences.userId, userId))
+.limit(1);
+return linha[0]?.locale ?? undefined;
+}
+
+async setUser(userId: string, locale: string): Promise<void> {
+await this.db
+.insert(localePreferences)
+.values({ userId, locale })
+.onConflictDoUpdate({ target: localePreferences.userId, set: { locale } });
+}
+
+async getGuild(guildId: string): Promise<string | undefined> {
+const linha = await this.db
+.select()
+.from(guildLocalePreferences)
+.where(eq(guildLocalePreferences.guildId, guildId))
+.limit(1);
+return linha[0]?.locale ?? undefined;
+}
+
+async setGuild(guildId: string, locale: string): Promise<void> {
+await this.db
+.insert(guildLocalePreferences)
+.values({ guildId, locale })
+.onConflictDoUpdate({ target: guildLocalePreferences.guildId, set: { locale } });
+}
+}
+
+````
   </Tab>
   <Tab label="Prisma ORM" language="typescript">
 ```typescript filename="stores/prisma-locale.store.ts"
@@ -122,27 +124,38 @@ export class PrismaLocaleStore implements I18nStore {
 
   async getUser(userId: string): Promise<string | undefined> {
     const registro = await this.prisma.localePreference.findUnique({
-      where: { userId }, select: { locale: true }, });
+      where:  { userId },
+      select: { locale: true },
+    });
     return registro?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
     await this.prisma.localePreference.upsert({
-      where: { userId }, create: { userId, locale }, update: { locale }, });
+      where:  { userId },
+      create: { userId, locale },
+      update: { locale },
+    });
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
     const registro = await this.prisma.guildLocalePreference.findUnique({
-      where: { guildId }, select: { locale: true }, });
+      where:  { guildId },
+      select: { locale: true },
+    });
     return registro?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
     await this.prisma.guildLocalePreference.upsert({
-      where: { guildId }, create: { guildId, locale }, update: { locale }, });
+      where:  { guildId },
+      create: { guildId, locale },
+      update: { locale },
+    });
   }
 }
-```
+````
+
   </Tab>
   <Tab label="TypeORM" language="typescript">
 ```typescript filename="stores/typeorm-locale.store.ts"
@@ -151,48 +164,49 @@ import type { I18nStore } from '@spraxium/i18n';
 
 @Entity('locale_preferences')
 class LocalePreference {
-  @PrimaryColumn() userId!: string;
-  @Column()        locale!: string;
+@PrimaryColumn() userId!: string;
+@Column() locale!: string;
 }
 
 @Entity('guild_locale_preferences')
 class GuildLocalePreference {
-  @PrimaryColumn() guildId!: string;
-  @Column()        locale!: string;
+@PrimaryColumn() guildId!: string;
+@Column() locale!: string;
 }
 
 export class TypeOrmLocaleStore implements I18nStore {
   private usuarios: Repository<LocalePreference>;
   private servidores: Repository<GuildLocalePreference>;
 
-  constructor(private readonly dataSource: DataSource) {
-    this.usuarios   = dataSource.getRepository(LocalePreference);
-    this.servidores = dataSource.getRepository(GuildLocalePreference);
-  }
-
-  async init(): Promise<void> {
-    await this.dataSource.synchronize();
-  }
-
-  async getUser(userId: string): Promise<string | undefined> {
-    const registro = await this.usuarios.findOne({ where: { userId } });
-    return registro?.locale ?? undefined;
-  }
-
-  async setUser(userId: string, locale: string): Promise<void> {
-    await this.usuarios.upsert({ userId, locale }, ['userId']);
-  }
-
-  async getGuild(guildId: string): Promise<string | undefined> {
-    const registro = await this.servidores.findOne({ where: { guildId } });
-    return registro?.locale ?? undefined;
-  }
-
-  async setGuild(guildId: string, locale: string): Promise<void> {
-    await this.servidores.upsert({ guildId, locale }, ['guildId']);
-  }
+constructor(private readonly dataSource: DataSource) {
+this.usuarios = dataSource.getRepository(LocalePreference);
+this.servidores = dataSource.getRepository(GuildLocalePreference);
 }
-```
+
+async init(): Promise<void> {
+await this.dataSource.synchronize();
+}
+
+async getUser(userId: string): Promise<string | undefined> {
+const registro = await this.usuarios.findOne({ where: { userId } });
+return registro?.locale ?? undefined;
+}
+
+async setUser(userId: string, locale: string): Promise<void> {
+await this.usuarios.upsert({ userId, locale }, ['userId']);
+}
+
+async getGuild(guildId: string): Promise<string | undefined> {
+const registro = await this.servidores.findOne({ where: { guildId } });
+return registro?.locale ?? undefined;
+}
+
+async setGuild(guildId: string, locale: string): Promise<void> {
+await this.servidores.upsert({ guildId, locale }, ['guildId']);
+}
+}
+
+````
   </Tab>
 </CodeTabs>
 
@@ -252,17 +266,20 @@ export class LocaleHandler {
     await this.i18n.setUserLocale(userId, locale);
 
     const confirmacao = await this.i18n.tUser(
-      userId, 'commands.locale.alterado', { locale }, );
+      userId,
+      'commands.locale.alterado',
+      { locale },
+    );
 
     await interaction.reply({ content: confirmacao, ephemeral: true });
   }
 }
-```
+````
 
 ## Reiniciando a store em testes
 
-A natureza estática do *I18nStoreRegistry* significa que o estado pode vazar entre casos de teste.
-Use *reset()* nos hooks de teardown para manter os testes isolados:
+A natureza estática do _I18nStoreRegistry_ significa que o estado pode vazar entre casos de teste.
+Use _reset()_ nos hooks de teardown para manter os testes isolados:
 
 <CodeTabs>
   <Tab label="Vitest" language="typescript">
@@ -270,13 +287,14 @@ Use *reset()* nos hooks de teardown para manter os testes isolados:
 import { I18nStoreRegistry, MemoryStore } from '@spraxium/i18n';
 
 beforeEach(() => {
-  I18nStoreRegistry.set(new MemoryStore());
+I18nStoreRegistry.set(new MemoryStore());
 });
 
 afterEach(() => {
-  I18nStoreRegistry.reset();
+I18nStoreRegistry.reset();
 });
-```
+
+````
   </Tab>
   <Tab label="Store com spy" language="typescript">
 ```typescript filename="test/locale.handler.test.ts"
@@ -284,7 +302,11 @@ import { I18nStoreRegistry } from '@spraxium/i18n';
 import { vi } from 'vitest';
 
 const mockStore = {
-  init: vi.fn().mockResolvedValue(undefined), getUser: vi.fn().mockResolvedValue('pt-BR'), setUser: vi.fn().mockResolvedValue(undefined), getGuild: vi.fn().mockResolvedValue(undefined), setGuild: vi.fn().mockResolvedValue(undefined),
+  init:     vi.fn().mockResolvedValue(undefined),
+  getUser:  vi.fn().mockResolvedValue('pt-BR'),
+  setUser:  vi.fn().mockResolvedValue(undefined),
+  getGuild: vi.fn().mockResolvedValue(undefined),
+  setGuild: vi.fn().mockResolvedValue(undefined),
 };
 
 beforeEach(() => {
@@ -295,7 +317,8 @@ afterEach(() => {
   I18nStoreRegistry.reset();
   vi.clearAllMocks();
 });
-```
+````
+
   </Tab>
 </CodeTabs>
 

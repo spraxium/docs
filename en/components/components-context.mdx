@@ -9,43 +9,49 @@ category: Components
 
 ## What is flow context
 
-Flow context is a stateful data container that threads information across sequential component interactions. When a user clicks a button, selects an option, and then submits a modal, each handler in that sequence may need access to data from previous steps. Without flow context, you would need to encode state into *customId* strings (limited to 100 characters), store data in an external database, or use global maps that leak memory.
+Flow context is a stateful data container that threads information across sequential component interactions. When a user clicks a button, selects an option, and then submits a modal, each handler in that sequence may need access to data from previous steps. Without flow context, you would need to encode state into _customId_ strings (limited to 100 characters), store data in an external database, or use global maps that leak memory.
 
-*SpraxiumContext* solves this by providing a typed, TTL-bound, optionally user-restricted data container that is stored in a pluggable adapter and referenced by a UUID appended to the component's *customId*. The *ContextService* creates contexts, the component services attach context IDs to rendered components, and the dispatcher resolves contexts automatically before invoking handlers.
+_SpraxiumContext_ solves this by providing a typed, TTL-bound, optionally user-restricted data container that is stored in a pluggable adapter and referenced by a UUID appended to the component's _customId_. The _ContextService_ creates contexts, the component services attach context IDs to rendered components, and the dispatcher resolves contexts automatically before invoking handlers.
 
 The flow context system is shared across all component types. A context created for a button row can be read by a modal handler triggered later in the same flow. This cross-component threading is what makes multi-step interactive experiences possible without manual state management.
 
 ## Creating a context
 
-Inject *ContextService* into your command or service and call *create* with the data object you want to thread through the flow. The method returns a *SpraxiumContext* with a generated UUID, the data, timestamps, and the TTL. You then pass this context to the component service's build method.
+Inject _ContextService_ into your command or service and call _create_ with the data object you want to thread through the flow. The method returns a _SpraxiumContext_ with a generated UUID, the data, timestamps, and the TTL. You then pass this context to the component service's build method.
 
 ```typescript filename="src/commands/setup-wizard.command-handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { ContextService, ButtonService } from '@spraxium/components';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { NextStepButton } from '../components/next-step.button';
-import { SetupWizardCommand } from './setup-wizard.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { ContextService, ButtonService } from "@spraxium/components";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { NextStepButton } from "../components/next-step.button";
+import { SetupWizardCommand } from "./setup-wizard.command";
 
 @SlashCommandHandler(SetupWizardCommand)
 export class SetupWizardCommandHandler {
   constructor(
-    private readonly context: ContextService, private readonly buttons: ButtonService, ) {}
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const ctx = await this.context.create(
-      { step: 1, guildId: interaction.guildId, settings: {} }, { ttl: 600, restrictedTo: interaction.user.id }, );
+      { step: 1, guildId: interaction.guildId, settings: {} },
+      { ttl: 600, restrictedTo: interaction.user.id },
+    );
 
     const row = this.buttons.rowWithContext(ctx, NextStepButton);
 
     await interaction.reply({
-      content: 'Welcome to the setup wizard. Click Next to begin.', components: [row], });
+      content: "Welcome to the setup wizard. Click Next to begin.",
+      components: [row],
+    });
   }
 }
 ```
 
 ## SpraxiumContext interface
 
-The *SpraxiumContext* object carries both your custom data and operational metadata. The *id* is a UUID that gets appended to *customId* strings via the tilde separator. The *data* field holds your typed payload. The *ttl* and *expiresAt* fields control automatic expiration, and *restrictedTo* limits which user can interact with components carrying this context.
+The _SpraxiumContext_ object carries both your custom data and operational metadata. The _id_ is a UUID that gets appended to _customId_ strings via the tilde separator. The _data_ field holds your typed payload. The _ttl_ and _expiresAt_ fields control automatic expiration, and _restrictedTo_ limits which user can interact with components carrying this context.
 
 <Table>
   <TableHead>
@@ -59,45 +65,61 @@ The *SpraxiumContext* object carries both your custom data and operational metad
     <TableRow>
       <TableCell>*id*</TableCell>
       <TableCell>`string`</TableCell>
-      <TableCell>UUID generated by `crypto.randomUUID()`. Appended to *customId* via tilde separator.</TableCell>
+      <TableCell>
+        UUID generated by `crypto.randomUUID()`. Appended to *customId* via
+        tilde separator.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*data*</TableCell>
       <TableCell>`T`</TableCell>
-      <TableCell>Your typed payload. Can be any serializable object. Mutable through *update*.</TableCell>
+      <TableCell>
+        Your typed payload. Can be any serializable object. Mutable through
+        *update*.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*createdAt*</TableCell>
       <TableCell>`number`</TableCell>
-      <TableCell>Unix timestamp in milliseconds when the context was created.</TableCell>
+      <TableCell>
+        Unix timestamp in milliseconds when the context was created.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*ttl*</TableCell>
       <TableCell>`number`</TableCell>
-      <TableCell>Time-to-live in seconds. Used to compute *expiresAt*.</TableCell>
+      <TableCell>
+        Time-to-live in seconds. Used to compute *expiresAt*.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*expiresAt*</TableCell>
       <TableCell>`number`</TableCell>
-      <TableCell>Unix timestamp in milliseconds when the context expires. Computed as `createdAt + ttl * 1000`.</TableCell>
+      <TableCell>
+        Unix timestamp in milliseconds when the context expires. Computed as
+        `createdAt + ttl * 1000`.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*restrictedTo*</TableCell>
       <TableCell>`string | undefined`</TableCell>
-      <TableCell>When set, only this user ID can interact with components carrying this context.</TableCell>
+      <TableCell>
+        When set, only this user ID can interact with components carrying this
+        context.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Reading context in handlers
 
-Use the *@FlowContext()* parameter decorator in your handler's *handle* method to receive the resolved context. The dispatcher extracts the context ID from the *customId*, retrieves the context from the storage adapter, validates expiration and user restrictions, and injects the resolved object. If the context has expired or the user is restricted, the dispatcher replies with the configured error message and does not invoke the handler.
+Use the _@FlowContext()_ parameter decorator in your handler's _handle_ method to receive the resolved context. The dispatcher extracts the context ID from the _customId_, retrieves the context from the storage adapter, validates expiration and user restrictions, and injects the resolved object. If the context has expired or the user is restricted, the dispatcher replies with the configured error message and does not invoke the handler.
 
 ```typescript filename="src/components/next-step.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
-import type { ButtonInteraction } from 'discord.js';
-import type { SpraxiumContext } from '@spraxium/components';
-import { NextStepButton } from './next-step.button';
+import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
+import type { ButtonInteraction } from "discord.js";
+import type { SpraxiumContext } from "@spraxium/components";
+import { NextStepButton } from "./next-step.button";
 
 interface WizardData {
   step: number;
@@ -108,24 +130,28 @@ interface WizardData {
 @ButtonHandler(NextStepButton)
 export class NextStepButtonHandler {
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<WizardData>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
     const { step, settings } = ctx.data;
     await interaction.reply({
-      content: `You are on step ${step}. Current settings: ${JSON.stringify(settings)}`, ephemeral: true, });
+      content: `You are on step ${step}. Current settings: ${JSON.stringify(settings)}`,
+      ephemeral: true,
+    });
   }
 }
 ```
 
 ## Updating context
 
-The *ContextService.update* method patches the context data without replacing the entire object. This is useful in multi-step flows where each handler adds or modifies a subset of the data. The method returns a boolean indicating whether the update succeeded (context found and not expired).
+The _ContextService.update_ method patches the context data without replacing the entire object. This is useful in multi-step flows where each handler adds or modifies a subset of the data. The method returns a boolean indicating whether the update succeeded (context found and not expired).
 
 ```typescript filename="src/components/step-two.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
-import { ContextService } from '@spraxium/components';
-import type { ButtonInteraction } from 'discord.js';
-import type { SpraxiumContext } from '@spraxium/components';
-import { StepTwoButton } from './step-two.button';
+import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
+import { ContextService } from "@spraxium/components";
+import type { ButtonInteraction } from "discord.js";
+import type { SpraxiumContext } from "@spraxium/components";
+import { StepTwoButton } from "./step-two.button";
 
 interface WizardData {
   step: number;
@@ -138,42 +164,50 @@ export class StepTwoButtonHandler {
   constructor(private readonly context: ContextService) {}
 
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<WizardData>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<WizardData>,
+  ): Promise<void> {
     await this.context.update<WizardData>(ctx.id, {
-      step: 2, settings: { ...ctx.data.settings, language: 'en' }, });
+      step: 2,
+      settings: { ...ctx.data.settings, language: "en" },
+    });
 
     await interaction.reply({
-      content: 'Step 2 complete. Proceeding to step 3.', ephemeral: true, });
+      content: "Step 2 complete. Proceeding to step 3.",
+      ephemeral: true,
+    });
   }
 }
 ```
 
 ## Deleting context
 
-Call *ContextService.delete* when the flow is complete or cancelled. This immediately removes the context from the storage adapter. While contexts expire automatically based on TTL, explicit deletion is good practice for flows that complete normally, as it frees storage and prevents stale data from being read in edge cases.
+Call _ContextService.delete_ when the flow is complete or cancelled. This immediately removes the context from the storage adapter. While contexts expire automatically based on TTL, explicit deletion is good practice for flows that complete normally, as it frees storage and prevents stale data from being read in edge cases.
 
 ```typescript filename="src/components/finish-wizard.handler.ts"
-import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
-import { ContextService } from '@spraxium/components';
-import type { ButtonInteraction } from 'discord.js';
-import type { SpraxiumContext } from '@spraxium/components';
-import { FinishButton } from './finish.button';
+import { ButtonHandler, Ctx, FlowContext } from "@spraxium/components";
+import { ContextService } from "@spraxium/components";
+import type { ButtonInteraction } from "discord.js";
+import type { SpraxiumContext } from "@spraxium/components";
+import { FinishButton } from "./finish.button";
 
 @ButtonHandler(FinishButton)
 export class FinishWizardHandler {
   constructor(private readonly context: ContextService) {}
 
   async handle(
-    @Ctx() interaction: ButtonInteraction, @FlowContext() ctx: SpraxiumContext<unknown>, ): Promise<void> {
+    @Ctx() interaction: ButtonInteraction,
+    @FlowContext() ctx: SpraxiumContext<unknown>,
+  ): Promise<void> {
     await this.context.delete(ctx.id);
-    await interaction.reply({ content: 'Setup complete!', ephemeral: true });
+    await interaction.reply({ content: "Setup complete!", ephemeral: true });
   }
 }
 ```
 
 ## Storage adapters
 
-The context system uses a pluggable storage adapter configured through the *defineComponents* plugin. Four built-in adapters cover different deployment scenarios. All adapters implement the *ContextStorageAdapter* interface with async *get*, *set*, *delete*, and *entries* methods.
+The context system uses a pluggable storage adapter configured through the _defineComponents_ plugin. Four built-in adapters cover different deployment scenarios. All adapters implement the _ContextStorageAdapter_ interface with async _get_, _set_, _delete_, and _entries_ methods.
 
 <Table>
   <TableHead>
@@ -189,35 +223,46 @@ The context system uses a pluggable storage adapter configured through the *defi
       <TableCell>Memory</TableCell>
       <TableCell>`'memory'`</TableCell>
       <TableCell>Volatile, lost on restart</TableCell>
-      <TableCell>Development and testing. Zero configuration required.</TableCell>
+      <TableCell>
+        Development and testing. Zero configuration required.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Filesystem</TableCell>
       <TableCell>`'filesystem'`</TableCell>
       <TableCell>JSON file in `.spraxium/` directory</TableCell>
-      <TableCell>Single-instance bots that need contexts to survive restarts.</TableCell>
+      <TableCell>
+        Single-instance bots that need contexts to survive restarts.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Redis</TableCell>
       <TableCell>`'redis'`</TableCell>
       <TableCell>Redis keys with `spraxium:ctx:` prefix</TableCell>
-      <TableCell>Multi-instance deployments with shared state requirements.</TableCell>
+      <TableCell>
+        Multi-instance deployments with shared state requirements.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>SQLite</TableCell>
       <TableCell>`'sqlite'`</TableCell>
       <TableCell>SQLite database at `.spraxium/contexts.db`</TableCell>
-      <TableCell>Lightweight persistence without external infrastructure.</TableCell>
+      <TableCell>
+        Lightweight persistence without external infrastructure.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ```typescript filename="config/components.config.ts"
-import { defineComponents } from '@spraxium/components';
+import { defineComponents } from "@spraxium/components";
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: 'redis', defaultTtl: 600, }, });
+    storage: "redis",
+    defaultTtl: 600,
+  },
+});
 ```
 
 ## ContextService API reference
@@ -256,39 +301,47 @@ export const componentsPlugin = defineComponents({
 
 ## TTL and expiration behavior
 
-Every context has a TTL measured in seconds. When a user interacts with a component whose context has expired, the dispatcher replies with the configured *errorMessages.expired* message and does not invoke the handler. Expired contexts are not deleted immediately from storage; they are cleaned up lazily when accessed or during periodic sweeps by the storage adapter.
+Every context has a TTL measured in seconds. When a user interacts with a component whose context has expired, the dispatcher replies with the configured _errorMessages.expired_ message and does not invoke the handler. Expired contexts are not deleted immediately from storage; they are cleaned up lazily when accessed or during periodic sweeps by the storage adapter.
 
-The default TTL is set in the *defineComponents* configuration. Individual contexts can override it through the *options.ttl* parameter in *ContextService.create*.
+The default TTL is set in the _defineComponents_ configuration. Individual contexts can override it through the _options.ttl_ parameter in _ContextService.create_.
 
 <Callout type="tip">
-  For short interactions like confirmation dialogs, a TTL of 60 to 120 seconds is appropriate.
-  For multi-step wizards, 600 to 1800 seconds provides a comfortable window for users to complete the flow without hitting an expiration mid-interaction.
+  For short interactions like confirmation dialogs, a TTL of 60 to 120 seconds
+  is appropriate. For multi-step wizards, 600 to 1800 seconds provides a
+  comfortable window for users to complete the flow without hitting an
+  expiration mid-interaction.
 </Callout>
 
 ## User restrictions
 
-The *restrictedTo* option limits context access to a specific user ID. When set, only interactions from that user ID are dispatched to the handler. Other users who click the component receive the configured *errorMessages.restricted* message. This is essential for flows where the component is visible to everyone in a channel but should only be actionable by the user who initiated the command.
+The _restrictedTo_ option limits context access to a specific user ID. When set, only interactions from that user ID are dispatched to the handler. Other users who click the component receive the configured _errorMessages.restricted_ message. This is essential for flows where the component is visible to everyone in a channel but should only be actionable by the user who initiated the command.
 
 ```typescript filename="src/commands/verification.command-handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
-import { ContextService, ButtonService } from '@spraxium/components';
-import type { ChatInputCommandInteraction } from 'discord.js';
-import { VerifyButton } from '../components/verify.button';
-import { VerificationCommand } from './verification.command';
+import { Ctx, SlashCommandHandler } from "@spraxium/common";
+import { ContextService, ButtonService } from "@spraxium/components";
+import type { ChatInputCommandInteraction } from "discord.js";
+import { VerifyButton } from "../components/verify.button";
+import { VerificationCommand } from "./verification.command";
 
 @SlashCommandHandler(VerificationCommand)
 export class VerificationCommandHandler {
   constructor(
-    private readonly context: ContextService, private readonly buttons: ButtonService, ) {}
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+  ) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const ctx = await this.context.create(
-      { userId: interaction.user.id }, { ttl: 300, restrictedTo: interaction.user.id }, );
+      { userId: interaction.user.id },
+      { ttl: 300, restrictedTo: interaction.user.id },
+    );
 
     const row = this.buttons.rowWithContext(ctx, VerifyButton);
 
     await interaction.reply({
-      content: 'Click the button to verify your identity.', components: [row], });
+      content: "Click the button to verify your identity.",
+      components: [row],
+    });
   }
 }
 ```

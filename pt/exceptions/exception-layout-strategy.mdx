@@ -13,7 +13,7 @@ Quando um usuário executa um comando e algo dá errado, o que ele vê no chat �
 
 Essa separação faz com que o código de domínio se mantenha focado em regras de negócio e nunca precise saber como os erros aparecem para o usuário. Um guard que nega acesso lança `PermissionDeniedException`. Ele não constrói um embed, não compõe uma string de mensagem e não decide se a resposta deve ser efêmera. Tudo isso vive no layout, que pode ser alterado ou sobrescrito de forma independente sem tocar em nenhuma lógica de domínio.
 
-O método *build* retorna um objeto *ExceptionLayoutPayload*. Todos os campos são opcionais e podem ser combinados livremente. Um layout pode retornar apenas texto, apenas embeds, ou uma combinação com componentes interativos.
+O método _build_ retorna um objeto _ExceptionLayoutPayload_. Todos os campos são opcionais e podem ser combinados livremente. Um layout pode retornar apenas texto, apenas embeds, ou uma combinação com componentes interativos.
 
 <Table variant="striped">
   <TableHead>
@@ -37,17 +37,24 @@ O método *build* retorna um objeto *ExceptionLayoutPayload*. Todos os campos s�
     <TableRow>
       <TableCell>*components*</TableCell>
       <TableCell>`ActionRowBuilder[]`</TableCell>
-      <TableCell>Componentes interativos como botões ou menus de seleção</TableCell>
+      <TableCell>
+        Componentes interativos como botões ou menus de seleção
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*ephemeral*</TableCell>
       <TableCell>`boolean`</TableCell>
-      <TableCell>Se a resposta é visível apenas para o usuário que disparou o erro, padrão `true`</TableCell>
+      <TableCell>
+        Se a resposta é visível apenas para o usuário que disparou o erro,
+        padrão `true`
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*flags*</TableCell>
       <TableCell>`MessageFlags`</TableCell>
-      <TableCell>Flags de mensagem do Discord de baixo nível para controle avançado</TableCell>
+      <TableCell>
+        Flags de mensagem do Discord de baixo nível para controle avançado
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -60,12 +67,12 @@ O Spraxium resolve layouts em uma ordem fixa, e conhecer essa ordem é essencial
 2. Mapeamento no config correspondendo ao nome da classe de exception
 3. Decorator no nível de classe com `@WithLayout()`
 4. A entrada padrão no mapa de layout da configuração
-5. O *DefaultExceptionLayout* embutido do framework
+5. O _DefaultExceptionLayout_ embutido do framework
 
 <Callout tone="warning" title="Consequência prática">
-  Se você mapear uma classe no mapa de layout do config, esse mapeamento tem prioridade sobre
-  o decorator no nível de classe, o que permite que a configuração da aplicação sobrescreva
-  padrões de biblioteca quando necessário.
+  Se você mapear uma classe no mapa de layout do config, esse mapeamento tem
+  prioridade sobre o decorator no nível de classe, o que permite que a
+  configuração da aplicação sobrescreva padrões de biblioteca quando necessário.
 </Callout>
 
 ## Quando usar @WithLayout
@@ -96,7 +103,7 @@ Use o decorator quando a própria classe de exception deve carregar um layout pa
 
 ## Quando mapear na configuração
 
-Mapeie em *spraxium.config.ts* quando a política de layout é orientada por decisões de produto como branding, tom de linguagem ou estratégia específica por ambiente. Este é geralmente o melhor padrão para governança no nível da aplicação porque centraliza toda a lógica de apresentação de erro em um lugar, facilitando a gestão de mudanças já que você pode trocar a política de layout sem modificar nenhuma classe de exception de domínio.
+Mapeie em _spraxium.config.ts_ quando a política de layout é orientada por decisões de produto como branding, tom de linguagem ou estratégia específica por ambiente. Este é geralmente o melhor padrão para governança no nível da aplicação porque centraliza toda a lógica de apresentação de erro em um lugar, facilitando a gestão de mudanças já que você pode trocar a política de layout sem modificar nenhuma classe de exception de domínio.
 
 <Table variant="striped">
   <TableHead>
@@ -129,23 +136,28 @@ Use o override por instância apenas para casos contextuais onde a mesma classe 
 O exemplo a seguir mostra como criar uma classe de exception com um layout no nível de decorator e depois sobrescrevê-lo na configuração da aplicação. O mapeamento no config tem prioridade sobre o decorator, o que significa que o layout com branding da equipe renderiza em produção enquanto o decorator serve como fallback para qualquer consumidor que não configurar um mapeamento específico.
 
 ```typescript filename="policy.exception.ts"
-import { WithLayout } from '@spraxium/common';
-import { defineExceptionLayout, SpraxiumException } from '@spraxium/core';
-import { EmbedBuilder } from 'discord.js';
+import { WithLayout } from "@spraxium/common";
+import { defineExceptionLayout, SpraxiumException } from "@spraxium/core";
+import { EmbedBuilder } from "discord.js";
 
 const PolicyLayout = defineExceptionLayout((exception) => ({
   embeds: [
     new EmbedBuilder()
       .setColor(0xffb020)
-      .setTitle('Ação bloqueada por política')
-      .setDescription(String(exception.props.reason ?? 'Motivo não informado')), ], ephemeral: true,
+      .setTitle("Ação bloqueada por política")
+      .setDescription(String(exception.props.reason ?? "Motivo não informado")),
+  ],
+  ephemeral: true,
 }));
 
 @WithLayout(PolicyLayout)
 export class PolicyException extends SpraxiumException {
   constructor(props: { reason: string }) {
     super({
-      code: 'POLICY_BLOCKED', message: 'Action blocked: {{reason}}', props, });
+      code: "POLICY_BLOCKED",
+      message: "Action blocked: {{reason}}",
+      props,
+    });
   }
 }
 ```

@@ -11,9 +11,9 @@ category: Listeners
 
 Not all Discord events are the same from the framework's perspective. Some events carry a message or interaction as their first argument, and some events carry other types of payloads like a Client object, a GuildMember, or a channel. This distinction matters because the framework uses it to decide how to execute your listener method and whether to apply the guard and exception pipeline.
 
-When the first argument of the event is a *BaseInteraction* or a *Message*, the framework runs the method through the full pipeline. This means class-level and method-level guards execute first, and if the method throws an exception, the exception pipeline handles it with layout rendering and optional reply behavior. This is the same pipeline that slash and prefix commands use, which is why guards and exception layouts work seamlessly on message and interaction listeners.
+When the first argument of the event is a _BaseInteraction_ or a _Message_, the framework runs the method through the full pipeline. This means class-level and method-level guards execute first, and if the method throws an exception, the exception pipeline handles it with layout rendering and optional reply behavior. This is the same pipeline that slash and prefix commands use, which is why guards and exception layouts work seamlessly on message and interaction listeners.
 
-When the first argument is anything else, like the *Client* object for *ClientReady* or a *GuildMember* for *GuildMemberAdd*, the framework calls the method directly without the guard or exception pipeline. If the method throws an error, the framework catches it and logs it as an unhandled listener error, but there is no layout rendering or reply behavior because the event payload does not support replies in the way that messages and interactions do.
+When the first argument is anything else, like the _Client_ object for _ClientReady_ or a _GuildMember_ for _GuildMemberAdd_, the framework calls the method directly without the guard or exception pipeline. If the method throws an error, the framework catches it and logs it as an unhandled listener error, but there is no layout rendering or reply behavior because the event payload does not support replies in the way that messages and interactions do.
 
 <Table variant="striped">
   <TableHead>
@@ -27,7 +27,9 @@ When the first argument is anything else, like the *Client* object for *ClientRe
     <TableRow>
       <TableCell>*BaseInteraction* or *Message*</TableCell>
       <TableCell>Full pipeline with guards and exception handler</TableCell>
-      <TableCell>Exception layouts, reply behavior, structured handling</TableCell>
+      <TableCell>
+        Exception layouts, reply behavior, structured handling
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Any other type</TableCell>
@@ -37,29 +39,29 @@ When the first argument is anything else, like the *Client* object for *ClientRe
   </TableBody>
 </Table>
 
-This is an important detail to keep in mind when designing your listeners. If you attach guards to a listener that handles *GuildMemberAdd*, the guards will not run because the first argument is a *GuildMember*, not a *BaseInteraction* or *Message*. Guards only activate when the framework can build an *ExecutionContext* from the event payload, which requires an interaction or message.
+This is an important detail to keep in mind when designing your listeners. If you attach guards to a listener that handles _GuildMemberAdd_, the guards will not run because the first argument is a _GuildMember_, not a _BaseInteraction_ or _Message_. Guards only activate when the framework can build an _ExecutionContext_ from the event payload, which requires an interaction or message.
 
 ## Using guards on listeners
 
-For events that go through the full pipeline, you can attach guards at the class level or method level using *@UseGuards*, exactly like you would on a command handler. The guards run before the listener method executes, and if any guard denies, the method is skipped and the denial goes through the exception pipeline.
+For events that go through the full pipeline, you can attach guards at the class level or method level using _@UseGuards_, exactly like you would on a command handler. The guards run before the listener method executes, and if any guard denies, the method is skipped and the denial goes through the exception pipeline.
 
 ```typescript filename="protected-message.listener.ts"
-import { Events, Listener, On, UseGuards, withOptions } from '@spraxium/common';
-import { GuildOnly, RoleGuard } from '@spraxium/core';
-import type { Message } from 'discord.js';
+import { Events, Listener, On, UseGuards, withOptions } from "@spraxium/common";
+import { GuildOnly, RoleGuard } from "@spraxium/core";
+import type { Message } from "discord.js";
 
 @Listener(Events.MessageCreate)
-@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Verified'] }))
+@UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ["Verified"] }))
 export class ProtectedMessageListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    await message.reply('You are verified and in a server.');
+    await message.reply("You are verified and in a server.");
   }
 }
 ```
 
-In this example, both the *GuildOnly* guard and the *RoleGuard* run before *onMessage* executes. If the message comes from a DM, *GuildOnly* denies and the method never runs. If the member does not have the "Verified" role, *RoleGuard* denies. Only when both guards pass does the method execute.
+In this example, both the _GuildOnly_ guard and the _RoleGuard_ run before _onMessage_ executes. If the message comes from a DM, _GuildOnly_ denies and the method never runs. If the member does not have the "Verified" role, _RoleGuard_ denies. Only when both guards pass does the method execute.
 
 You can also use method-level guards for fine-grained control when a listener class has multiple handler methods. The class-level guards apply to all methods, and method-level guards add extra restrictions to specific methods only.
 
@@ -68,14 +70,17 @@ You can also use method-level guards for fine-grained control when a listener cl
 For events in the full pipeline, you can throw domain-specific exceptions from listener methods and the exception layer handles them the same way it handles command exceptions. This means your layouts, reply behavior, and logging configuration apply to listener exceptions without any extra setup.
 
 ```typescript filename="account-policy.listener.ts"
-import { Events, Listener, On } from '@spraxium/common';
-import type { Message } from 'discord.js';
-import { SpraxiumException } from '@spraxium/core';
+import { Events, Listener, On } from "@spraxium/common";
+import type { Message } from "discord.js";
+import { SpraxiumException } from "@spraxium/core";
 
 class AccountSuspendedException extends SpraxiumException {
   constructor(props: { reason: string; userId: string }) {
     super({
-      code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended: {{reason}}.', props, });
+      code: "ACCOUNT_SUSPENDED",
+      message: "Your account has been suspended: {{reason}}.",
+      props,
+    });
   }
 }
 
@@ -88,7 +93,9 @@ export class AccountPolicyListener {
     const isSuspended = await this.checkSuspension(message.author.id);
     if (isSuspended) {
       throw new AccountSuspendedException({
-        reason: 'Policy violation', userId: message.author.id, });
+        reason: "Policy violation",
+        userId: message.author.id,
+      });
     }
   }
 
@@ -99,12 +106,12 @@ export class AccountPolicyListener {
 }
 ```
 
-For events that go through direct invocation instead of the full pipeline, thrown errors are caught and logged but not processed through the exception layer. This means you do not get layout rendering or structured replies for those events. If you need reliable error handling on direct-invocation events like *GuildMemberAdd*, handle errors explicitly inside the method with try-catch and your own logging.
+For events that go through direct invocation instead of the full pipeline, thrown errors are caught and logged but not processed through the exception layer. This means you do not get layout rendering or structured replies for those events. If you need reliable error handling on direct-invocation events like _GuildMemberAdd_, handle errors explicitly inside the method with try-catch and your own logging.
 
 ```typescript filename="member-join.listener.ts"
-import { Events, Listener, On } from '@spraxium/common';
-import { Logger } from '@spraxium/core';
-import type { GuildMember } from 'discord.js';
+import { Events, Listener, On } from "@spraxium/common";
+import { Logger } from "@spraxium/core";
+import type { GuildMember } from "discord.js";
 
 @Listener(Events.GuildMemberAdd)
 export class MemberJoinListener {
@@ -113,19 +120,28 @@ export class MemberJoinListener {
   @On()
   async onJoin(member: GuildMember): Promise<void> {
     try {
-      const channel = await member.guild.channels.fetch('1234567890');
+      const channel = await member.guild.channels.fetch("1234567890");
       if (channel?.isTextBased()) {
         await channel.send(`Welcome to the server, ${member}!`);
       }
     } catch (error) {
-      this.logger.error(`Failed to send welcome message for ${member.user.username}`, error);
+      this.logger.error(
+        `Failed to send welcome message for ${member.user.username}`,
+        error,
+      );
     }
   }
 }
 ```
 
-<Callout tone="warning" title="Guards only work on message and interaction events">
-  Attaching guards to a listener that handles events like ClientReady or GuildMemberAdd has no effect because the framework cannot build an ExecutionContext from those event payloads. Use explicit checks inside the method instead.
+<Callout
+  tone="warning"
+  title="Guards only work on message and interaction events"
+>
+  Attaching guards to a listener that handles events like ClientReady or
+  GuildMemberAdd has no effect because the framework cannot build an
+  ExecutionContext from those event payloads. Use explicit checks inside the
+  method instead.
 </Callout>
 
 ## Next study

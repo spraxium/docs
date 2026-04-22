@@ -4,20 +4,20 @@ description: |
   Entiende cómo BotBridge funciona en runtime directo y sharded.
   Diseña contratos de endpoint estables sin depender de la topología de procesos de Discord.
 order: 6
-category: '@spraxium/http'
+category: "@spraxium/http"
 ---
 
 ## Por qué existe el bridge
 
-*BotBridge* es la capa de abstracción entre controllers HTTP y operaciones de Discord. Los controllers deben depender de los métodos de *BotBridge*, no de internals crudos de discord.js como `client.guilds.cache` o `guild.members.ban()`. Esto mantiene el comportamiento de rutas estable incluso cuando la topología de despliegue cambia de proceso único a workers sharded, porque el código del controller no cambia.
+_BotBridge_ es la capa de abstracción entre controllers HTTP y operaciones de Discord. Los controllers deben depender de los métodos de _BotBridge_, no de internals crudos de discord.js como `client.guilds.cache` o `guild.members.ban()`. Esto mantiene el comportamiento de rutas estable incluso cuando la topología de despliegue cambia de proceso único a workers sharded, porque el código del controller no cambia.
 
-Sin la bridge, moverse de modo directo a modo sharded requeriría reescribir cada controller que interactúa con Discord. El patrón bridge aísla esa diferencia en dos clases concretas, *DirectBotBridge* y *ShardedBotBridge*, ambas implementando el mismo contrato abstracto. *BridgeFactory* selecciona la implementación correcta al arrancar el servidor y la inyecta en el mapa de dependencias de DI, para que controllers y services puedan declarar `BotBridge` como parámetro de constructor y recibir la implementación correcta automáticamente.
+Sin la bridge, moverse de modo directo a modo sharded requeriría reescribir cada controller que interactúa con Discord. El patrón bridge aísla esa diferencia en dos clases concretas, _DirectBotBridge_ y _ShardedBotBridge_, ambas implementando el mismo contrato abstracto. _BridgeFactory_ selecciona la implementación correcta al arrancar el servidor y la inyecta en el mapa de dependencias de DI, para que controllers y services puedan declarar `BotBridge` como parámetro de constructor y recibir la implementación correcta automáticamente.
 
-La bridge también fuerza serialización en la frontera. Los objetos de discord.js contienen referencias circulares, caches activos y métodos que no son seguros para serializar a JSON. La bridge retorna objetos plain tipados como *SerializedGuild*, *SerializedMember* y *SerializedBan* que son seguros para transporte HTTP.
+La bridge también fuerza serialización en la frontera. Los objetos de discord.js contienen referencias circulares, caches activos y métodos que no son seguros para serializar a JSON. La bridge retorna objetos plain tipados como _SerializedGuild_, _SerializedMember_ y _SerializedBan_ que son seguros para transporte HTTP.
 
 ## Selección de modo de runtime
 
-*BridgeFactory.create(client, manager)* selecciona la implementación de bridge basándose en qué referencia de runtime está disponible. El factory sigue una precedencia estricta: *ShardingManager* tiene prioridad sobre *Client*. Si ninguno se provee, el factory lanza un error al arrancar, previniendo que el servidor corra sin conectividad con Discord.
+_BridgeFactory.create(client, manager)_ selecciona la implementación de bridge basándose en qué referencia de runtime está disponible. El factory sigue una precedencia estricta: _ShardingManager_ tiene prioridad sobre _Client_. Si ninguno se provee, el factory lanza un error al arrancar, previniendo que el servidor corra sin conectividad con Discord.
 
 <DropdownGroup>
 <Dropdown title="Directo: DirectBotBridge">
@@ -31,7 +31,7 @@ La bridge también fuerza serialización en la frontera. Los objetos de discord.
 
 ## Contrato de capacidades de BotBridge
 
-La clase abstracta *BotBridge* define 12 métodos organizados en tres grupos de operación. Toda implementación concreta debe cumplir los 12 métodos, garantizando que los controllers tengan una API completa y consistente sin importar el modo de runtime.
+La clase abstracta _BotBridge_ define 12 métodos organizados en tres grupos de operación. Toda implementación concreta debe cumplir los 12 métodos, garantizando que los controllers tengan una API completa y consistente sin importar el modo de runtime.
 
 <Table variant="striped">
   <TableHead>
@@ -118,11 +118,11 @@ La clase abstracta *BotBridge* define 12 métodos organizados en tres grupos de 
   </TableBody>
 </Table>
 
-Métodos de lectura retornan objetos serializados o `null`. Métodos de acción retornan flags booleanos de éxito. Cada método de la bridge envuelve su cuerpo en try/catch: en caso de fallo, métodos de lectura retornan `null` (o array vacío para *getBans*) y métodos de acción retornan `false`. Esto significa que los controllers nunca necesitan manejar excepciones inesperadas de llamadas a la bridge.
+Métodos de lectura retornan objetos serializados o `null`. Métodos de acción retornan flags booleanos de éxito. Cada método de la bridge envuelve su cuerpo en try/catch: en caso de fallo, métodos de lectura retornan `null` (o array vacío para _getBans_) y métodos de acción retornan `false`. Esto significa que los controllers nunca necesitan manejar excepciones inesperadas de llamadas a la bridge.
 
 ## Cómo funciona la bridge sharded
 
-*ShardedBotBridge* usa `manager.broadcastEval()` para ejecutar un closure en cada shard del cluster. El closure recibe el *Client* local del shard y un objeto de contexto serializado con los parámetros (guild ID, user ID, etc). Solo el shard que controla la guild objetivo la encontrará en su cache, así que los demás retornan `null` o `false`.
+_ShardedBotBridge_ usa `manager.broadcastEval()` para ejecutar un closure en cada shard del cluster. El closure recibe el _Client_ local del shard y un objeto de contexto serializado con los parámetros (guild ID, user ID, etc). Solo el shard que controla la guild objetivo la encontrará en su cache, así que los demás retornan `null` o `false`.
 
 Para operaciones de lectura, la bridge recolecta resultados de todos los shards y retorna el primer valor no-null usando `.find(r => r !== null)`. Para operaciones de acción, retorna `true` si algún shard retornó `true` usando `.some(r => r === true)`. Este patrón de fan-out significa que cada operación alcanza el shard correcto sin requerir que el servidor HTTP conozca la topología de shards o el mapeo guild-a-shard.
 
@@ -139,32 +139,42 @@ import { BanMemberDto } from '../dto/ban-member.dto';
 
 @HttpController('/guilds/:guildId/moderation')
 export class ModerationHttpController {
-  constructor(private readonly bridge: BotBridge) {}
+constructor(private readonly bridge: BotBridge) {}
 
-  @HttpGet('/bans')
-  async listBans(@HttpParam('guildId') guildId: string) {
-    const bans = await this.bridge.getBans(guildId);
-    return { ok: true, guildId, bans, count: bans.length };
-  }
-
-  @HttpGet('/members/:userId')
-  async getMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, ) {
-    const member = await this.bridge.getMember(guildId, userId);
-    if (!member) throw new NotFoundError('Member not found in guild');
-    return { ok: true, member };
-  }
-
-  @HttpPost('/bans/:userId')
-  @HttpStatus(201)
-  async banMember(
-    @HttpParam('guildId') guildId: string, @HttpParam('userId') userId: string, @HttpBody(BanMemberDto) body: BanMemberDto, ) {
-    const success = await this.bridge.banMember(
-      guildId, userId, body.reason, { deleteMessageSeconds: body.deleteMessageSeconds }, );
-    return { ok: success, guildId, userId };
-  }
+@HttpGet('/bans')
+async listBans(@HttpParam('guildId') guildId: string) {
+const bans = await this.bridge.getBans(guildId);
+return { ok: true, guildId, bans, count: bans.length };
 }
-```
+
+@HttpGet('/members/:userId')
+async getMember(
+  @HttpParam('guildId') guildId: string,
+  @HttpParam('userId') userId: string,
+) {
+const member = await this.bridge.getMember(guildId, userId);
+if (!member) throw new NotFoundError('Member not found in guild');
+return { ok: true, member };
+}
+
+@HttpPost('/bans/:userId')
+@HttpStatus(201)
+async banMember(
+  @HttpParam('guildId') guildId: string,
+  @HttpParam('userId') userId: string,
+  @HttpBody(BanMemberDto) body: BanMemberDto,
+) {
+const success = await this.bridge.banMember(
+  guildId,
+  userId,
+  body.reason,
+  { deleteMessageSeconds: body.deleteMessageSeconds },
+);
+return { ok: success, guildId, userId };
+}
+}
+
+````
   </Tab>
   <Tab label="http/dto/ban-member.dto.ts" language="typescript">
 ```typescript filename="http/dto/ban-member.dto.ts"
@@ -181,7 +191,8 @@ export class BanMemberDto {
   @Max(604800)
   deleteMessageSeconds?: number;
 }
-```
+````
+
   </Tab>
   <Tab label="src/app.module.ts" language="typescript">
 ```typescript filename="src/app.module.ts"
@@ -190,10 +201,14 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { ModerationHttpController } from './http/controllers/moderation-http.controller';
 
 @HttpClientModule({
-  controllers: [ModerationHttpController], })
+  controllers: [ModerationHttpController],
+})
 @Module({
-  imports: [HttpModule], providers: [ModerationHttpController], })
+  imports: [HttpModule],
+  providers: [ModerationHttpController],
+})
 export class AppModule {}
+
 ```
   </Tab>
 </CodeTabs>
@@ -245,3 +260,4 @@ En modo directo, los serializers corren en el mismo proceso que el client Discor
 ## Página siguiente
 
 Continúa con [Excepciones y Manejo de Errores](/guide/http-exceptions-and-error-handling).
+```

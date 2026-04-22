@@ -58,34 +58,46 @@ Each job type maps to a decorator that you place on a method inside an injectabl
 
 ## Runtime lifecycle
 
-The schedule module operates in two phases that align with the framework boot sequence. Understanding these phases helps you predict when each job type starts executing and why *@AfterOnline* exists as a separate decorator instead of being a cron variant.
+The schedule module operates in two phases that align with the framework boot sequence. Understanding these phases helps you predict when each job type starts executing and why _@AfterOnline_ exists as a separate decorator instead of being a cron variant.
 
 <Steps>
   <Step title="Boot phase">
-    At application startup, the framework scans all providers and registers every method decorated with *@Cron*, *@Interval*, or *@Timeout*. Jobs with *runOnInit* enabled execute immediately during this phase. Interval and timeout timers begin counting from this moment.
+    At application startup, the framework scans all providers and registers
+    every method decorated with *@Cron*, *@Interval*, or *@Timeout*. Jobs with
+    *runOnInit* enabled execute immediately during this phase. Interval and
+    timeout timers begin counting from this moment.
   </Step>
   <Step title="Ready phase">
-    After the Discord client emits its *ready* event, the framework registers all *@AfterOnline* jobs and starts their delay timers. The separation exists because some tasks need an active Discord connection, like fetching guild data or sending welcome messages. Running these during boot would fail because the client is not connected yet.
+    After the Discord client emits its *ready* event, the framework registers
+    all *@AfterOnline* jobs and starts their delay timers. The separation exists
+    because some tasks need an active Discord connection, like fetching guild
+    data or sending welcome messages. Running these during boot would fail
+    because the client is not connected yet.
   </Step>
   <Step title="Runtime management">
-    Once all jobs are registered, the *ScheduleService* provides a public API for pausing, resuming, destroying, and manually triggering jobs by name. You can inject *ScheduleService* into any provider to control jobs programmatically from slash commands, prefix commands, or HTTP endpoints.
+    Once all jobs are registered, the *ScheduleService* provides a public API
+    for pausing, resuming, destroying, and manually triggering jobs by name. You
+    can inject *ScheduleService* into any provider to control jobs
+    programmatically from slash commands, prefix commands, or HTTP endpoints.
   </Step>
 </Steps>
 
 ## Minimum setup
 
-To use the schedule module, install the `@spraxium/schedule` package, create a configuration file using *defineSchedule*, and register *ScheduleModule* in your application. The module is global by default, so you only need to register it once. Any provider in any module can then use the schedule decorators.
+To use the schedule module, install the `@spraxium/schedule` package, create a configuration file using _defineSchedule_, and register _ScheduleModule_ in your application. The module is global by default, so you only need to register it once. Any provider in any module can then use the schedule decorators.
 
 ```typescript filename="config/schedule.config.ts"
-import { defineSchedule } from '@spraxium/schedule';
+import { defineSchedule } from "@spraxium/schedule";
 
 export default defineSchedule({
-  timezone: 'America/Sao_Paulo',
+  timezone: "America/Sao_Paulo",
 });
 ```
 
 <Callout type="info">
-  The schedule module uses the *MemoryDriver* by default, which stores job state in memory. For distributed bots running multiple shards or processes, switch to the *RedisScheduleDriver* to prevent duplicate executions.
+  The schedule module uses the *MemoryDriver* by default, which stores job state
+  in memory. For distributed bots running multiple shards or processes, switch
+  to the *RedisScheduleDriver* to prevent duplicate executions.
 </Callout>
 
 ## Project structure

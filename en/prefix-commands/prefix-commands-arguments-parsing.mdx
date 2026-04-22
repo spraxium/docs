@@ -17,7 +17,7 @@ For commands with subcommands, the first argv token is checked against registere
 
 ## @PrefixArg method decorators
 
-The *@PrefixArg* namespace provides 14 typed method decorators that you stack on a *build* method (for simple commands) or on *@PrefixSubcommand* methods (for subcommand commands). Each decorator declares one positional argument with its name, type, and optional validation rules. Decorators stack top-to-bottom to determine positional order.
+The _@PrefixArg_ namespace provides 14 typed method decorators that you stack on a _build_ method (for simple commands) or on _@PrefixSubcommand_ methods (for subcommand commands). Each decorator declares one positional argument with its name, type, and optional validation rules. Decorators stack top-to-bottom to determine positional order.
 
 <CodeTabs>
   <Tab label="Simple Command" language="typescript">
@@ -26,11 +26,12 @@ import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({ name: 'roll', cooldown: 3 })
 export class RollCommand {
-  @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
-  @PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
-  build() {}
+@PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
+@PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
+build() {}
 }
-```
+
+````
   </Tab>
   <Tab label="Subcommand" language="typescript">
 ```typescript filename="src/modules/moderation/commands/mod.command.ts"
@@ -43,13 +44,14 @@ export class ModCommand {
   @PrefixArg.Rest('reason', { required: false })
   ban() {}
 }
-```
+````
+
   </Tab>
 </CodeTabs>
 
 ## Supported argument types
 
-The framework provides 14 argument types that cover the most common Discord bot input patterns. Each type has its own parser that converts the raw text token into a typed output. If conversion fails, the parser throws an *ArgumentException* with a descriptive error message.
+The framework provides 14 argument types that cover the most common Discord bot input patterns. Each type has its own parser that converts the raw text token into a typed output. If conversion fails, the parser throws an _ArgumentException_ with a descriptive error message.
 
 <DropdownGroup>
   <Dropdown title="PrefixArg.String">
@@ -98,26 +100,46 @@ The framework provides 14 argument types that cover the most common Discord bot 
 
 ## Validation options
 
-Every *@PrefixArg* decorator accepts an optional configuration object with validation rules. These rules are applied during the parsing phase before the handler receives the value. If any validation fails, the parser throws an *ArgumentException* that includes the argument name, the expected constraint, and the received input.
+Every _@PrefixArg_ decorator accepts an optional configuration object with validation rules. These rules are applied during the parsing phase before the handler receives the value. If any validation fails, the parser throws an _ArgumentException_ that includes the argument name, the expected constraint, and the received input.
 
 <DropdownGroup>
   <Dropdown title="required (boolean, default true)">
-    When `true`, the parser throws an *ArgumentException* if the argument token is missing or empty. When `false`, a missing token results in `undefined` being injected and all further validation is skipped. Marking an argument as optional is useful for fields like reason text or count modifiers that have sensible defaults in the handler.
+    When `true`, the parser throws an *ArgumentException* if the argument token
+    is missing or empty. When `false`, a missing token results in `undefined`
+    being injected and all further validation is skipped. Marking an argument as
+    optional is useful for fields like reason text or count modifiers that have
+    sensible defaults in the handler.
   </Dropdown>
   <Dropdown title="min / max (number)">
-    Numeric bounds applied to *Integer* and *Number* values after coercion. If the parsed number falls below *min* or above *max*, the parser throws an *ArgumentException* with the constraint and the received value. These options are not applicable to string or Discord entity types.
+    Numeric bounds applied to *Integer* and *Number* values after coercion. If
+    the parsed number falls below *min* or above *max*, the parser throws an
+    *ArgumentException* with the constraint and the received value. These
+    options are not applicable to string or Discord entity types.
   </Dropdown>
   <Dropdown title="minLength / maxLength (number)">
-    Character length bounds applied to *String* and *Rest* values. The check runs on the raw token before any further processing. Use *maxLength* to protect against unexpectedly long inputs in free-text fields.
+    Character length bounds applied to *String* and *Rest* values. The check
+    runs on the raw token before any further processing. Use *maxLength* to
+    protect against unexpectedly long inputs in free-text fields.
   </Dropdown>
   <Dropdown title="choices (string[])">
-    An allowlist of valid raw input values. The parser checks the raw token against this array before coercion and throws an *ArgumentException* if the token is not included. This is useful for enum-style arguments like status names, action types, or mode selectors.
+    An allowlist of valid raw input values. The parser checks the raw token
+    against this array before coercion and throws an *ArgumentException* if the
+    token is not included. This is useful for enum-style arguments like status
+    names, action types, or mode selectors.
   </Dropdown>
   <Dropdown title="validation.pattern (RegExp)">
-    A regular expression that the raw token must match before any other processing. The check runs on the raw string, so it can validate format constraints like specific prefixes, patterns, or structures that the built-in type parsers do not enforce. If the regex does not match, an *ArgumentException* is thrown.
+    A regular expression that the raw token must match before any other
+    processing. The check runs on the raw string, so it can validate format
+    constraints like specific prefixes, patterns, or structures that the
+    built-in type parsers do not enforce. If the regex does not match, an
+    *ArgumentException* is thrown.
   </Dropdown>
   <Dropdown title="validation.validate (function)">
-    A custom function that receives the raw token and returns either `true` to pass or an error string to fail. The error string is included in the *ArgumentException* message so users see your custom feedback. Use this for domain-specific rules that cannot be expressed with a regex or the other constraint options.
+    A custom function that receives the raw token and returns either `true` to
+    pass or an error string to fail. The error string is included in the
+    *ArgumentException* message so users see your custom feedback. Use this for
+    domain-specific rules that cannot be expressed with a regex or the other
+    constraint options.
   </Dropdown>
 </DropdownGroup>
 
@@ -127,37 +149,57 @@ The argument parser applies validations in a specific order for each argument. U
 
 <Steps>
   <Step title="Presence check">
-    If the argument is required and the raw token is missing or empty, the parser throws an *ArgumentException* immediately. Optional arguments with missing tokens receive `undefined` and skip all remaining checks. This is the first gate that prevents empty values from reaching type-specific parsers.
+    If the argument is required and the raw token is missing or empty, the
+    parser throws an *ArgumentException* immediately. Optional arguments with
+    missing tokens receive `undefined` and skip all remaining checks. This is
+    the first gate that prevents empty values from reaching type-specific
+    parsers.
   </Step>
   <Step title="Custom validation">
-    If a *validation.pattern* regex is defined, the raw input must match it. If a *validation.validate* function is defined, it receives the raw input and must return `true` or an error string. Both checks run on the raw text before any type coercion happens, so you can validate format constraints independently from type parsing.
+    If a *validation.pattern* regex is defined, the raw input must match it. If
+    a *validation.validate* function is defined, it receives the raw input and
+    must return `true` or an error string. Both checks run on the raw text
+    before any type coercion happens, so you can validate format constraints
+    independently from type parsing.
   </Step>
   <Step title="Choices check">
-    If a *choices* array is defined, the raw input must match one of the allowed values exactly. This acts as an enum constraint and is useful for argument values that must come from a fixed set like status names, action types, or mode selections.
+    If a *choices* array is defined, the raw input must match one of the allowed
+    values exactly. This acts as an enum constraint and is useful for argument
+    values that must come from a fixed set like status names, action types, or
+    mode selections.
   </Step>
   <Step title="Type coercion and bounds">
-    The parser converts the raw token into the target type using the type-specific parser. For numeric types, bounds checks (*min*, *max*) run after successful coercion. For string types, length checks (*minLength*, *maxLength*) are applied. If coercion or bounds fail, the parser throws an *ArgumentException*.
+    The parser converts the raw token into the target type using the
+    type-specific parser. For numeric types, bounds checks (*min*, *max*) run
+    after successful coercion. For string types, length checks (*minLength*,
+    *maxLength*) are applied. If coercion or bounds fail, the parser throws an
+    *ArgumentException*.
   </Step>
 </Steps>
 
 ## @PrefixArg parameter decorator
 
-In the handler class, the *@PrefixArg* function (without the namespace) is a parameter decorator that injects a parsed argument value by name. The name must match an argument declared in the command schema. The *@Ctx* decorator injects the raw *Message* object. Together, they let the handler receive fully typed parameters without manual parsing.
+In the handler class, the _@PrefixArg_ function (without the namespace) is a parameter decorator that injects a parsed argument value by name. The name must match an argument declared in the command schema. The _@Ctx_ decorator injects the raw _Message_ object. Together, they let the handler receive fully typed parameters without manual parsing.
 
 ```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
-import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
-import type { Message } from 'discord.js';
-import { RollCommand } from '../commands/roll.command';
+import { Ctx, PrefixArg, PrefixCommandHandler } from "@spraxium/common";
+import type { Message } from "discord.js";
+import { RollCommand } from "../commands/roll.command";
 
 @PrefixCommandHandler(RollCommand)
 export class RollHandler {
   async handle(
-    @Ctx() message: Message, @PrefixArg('sides') sides: number | undefined, @PrefixArg('count') count: number | undefined, ): Promise<void> {
+    @Ctx() message: Message,
+    @PrefixArg("sides") sides: number | undefined,
+    @PrefixArg("count") count: number | undefined,
+  ): Promise<void> {
     const faces = sides ?? 6;
     const rolls = count ?? 1;
-    const results = Array.from({ length: rolls }, () =>
-      Math.floor(Math.random() * faces) + 1, );
-    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}]`);
+    const results = Array.from(
+      { length: rolls },
+      () => Math.floor(Math.random() * faces) + 1,
+    );
+    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(", ")}]`);
   }
 }
 ```
