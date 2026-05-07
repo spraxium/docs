@@ -1,23 +1,23 @@
 ---
-title: Caché de modal
+title: Caché de modales
 description: |
-  Persiste valores de campos enviados entre reaperturas de modal con @ModalCache y ModalService.buildFor.
-  Aprende el formato de clave de caché, configuración de TTL, la API manual de caché y cómo combinar con modales dinámicos.
-order: 5
+  Persiste valores de campos enviados entre reaperturas del modal con @ModalCache y ModalService.buildFor.
+  Aprende el formato de clave de caché, configuración de TTL, API de caché manual y cómo combinar caché con modales dinámicos.
+order: 6
 category: Modals
 ---
 
-## Por qué almacenar en caché envíos de modal
+## Por qué cachear envíos de modal
 
-Cuando un envío de modal falla la validación, Discord cierra el formulario y tu handler envía una respuesta de error. Si el usuario quiere corregir su entrada e intentarlo de nuevo, debe abrir el modal desde cero. Sin caché, todos los valores escritos anteriormente se pierden, obligando al usuario a rellenar todo el formulario por segunda vez.
+Cuando un envío de modal falla validación, Discord cierra el formulario y tu handler envía una respuesta de error. Si la persona quiere corregir su entrada e intentarlo de nuevo, debe abrir el modal desde cero. Sin caché, todos los valores que escribió antes se pierden, obligándola a completar todo el formulario una segunda vez.
 
-El decorator de clase _@ModalCache_ resuelve esto persistiendo todos los valores de campos enviados en memoria, identificados por el ID del usuario y el _customId_ del modal. Cuando el mismo usuario abre el modal nuevamente a través de _ModalService.buildFor_, los valores en caché se precargan en cada campo. El usuario solo necesita corregir el campo que falló la validación.
+El decorator de clase _@ModalCache_ resuelve esto persistiendo en memoria todos los valores de campo enviados, asociados al ID de la persona usuaria y al _customId_ del modal. Cuando la misma persona abre el modal de nuevo mediante _ModalService.buildFor_, los valores en caché se precargan en cada campo. Solo necesita corregir el campo que falló validación.
 
-Las entradas de caché se limpian automáticamente en un envío exitoso, por lo que no se requiere limpieza manual en el camino feliz. La opción _ttl_ garantiza que las entradas obsoletas se descarten si el usuario nunca regresa a completar el formulario.
+Las entradas de caché se limpian automáticamente tras un envío exitoso, así que no hay limpieza manual en el camino feliz. La opción _ttl_ garantiza que las entradas obsoletas se descarten si la persona nunca vuelve para completar el formulario.
 
 ## Habilitar caché con @ModalCache
 
-Aplica _@ModalCache_ a nivel de clase en cualquier _@ModalComponent_. El decorator acepta un objeto con la propiedad obligatoria _ttl_ medida en segundos. El TTL comienza desde el momento del envío fallido. Los formularios de corta duración como prompts de confirmación funcionan bien con un TTL de 60 a 120 segundos, mientras que las aplicaciones con muchos campos pueden usar de 300 a 600 segundos.
+Aplica _@ModalCache_ a nivel de clase sobre cualquier _@ModalComponent_. El decorator acepta un objeto con propiedad obligatoria _ttl_ medida en segundos. El TTL empieza a contar desde el momento del envío fallido. Formularios cortos como confirmaciones funcionan bien con TTL de 60 a 120 segundos, mientras que aplicaciones de varios campos pueden usar 300 a 600 segundos.
 
 ```typescript filename="src/components/application.modal.ts"
 import {
@@ -61,7 +61,7 @@ export class ApplicationModal {
 
 ## Mostrar un modal con valores en caché
 
-Para cargar valores en caché al reabrir el modal, usa _ModalService.buildFor_ en lugar de _build_. Este método acepta la interacción que lo activó como segundo argumento. Extrae el ID del usuario de la interacción, busca en el caché una entrada correspondiente y precarga el valor de cada campo si encuentra una. Si no existe ninguna entrada en caché, el modal abre con sus valores predeterminados normales.
+Para cargar valores en caché al reabrir el modal, usa _ModalService.buildFor_ en lugar de _build_. Este método acepta la interacción que lo dispara como segundo argumento. Extrae el ID de usuario desde la interacción, comprueba la caché para una entrada coincidente y precarga cada valor de campo si existe. Si no hay entrada en caché, el modal se abre con sus valores por defecto.
 
 <CodeTabs>
 <Tab label="Con caché (recomendado)">
@@ -108,15 +108,15 @@ export class OpenApplyNoCacheHandler {
 
 ## Formato de clave de caché y TTL
 
-La clave de caché es la cadena `customId:userId`, construida a partir del valor de _id_ del componente modal y el snowflake del usuario de Discord. Esto significa que cada usuario tiene su propia entrada de caché independiente por modal. Dos usuarios diferentes que rellenan el mismo formulario no interfieren en los valores en caché del otro.
+La clave de caché es el string `customId:userId`, construida desde el valor _id_ del componente modal y el snowflake ID de la persona usuaria en Discord. Eso significa que cada persona tiene su propia entrada de caché independiente por modal. Dos personas distintas completando el mismo formulario no interfieren entre sí.
 
-El TTL se mide desde el momento en que se escribe la entrada de caché al fallar la validación. Si el usuario no reabre el modal dentro de la ventana de TTL, la entrada expira y la siguiente apertura muestra un formulario vacío. No hay ventana deslizante: el TTL no se reinicia en cada reapertura. Para formularios más largos donde los usuarios pueden tomarse su tiempo, usa un TTL de 600 segundos o más.
+El TTL se mide desde el momento en que se escribe la entrada de caché por fallo de validación. Si la persona no vuelve a abrir el modal dentro de la ventana de TTL, la entrada expira y la siguiente apertura muestra un formulario vacío. No existe ventana deslizante: el TTL no se reinicia en cada reapertura. Para formularios largos donde la persona puede tardar, usa TTL de 600 segundos o más.
 
-Cuando el usuario envía correctamente, el dispatcher llama a _ModalService.clearCacheFor_ automáticamente. Esto significa que el caché se autogestiona en los caminos de éxito y expiración, sin limpieza manual requerida en el código de tu handler.
+Una vez que la persona envía correctamente, el dispatcher llama automáticamente a _ModalService.clearCacheFor_. Esto significa que la caché se autogestiona tanto en el camino de éxito como en el de expiración, sin limpieza manual en tu código de handler.
 
-## Referencia de la API de caché
+## Referencia de API de caché
 
-_ModalService_ expone tres métodos para la gestión directa del caché. Son utilizados internamente por el dispatcher y el flujo _buildFor_, pero son públicos si necesitas limpiar o inspeccionar entradas de caché desde tu propio código de handler.
+_ModalService_ expone tres métodos para gestionar caché de forma directa. Se usan internamente por el dispatcher y el flujo _buildFor_, pero son públicos por si necesitas limpiar o inspeccionar entradas desde tu propio código de handler.
 
 <Table>
   <TableHead>
@@ -129,25 +129,25 @@ _ModalService_ expone tres métodos para la gestión directa del caché. Son uti
   <TableBody>
     <TableRow>
       <TableCell>*storeCache*</TableCell>
-      <TableCell>`storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record<string, string>)`</TableCell>
-      <TableCell>Escribe los valores de campos en el caché para la combinación de modal y usuario proporcionada.</TableCell>
+      <TableCell>*storeCache(modal, interaction, values)*</TableCell>
+      <TableCell>Escribe valores de campo en caché para la combinación de modal y usuario dada.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getCacheFor*</TableCell>
-      <TableCell>`getCacheFor(modal: Type, interaction: Interaction)`</TableCell>
-      <TableCell>Lee los valores de campos en caché. Retorna `null` si no existe entrada o el TTL ha expirado.</TableCell>
+      <TableCell>*getCacheFor(modal, interaction)*</TableCell>
+      <TableCell>Lee valores de campo en caché. Devuelve *null* si no hay entrada o el TTL expiró.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*clearCacheFor*</TableCell>
-      <TableCell>`clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)`</TableCell>
-      <TableCell>Elimina la entrada de caché para el modal y usuario dados. Se llama automáticamente en un envío exitoso.</TableCell>
+      <TableCell>*clearCacheFor(modal, interaction)*</TableCell>
+      <TableCell>Elimina la entrada de caché para el modal y usuario dados. Se llama automáticamente tras un envío exitoso.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Combinar caché con modales dinámicos
 
-_@ModalCache_ se compone de forma natural con _@ModalDynamic_ y _@ModalWhen_. Puedes agregar caché a cualquier modal dinámico sin configuración adicional. El caché almacena los valores de campos como un mapa clave-valor plano independientemente de cómo se generaron, por lo que incluso los campos incluidos condicionalmente en el momento del envío se almacenan en caché. En la siguiente apertura, _buildFor_ restaura los valores en caché para los campos que estén presentes en el nuevo schema resuelto.
+_@ModalCache_ se compone de forma natural con _@ModalDynamic_ y _@ModalWhen_. Puedes agregar caché a cualquier modal dinámico sin configuración adicional. La caché almacena valores de campo como un mapa plano clave-valor, sin importar cómo se hayan generado, por lo que incluso campos incluidos condicionalmente al enviar quedan cacheados. En la siguiente apertura, _buildFor_ restaura valores cacheados para los campos que estén presentes en el nuevo esquema resuelto.
 
 ```typescript filename="src/commands/configure.command-handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
@@ -173,6 +173,6 @@ export class ConfigureCommandHandler {
 }
 ```
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Fundamentos de Errores](/guide/exceptions-overview).
+Continúa con [Error Fundamentals](/guide/exceptions-overview).

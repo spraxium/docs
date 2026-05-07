@@ -1,19 +1,19 @@
 ---
-title: Arquitectura de Carpetas HTTP
+title: Estructura de Carpetas y Módulos HTTP
 description: |
-  Organiza archivos HTTP con fronteras de transporte claras y crecimiento mantenible.
-  Mantén AppModule como dueño único de metadata separando controllers, services, DTOs y middleware.
+  Organiza archivos HTTP con límites de transporte claros y rutas de crecimiento mantenibles.
+  Mantén AppModule como único owner de metadatos mientras separas controladores, servicios, DTOs y middleware.
 order: 3
 category: "@spraxium/http"
 ---
 
-## Por qué estructurar temprano
+## Por qué la estructura importa desde temprano
 
-Un layout de carpetas limpio mantiene legible el código de transporte a medida que crece el número de endpoints. Sin fronteras claras, los archivos de controller acumulan lógica de negocio, las definiciones de DTO terminan dispersas por directorios no relacionados, y la ubicación de middleware se vuelve impredecible. Establecer estructura temprano previene que esos problemas se acumulen a medida que el proyecto escala, porque la propia jerarquía de carpetas comunica dónde pertenece cada concern.
+Un layout limpio de carpetas mantiene el código de transporte entendible a medida que crece la cantidad de endpoints. Sin límites claros, los archivos de controlador acumulan lógica de negocio, las definiciones DTO quedan dispersas en directorios no relacionados y la ubicación de middleware se vuelve impredecible. Establecer estructura temprano evita que esos problemas se multipliquen cuando el proyecto escala, porque la jerarquía de carpetas comunica por sí sola dónde pertenece cada responsabilidad.
 
-El objetivo es directo: una raíz de ownership en AppModule, ubicación predecible de archivos para cada concern de transporte, y separación clara entre mapeo de requests (controllers) y lógica de negocio (services). Cuando un nuevo miembro del equipo abre el proyecto, el árbol de carpetas debería responder "dónde va esto?" sin necesitar una conversación.
+El objetivo es directo: una raíz de ownership en AppModule, ubicación predecible de archivos para cada preocupación de transporte y separación clara entre mapeo request/respuesta (controladores) y lógica de negocio (servicios). Cuando una persona nueva abre el proyecto, el árbol de carpetas debería responder "¿dónde va esto?" sin necesidad de conversación.
 
-Esto importa más en módulos HTTP que en código típico de comandos de Discord porque los endpoints HTTP son un contrato público. Los clientes dependen de la estabilidad de rutas, shapes de respuesta y formatos de error. Código de transporte desorganizado hace más difícil auditar qué está expuesto y más fácil introducir cambios breaking accidentalmente.
+Esto importa más en módulos HTTP que en código típico de comandos de Discord porque los endpoints HTTP son un contrato público. Los clientes dependen de estabilidad de paths, formas de respuesta y formatos de error. Un código de transporte desorganizado dificulta auditar qué se expone y facilita introducir cambios incompatibles por accidente.
 
 ## Estructura recomendada
 
@@ -29,6 +29,9 @@ Esto importa más en módulos HTTP que en código típico de comandos de Discord
       <Folder name="services" open>
         <File name="guild-http.service.ts" />
         <File name="moderation-http.service.ts" />
+      </Folder>
+      <Folder name="guards" open>
+        <File name="admin.guard.ts" />
       </Folder>
       <Folder name="dto" open>
         <File name="update-guild-config.dto.ts" />
@@ -50,36 +53,42 @@ Esto importa más en módulos HTTP que en código típico de comandos de Discord
 
 ## Rol de cada carpeta
 
-Entender qué posee cada directorio previene fugas de responsabilidad a través de las fronteras. Controllers manejan mapeo de request/response, services poseen reglas de negocio, DTOs definen contratos de validación, middleware provee comportamiento transversal y errors modelan escenarios de fallo específicos del dominio.
+Entender qué controla cada directorio evita filtraciones de responsabilidades entre límites. Los controladores manejan mapeo request/response, los servicios controlan reglas de negocio, los DTOs definen contratos de validación, el middleware aporta comportamiento transversal y los errores modelan escenarios de fallo específicos del dominio.
 
 <DropdownGroup>
-<Dropdown title="controllers/: Mapeo de request y respuesta">
-  Clases decoradas con *@HttpController*. Cada clase agrupa rutas relacionadas bajo un prefijo. Controllers deben ser delgados: extrae cualquier lógica más allá de lectura de parámetros y construcción de respuesta a un service.
+<Dropdown title="controllers/">
+  Contiene clases decoradas con *@HttpController*. Cada archivo agrupa rutas relacionadas bajo un prefijo y delega toda lógica no trivial en servicios. Los controladores deben ser delgados: su trabajo es leer parámetros de la request, llamar servicios y devolver datos de respuesta, no controlar reglas de negocio ni lógica de dominio.
 </Dropdown>
 
-<Dropdown title="services/: Reglas de negocio y lógica de dominio">
-  Clases decoradas con *@Injectable*. Contienen reglas de negocio, llamadas a
-  *BotBridge* y transformaciones de datos. Se resuelven por *RouteRegistry*
-  antes que controllers. Decláralos en *HttpClientModule({services})* e
-  inyéctalos vía constructor.
+<Dropdown title="services/">
+  Contiene clases con reglas de negocio, llamadas a *BotBridge* y
+  transformaciones de datos. Los servicios se declaran en
+  *@HttpClientModule({services})* y se inyectan en controladores y otros
+  servicios como parámetros de constructor. *RouteRegistry* los resuelve con
+  orden topológico antes de instanciar cualquier controlador, de modo que
+  dependencias circulares producen un error explícito en startup con la lista de
+  clases involucradas.
 </Dropdown>
 
-<Dropdown title="dto/: Contratos de validación de input">
-  Clases con decorators de *class-validator*. Consumidas por
-  *@HttpBody(DtoClass)* en métodos de controller. Un DTO por shape de mutación.
-  Los DTOs no deben contener lógica de negocio, solo reglas estructurales y de
-  restricción.
+<Dropdown title="dto/">
+  Contiene clases con decoradores *class-validator* que definen el contrato de
+  validación para payloads de mutación. Cada archivo DTO cubre una forma de
+  request específica y se referencia como argumento de *@HttpBody(DtoClass)*.
+  Los DTO deben contener solo declaraciones estructurales y constraints, no
+  lógica de negocio ni llamadas de servicio.
 </Dropdown>
 
-<Dropdown title="middleware/: Comportamiento transversal por ruta">
-  Clases que implementan *HttpMiddleware*. Usadas como middleware global o
-  resueltas a través de *middlewareProviders*. Mantén middleware stateless
-  cuando sea posible. Estado como contadores de rate-limit debe aislarse por
-  instancia.
+<Dropdown title="middleware/">
+  Contiene clases que implementan la interfaz *HttpMiddleware* para
+  preocupaciones de nivel ruta. El middleware ubicado aquí se registra en
+  *@HttpClientModule({middleware})* como instancias globales o en
+  *middlewareProviders* para uso por ruta con *@HttpUseMiddleware*. Mantén el
+  middleware stateless cuando sea posible para que instancias compartidas sean
+  seguras en múltiples rutas.
 </Dropdown>
 
-<Dropdown title="errors/: Subclases de error específicas del dominio">
-  Subclases personalizadas de *HttpError* para escenarios de fallo específicos del dominio. Nombra errores según la condición del dominio (ej.: *GuildLockedError*), no según el status HTTP. El status se hereda de la clase padre.
+<Dropdown title="errors/">
+  Contiene subclases personalizadas de *HttpError* nombradas por condiciones de dominio en lugar de códigos de estado HTTP. Nombrar errores por escenario de dominio, como *GuildLockedError* en lugar de *ForbiddenError*, facilita buscarlos en logs, testearlos en aserciones y filtrarlos en dashboards de monitoreo. Cada clase hereda su status code de la clase padre y solo necesita pasar un mensaje descriptivo a `super`.
 </Dropdown>
 </DropdownGroup>
 
@@ -159,21 +168,21 @@ maintenanceMode?: boolean;
   </Tab>
 </CodeTabs>
 
-## Por qué los controllers deben ser delgados
+## Por qué los controladores deben ser delgados
 
-Los controllers son la frontera entre el transporte HTTP y la lógica de aplicación. Su trabajo es leer parámetros del request, delegar trabajo a services y dar forma a la respuesta. Cuando los controllers acumulan reglas de negocio, se vuelven difíciles de testear porque necesitas un contexto HTTP completo para ejercitar comportamiento de dominio. También se vuelven difíciles de reutilizar porque la misma lógica no puede llamarse desde un punto de entrada diferente como un handler de Signal o una tarea programada.
+Los controladores son el límite entre transporte HTTP y lógica de aplicación. Su trabajo es leer parámetros de la request, delegar trabajo a servicios y dar forma a la respuesta. Cuando un controlador acumula reglas de negocio, se vuelve difícil de testear porque necesitas un contexto HTTP completo para ejercitar comportamiento de dominio. También se vuelve difícil de reutilizar porque la misma lógica no puede invocarse desde otro punto de entrada como un handler de Signal o una tarea programada.
 
-El patrón es consistente: el controller llama al service, el service llama a *BotBridge* u otras dependencias, y los errores se propagan hacia arriba a través de la jerarquía de *HttpError* hasta que el handler centralizado *onError* los normaliza. Esta estratificación mantiene cada archivo enfocado y cada test aislado.
+El patrón es consistente: el controlador llama al servicio, el servicio llama a *BotBridge* u otras dependencias y los errores suben por la jerarquía *HttpError* hasta que el handler centralizado *onError* los normaliza. Esta separación por capas mantiene cada archivo enfocado y cada prueba aislada.
 
-Los services se resuelven por *RouteRegistry* usando ordenamiento topológico, lo que significa que pueden depender unos de otros siempre que no haya referencias circulares. Si se detecta una dependencia circular, el arranque falla inmediatamente con un mensaje de error claro listando las clases involucradas.
+Los servicios se resuelven por *RouteRegistry* usando orden topológico, lo que significa que pueden depender entre sí siempre que no existan referencias circulares. Si se detecta una dependencia circular, el startup falla de inmediato con un mensaje de error claro que lista las clases involucradas.
 
-## Escalando a bounded contexts
+## Escalar hacia bounded contexts
 
-Cuando la superficie API crece más allá de unos pocos controllers, las carpetas planas se vuelven ruidosas. En ese punto, divide `src/http` en subdirectorios específicos de dominio. Cada subdirectorio tiene sus propios controllers, services, DTOs y errors mientras que todo sigue registrándose a través de la misma metadata *@HttpClientModule* en AppModule.
+Cuando la superficie API crece más allá de unos pocos controladores, las carpetas planas generan ruido. En ese punto, divide `src/http` en subdirectorios por dominio. Cada subdirectorio obtiene sus propios controladores, servicios, DTOs y errores, mientras todo sigue registrándose mediante los mismos metadatos de *@HttpClientModule* en AppModule.
 
-<FolderStructure title="Arquitectura HTTP escalada con fronteras de dominio">
+<FolderStructure title="Arquitectura HTTP escalada con límites de dominio">
   <Folder name="src" open>
-    <File name="app.module.ts" comment="Dueño único de metadata para todos los dominios HTTP" />
+    <File name="app.module.ts" comment="Owner único de metadatos para todos los dominios HTTP" />
     <Folder name="http" open>
       <Folder name="guilds" open>
         <File name="guild-http.controller.ts" />
@@ -200,24 +209,24 @@ Cuando la superficie API crece más allá de unos pocos controllers, las carpeta
 ## Pasos prácticos de evolución
 
 <Steps>
-  <Step title="Comenzar con una carpeta de transporte">
-    Empieza con `src/http` conteniendo carpetas de controllers, services y DTOs incluso para una superficie API pequeña. Esto le da a tu equipo un mapa mental estable antes de que el proyecto escale. Evita poner archivos HTTP directamente en `src/` porque se mezclarán con código de comandos de Discord.
+  <Step title="Comienza con una carpeta única de transporte">
+    Empieza con `src/http` y subcarpetas de controladores, servicios y DTO incluso con una superficie API pequeña. Esto da a tu equipo un mapa mental estable antes de que el proyecto escale. Evita colocar archivos HTTP directamente en `src/` porque se mezclarán con código de comandos de Discord.
   </Step>
-  <Step title="Promover lógica compartida a services">
-    Mantén controllers delgados moviendo reglas de negocio no triviales a clases service. Los handlers de ruta deben coordinar concerns de request y response, no poseer comportamiento de dominio. Los services también reciben *BotBridge* inyectado, lo que mantiene la interacción con Discord detrás de una abstracción limpia.
+  <Step title="Promueve lógica compartida a servicios">
+    Mantén delgados los controladores moviendo reglas de negocio no triviales a clases de servicio. Los handlers de ruta deberían coordinar request y response, no controlar comportamiento de dominio. Los servicios también se inyectan con *BotBridge*, lo que mantiene la interacción con Discord detrás de una abstracción limpia.
   </Step>
-  <Step title="Crear clases de error personalizadas temprano">
-    Define subclases de *HttpError* específicas del dominio en una carpeta `errors/` en vez de lanzar errores genéricos con mensajes string. Errores nombrados son más fáciles de encontrar en logs, testear en assertions y filtrar en dashboards de monitoreo.
+  <Step title="Crea clases de error personalizadas desde temprano">
+    Define subclases de *HttpError* específicas de dominio en una carpeta `errors/` en lugar de lanzar errores genéricos con mensajes string. Los errores con nombre son más fáciles de localizar en logs, testear en aserciones y filtrar en dashboards de monitoreo.
   </Step>
-  <Step title="Dividir por bounded context cuando sea necesario">
-    A medida que crezca el volumen de endpoints, divide `src/http` en carpetas de dominio como `guilds/`, `moderation/` y `members/`. Mantén `app.module.ts` como la raíz única de composición para todos los contextos. Cada carpeta de dominio posee sus controllers, services y DTOs.
+  <Step title="Separa por bounded context cuando haga falta">
+    A medida que crezca el volumen de endpoints, divide `src/http` en carpetas de dominio como `guilds/`, `moderation/` y `members/`. Mantén `app.module.ts` como raíz única de composición para todos los contextos. Cada carpeta de dominio controla sus controladores, servicios y DTOs.
   </Step>
-  <Step title="Proteger fronteras de ownership">
-    Sigue usando una entrada *defineHttp* y una fuente de metadata AppModule incluso después de refactors. Múltiples raíces de metadata hacen difícil razonar sobre ciclo de vida y política de seguridad. Todos los controllers de todos los dominios se listan en el mismo array `controllers` de *HttpClientModule*.
+  <Step title="Protege los límites de ownership">
+    Sigue usando una sola entrada *defineHttp* y una sola fuente de metadatos AppModule incluso tras refactors. Múltiples raíces de metadatos vuelven difícil razonar sobre ciclo de vida y política de seguridad. Todos los controladores de todos los dominios se listan en el mismo arreglo `controllers` de *HttpClientModule*.
   </Step>
 </Steps>
 
-## Página siguiente
+## Siguiente página
 
-Continúa con [Pipeline de Rutas y Decorators](/guide/http-routing-runtime-pipeline).
+Continúa con [Pipeline de Enrutamiento y Decoradores](/guide/http-routing-runtime-pipeline).
 ```

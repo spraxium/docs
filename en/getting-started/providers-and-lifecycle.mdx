@@ -5,13 +5,28 @@ description: |
   Learn the provider model, constructor injection, the three lifecycle hooks, and how to share providers across modules.
 order: 4
 category: Getting Started
+keywords:
+  - spraxium providers and lifecycle
+  - providers and lifecycle in spraxium
+  - getting started providers and lifecycle guide
+  - providers and lifecycle discord bot
+  - providers and lifecycle typescript
+  - spraxium getting started documentation
+  - providers and lifecycle getting started
+faq:
+  - question: "What does \"Providers and Lifecycle\" cover in Spraxium?"
+    answer: "Providers are the injectable services that hold your bot's runtime behavior and business logic. Learn the provider model, constructor injection, the three lifecycle hooks, and how to share providers across modules."
+  - question: "When should I use \"Providers and Lifecycle\"?"
+    answer: "Use this page when you are implementing providers and lifecycle in the Getting Started area of your bot architecture."
+  - question: "What should I read after \"Providers and Lifecycle\"?"
+    answer: "Continue with related Getting Started pages to connect this concept with practical implementation details."
 ---
 
 ## What is a provider
 
 A provider is any class decorated with _@Injectable()_ and registered in a module's _providers_ array. Providers hold your bot's runtime behavior, including database queries, moderation logic, caching, API calls, and anything else that needs to be shared across listeners or other providers. The DI container creates one instance of each provider per module and wires dependencies automatically through constructor parameters, so you never need to manage object creation or dependency graphs manually.
 
-The key rule is that you never instantiate providers yourself using the _new_ keyword. You declare what a class needs as constructor parameters, and the framework handles resolution, instantiation, and injection automatically. This keeps class constructors focused on dependency declaration rather than object construction or startup logic, which makes every provider straightforward to test with mock dependencies.
+Never instantiate providers with the _new_ keyword. Declare dependencies as constructor parameters and the framework injects them automatically.
 
 <CodeTabs>
   <Tab label="Service" language="typescript">
@@ -41,7 +56,7 @@ export class MetricsModule {}
 
 ## Constructor injection
 
-When a provider needs another provider, you add it as a constructor parameter and the framework takes care of the rest. Spraxium reads the TypeScript type metadata at boot, resolves the dependency graph using a topological sort, and injects each class in the correct order so that dependencies are always ready before the classes that depend on them. If a circular dependency exists anywhere in the graph, the framework detects it and reports the issue clearly at startup before any bot logic runs, rather than causing mysterious runtime failures.
+Add dependencies as constructor parameters and Spraxium resolves the graph automatically. Circular dependencies are detected at startup with a clear error before the bot connects.
 
 ```typescript filename="src/modules/metrics/metrics.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -58,7 +73,7 @@ export class MetricsService {
 }
 ```
 
-Avoid heavy I/O operations in constructors because the constructor's only job is dependency wiring, not initialization logic. Tasks like connecting to a database, warming a cache, or fetching initial state from an external service belong in lifecycle hooks where the execution stage is explicit and predictable. This separation ensures that the DI resolution phase remains fast and deterministic, and that initialization failures are properly captured by the lifecycle system instead of breaking the entire boot process.
+Avoid heavy I/O in constructors; database connections, cache warming, and external API calls belong in lifecycle hooks.
 
 <Callout tone="info" title="Keep constructors for dependency wiring only">
   Never run I/O, database connections, cache warming, or external API calls,
@@ -70,7 +85,7 @@ Avoid heavy I/O operations in constructors because the constructor's only job is
 
 ## Lifecycle hooks
 
-Spraxium exposes three lifecycle interfaces that providers can implement to react to different stages of the application runtime. Each hook runs at a specific point in the boot and shutdown sequence, giving you precise control over when initialization and cleanup logic executes without mixing concerns inside constructors or event handlers.
+Spraxium exposes three lifecycle interfaces for reacting to different stages of the application runtime.
 
 <Steps>
   <Step title="SpraxiumOnBoot">
@@ -145,6 +160,6 @@ export class EventsModule {}
 
 For services that are genuinely needed throughout the entire project, such as logging, configuration, and analytics, use _@Global()_ on the module so its exports become available without explicit imports. Use global modules sparingly because they bypass encapsulation and make dependency tracking harder, so reserve them exclusively for cross-cutting infrastructure that every module in the application truly needs access to.
 
-## Next study
+## Next page
 
 Continue with [Environment Variables](/guide/env-overview).

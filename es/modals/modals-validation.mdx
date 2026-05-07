@@ -2,22 +2,22 @@
 title: Validación de modales
 description: |
   Valida envíos de modal con reglas @ModalValidate y personaliza respuestas de error con @ModalValidationConfig.
-  Aprende validadores integrados, reglas personalizadas y el ciclo de vida completo de validación hasta la invocación del handler.
-order: 4
+  Aprende validadores integrados, reglas personalizadas y el ciclo de vida completo de validación desde el envío hasta la invocación del handler.
+order: 5
 category: Modals
 ---
 
-## Por qué validación de modales
+## Por qué validar modales
 
-La validación integrada de Discord se limita a restricciones de _minLength_, _maxLength_ y _required_ en inputs de texto. Los modales del mundo real a menudo necesitan validación más rica: conteos mínimos de palabras para reportes, verificación de formato de email para formularios de contacto, validación de URL para enlaces, coincidencia de patrones para códigos, o reglas de negocio totalmente personalizadas. La validación de modales de Spraxium se ejecuta del lado del servidor después del envío, dándote control total sobre lo que constituye una entrada válida.
+La validación integrada de Discord para modales está limitada a restricciones _minLength_, _maxLength_ y _required_ en entradas de texto. Los modales de producción suelen necesitar validaciones más ricas: mínimo de palabras para reportes, comprobación de formato de correo para formularios de contacto, validación de URL para enlaces, coincidencia de patrones para códigos o reglas de negocio totalmente personalizadas. La validación de modales en Spraxium se ejecuta del lado servidor tras el envío, dándote control total sobre qué se considera entrada válida.
 
-El sistema de validación usa un enfoque declarativo con reglas _@ModalValidate_ aplicadas a campos individuales. Las reglas se ejecutan secuencialmente y se cortocircuitan en la primera falla. Cuando la validación falla, el sistema puede almacenar en caché los valores enviados por el usuario para que se precarguen cuando el modal se reabre, evitando que el usuario tenga que re-escribir todo. Un embed de error personalizado se envía como respuesta efímera explicando qué salió mal.
+El sistema de validación usa un enfoque declarativo con reglas _@ModalValidate_ aplicadas a campos individuales. Las reglas se ejecutan secuencialmente y hacen short-circuit en el primer fallo. Cuando la validación falla, el sistema puede almacenar en caché los valores enviados por la persona usuaria para precargarlos cuando el modal se abra de nuevo, evitando que tenga que volver a escribir todo. Se envía un embed de error personalizado como respuesta efímera explicando qué salió mal.
 
-Esta combinación de validación, caché y presentación de errores crea una experiencia de usuario fluida donde los envíos inválidos se detectan inmediatamente y los usuarios pueden corregir su entrada sin perder el progreso.
+Esta combinación de validación, caché y presentación de errores crea una experiencia fluida donde los envíos inválidos se detectan al instante y las personas pueden corregir su entrada sin perder progreso.
 
 ## Aplicar reglas de validación
 
-El decorator _@ModalValidate_ acepta un array de reglas de validación y se coloca en una propiedad de campo junto con el decorator de tipo de campo. Cada regla es una llamada a función que retorna un objeto de regla. Las reglas se ejecutan en el orden del array y se detienen en la primera falla.
+El decorator _@ModalValidate_ acepta un arreglo de reglas de validación y se coloca en una propiedad de campo junto con el decorator del tipo de campo. Cada regla es una llamada de función que devuelve un objeto de regla. Las reglas se ejecutan en el orden del arreglo y se detienen en el primer fallo.
 
 ```typescript filename="src/components/contact.modal.ts"
 import {
@@ -62,7 +62,7 @@ export class ContactModal {
 
 ## Reglas de validación integradas
 
-Spraxium incluye cinco reglas de validación integradas que cubren escenarios comunes. Cada regla es una función fábrica que retorna un objeto _ModalValidationRule_. El método _validate_ de la regla recibe el valor del campo como string y retorna `true` si es válido, o un string con el mensaje de error si es inválido.
+Spraxium incluye cinco reglas de validación integradas que cubren escenarios comunes. Cada regla es una función factory que devuelve un objeto _ModalValidationRule_. El método _validate_ de la regla recibe el valor del campo como string y devuelve `true` si es válido, o un string con mensaje de error si es inválido.
 
 <Table>
   <TableHead>
@@ -75,7 +75,7 @@ Spraxium incluye cinco reglas de validación integradas que cubren escenarios co
   <TableBody>
     <TableRow>
       <TableCell>*minWords*</TableCell>
-      <TableCell>`minWords(count)`</TableCell>
+      <TableCell>*minWords(count)*</TableCell>
       <TableCell>
         El valor del campo contiene menos de *count* palabras separadas por
         espacios.
@@ -83,31 +83,31 @@ Spraxium incluye cinco reglas de validación integradas que cubren escenarios co
     </TableRow>
     <TableRow>
       <TableCell>*matchesPattern*</TableCell>
-      <TableCell>`matchesPattern(regex, message?)`</TableCell>
+      <TableCell>*matchesPattern(regex, message?)*</TableCell>
       <TableCell>
         El valor del campo no coincide con la expresión regular proporcionada.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*emailFormat*</TableCell>
-      <TableCell>`emailFormat()`</TableCell>
+      <TableCell>*emailFormat()*</TableCell>
       <TableCell>
-        El valor del campo no es un formato de dirección de email válido.
+        El valor del campo no tiene un formato de correo válido.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*urlFormat*</TableCell>
-      <TableCell>`urlFormat()`</TableCell>
+      <TableCell>*urlFormat()*</TableCell>
       <TableCell>
-        El valor del campo no es una URL válida que comience con `http://` o
-        `https://`.
+        El valor del campo no es una URL válida que comience con *http://* o
+        *https://*.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*isNumeric*</TableCell>
-      <TableCell>`isNumeric()`</TableCell>
+      <TableCell>*isNumeric()*</TableCell>
       <TableCell>
-        El valor del campo no puede ser parseado como un número finito.
+        El valor del campo no puede parsearse como un número finito.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -115,7 +115,7 @@ Spraxium incluye cinco reglas de validación integradas que cubren escenarios co
 
 ## Reglas de validación personalizadas
 
-Crea reglas personalizadas proporcionando un objeto con un método _validate_. El método recibe el valor del campo y retorna `true` para entrada válida o un string con el mensaje de error para entrada inválida. Las reglas personalizadas se integran de forma transparente con las reglas integradas en el array de _@ModalValidate_.
+Crea reglas personalizadas proporcionando un objeto con método _validate_. El método recibe el valor del campo y devuelve `true` para entrada válida o un string de mensaje de error para entrada inválida. Las reglas personalizadas se integran de forma natural con las reglas integradas dentro del arreglo _@ModalValidate_.
 
 ```typescript filename="src/components/invite-code.modal.ts"
 import {
@@ -162,7 +162,7 @@ export class InviteCodeModal {
 
 ## Personalizar errores de validación
 
-El decorator a nivel de clase _@ModalValidationConfig_ personaliza el embed de error enviado cuando la validación falla. Por defecto, el sistema envía un embed efímero simple con el mensaje de error. Puedes sobreescribir el color del embed, título, plantilla de descripción, pie de página, y si la respuesta es efímera.
+El decorator a nivel de clase _@ModalValidationConfig_ personaliza el embed de error enviado cuando la validación falla. Por defecto, el sistema envía un embed efímero simple con el mensaje de error. Puedes sobrescribir color, título, plantilla de descripción, footer y si la respuesta debe ser efímera.
 
 ```typescript filename="src/components/strict.modal.ts"
 import {
@@ -197,23 +197,23 @@ export class StrictModal {
 
 ## Ciclo de vida de validación
 
-El flujo completo de validación involucra varios pasos coordinados entre el dispatcher, el runner de validación, el caché de campos y el respondedor de errores. Comprender este ciclo de vida te ayuda a diseñar modales que proporcionen una experiencia de usuario fluida.
+El flujo completo de validación incluye varios pasos coordinados entre dispatcher, validator runner, caché de campos y respuesta de error. Entender este ciclo de vida te ayuda a diseñar modales con una experiencia de usuario fluida.
 
 <Steps>
 <Step title="Envío recibido">
-El *ModalDispatcher* recibe la *ModalSubmitInteraction* de Discord. Resuelve el *customId* del modal al handler registrado y verifica si la clase del componente modal tiene decorators *@ModalValidate* en algún campo. Si no existen reglas de validación, salta directamente a la resolución de campos y la invocación del handler.
+El *ModalDispatcher* recibe el *ModalSubmitInteraction* desde Discord. Resuelve el *customId* del modal hacia el handler registrado y comprueba si la clase del componente modal tiene decorators *@ModalValidate* en algún campo. Si no existen reglas de validación, salta directamente a resolución de campos e invocación del handler.
 </Step>
 
 <Step title="Ejecución de reglas">
   El *ModalValidatorRunner* itera por cada campo que tiene reglas
   *@ModalValidate*. Para cada campo, extrae el valor enviado y ejecuta las
-  reglas en el orden del array. En la primera regla que retorna un mensaje de
-  error, la ejecución se detiene inmediatamente. El runner no verifica los
-  campos restantes ni las reglas restantes.
+  reglas en el orden del arreglo. En la primera regla que devuelve un mensaje de
+  error, la ejecución se detiene inmediatamente. El runner no revisa los campos
+  restantes ni las reglas restantes.
 </Step>
 
-<Step title="Caché en falla">
-Si el modal tiene *@ModalCache* y la validación falló, el runner almacena todos los valores de campo enviados en el *ModalFieldCache*. La clave del caché es `customId:userId`, y los valores en caché son un `Record<string, string>` mapeando IDs de campo a sus valores enviados. La entrada de caché tiene el TTL especificado en *@ModalCache*.
+<Step title="Guardar en caché al fallar">
+Si el modal tiene *@ModalCache* y la validación falla, el runner almacena todos los valores de campo enviados en *ModalFieldCache*. La clave de caché es `customId:userId`, y los valores en caché son un mapeo `Record<string, string>` de IDs de campo a valores enviados. La entrada de caché usa el TTL especificado en *@ModalCache*.
 </Step>
 
 <Step title="Respuesta de error">
@@ -224,21 +224,21 @@ Si el modal tiene *@ModalCache* y la validación falló, el runner almacena todo
 </Step>
 
 <Step title="Modal reabierto con caché">
-  Cuando el usuario activa el modal nuevamente (por ejemplo, hace clic en el
-  mismo botón), la llamada *ModalService.buildFor* detecta valores en caché para
-  esta combinación de usuario y modal. Precarga cada campo con el valor en
-  caché, para que el usuario vea su entrada anterior. El usuario puede corregir
+  Cuando la persona usuaria dispara de nuevo el modal (por ejemplo, haciendo
+  clic en el mismo botón), la llamada *ModalService.buildFor* detecta valores en
+  caché para esta combinación de usuario y modal. Precarga cada campo con su
+  valor en caché, así que la persona ve su entrada anterior. Luego puede corregir
   el campo inválido y reenviar.
 </Step>
 
 <Step title="Envío exitoso">
-Cuando todas las reglas de validación pasan, el runner retorna éxito. Si el modal tiene *@ModalCache*, el dispatcher llama a *ModalService.clearCacheFor* para eliminar entradas de caché obsoletas para este usuario y modal. El dispatcher entonces resuelve los decorators *@Field* e invoca el handler normalmente.
+Cuando todas las reglas de validación pasan, el runner devuelve éxito. Si el modal tiene *@ModalCache*, el dispatcher llama a *ModalService.clearCacheFor* para eliminar cualquier entrada de caché obsoleta de esta persona y modal. Después el dispatcher resuelve decorators *@Field* e invoca el handler normalmente.
 </Step>
 </Steps>
 
 ## Combinar validación con modales dinámicos
 
-La validación funciona de forma transparente con campos dinámicos y condicionales. El _ModalValidatorRunner_ solo valida campos que están presentes en el schema resuelto del modal. Si un campo fue excluido por _@ModalWhen_ o no fue generado por _@ModalDynamicFields_, sus reglas de validación no se ejecutan. Esto significa que puedes aplicar _@ModalValidate_ de forma segura a campos condicionales sin preocuparte de que sean verificados cuando están ausentes.
+La validación funciona de forma natural con campos dinámicos y condicionales. El _ModalValidatorRunner_ solo valida campos que estén presentes en el esquema de modal resuelto. Si un campo fue excluido por _@ModalWhen_ o no fue generado por _@ModalDynamicFields_, sus reglas de validación no se ejecutan. Esto significa que puedes aplicar _@ModalValidate_ a campos condicionales sin preocuparte por validarlos cuando estén ausentes.
 
 ```typescript filename="src/components/dynamic-validated.modal.ts"
 import {
@@ -298,4 +298,4 @@ export class DynamicValidatedModal {
 
 ## Siguiente página
 
-Continúa con [Caché de modal](/guide/modals-cache).
+Continúa con [Modal Cache](/guide/modals-cache).

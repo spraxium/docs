@@ -2,29 +2,45 @@
 title: Subcomandos e Grupos
 description: |
   Organize comandos complexos com subcomandos e grupos de subcomandos.
-  Aprenda a hierarquia de três níveis, o padrão de composição de decorators e como handlers roteiam para subcomandos específicos.
+  Aprenda a hierarquia de três níveis, o padrão de composição com decorators e como os handlers são roteados para subcomandos específicos.
 order: 4
 category: Slash Commands
+keywords:
+  - spraxium slash commands subcommands groups
+  - subcomandos e grupos no spraxium
+  - slash commands slash commands subcommands groups guia
+  - slash commands subcommands groups bot discord
+  - slash commands subcommands groups typescript
+  - documentacao spraxium slash commands
+  - subcomandos e grupos slash commands
+  - spraxium subcomandos e grupos
+faq:
+  - question: "O que \"Subcomandos e Grupos\" cobre no Spraxium?"
+    answer: "Organize comandos complexos com subcomandos e grupos de subcomandos. Aprenda a hierarquia de três níveis, o padrão de composição com decorators e como os handlers são roteados para subcomandos específicos."
+  - question: "Quando devo usar \"Subcomandos e Grupos\"?"
+    answer: "Use esta pagina quando voce estiver implementando slash commands subcommands groups dentro da area de Slash Commands do seu bot."
+  - question: "Qual o proximo passo depois de \"Subcomandos e Grupos\"?"
+    answer: "Continue nas paginas relacionadas de Slash Commands para conectar este conceito com implementacao pratica."
 ---
 
 ## Hierarquia de comandos no Discord
 
-O Discord suporta uma hierarquia de três níveis para slash commands: comando, grupo de subcomandos e subcomando. Um comando raiz como `/ping` fica no nível superior e aceita opções diretamente. Um comando como `/config view` usa subcomandos onde `config` é o pai e `view` é o subcomando. Um comando como `/config moderation automod` usa um grupo de subcomandos onde `config` é o pai, `moderation` é o grupo e `automod` é o subcomando dentro daquele grupo.
+O Discord suporta uma hierarquia de três níveis para slash commands: comando, grupo de subcomandos e subcomando. Um comando raiz como `/ping` fica no nível mais alto e aceita opções diretamente. Um comando como `/config view` usa subcomandos, em que `config` é o pai e `view` é o subcomando. Um comando como `/config moderation automod` usa um grupo de subcomandos, em que `config` é o pai, `moderation` é o grupo e `automod` é o subcomando dentro desse grupo.
 
-Essa hierarquia é imposta pelo Discord no nível da API. Um comando que tem subcomandos não pode aceitar opções de nível raiz, porque o Discord não permite misturar opções e subcomandos no mesmo nível. Da mesma forma, um grupo de subcomandos só pode conter subcomandos, não opções diretas. O Spraxium espelha essas restrições através do seu sistema de decorators: _@SlashSubcommand_ transforma métodos em subcomandos, _@SlashSubcommandGroup_ transforma classes em containers de grupo, e _@SlashSubcommandGroups_ registra grupos no comando pai. O framework valida esses relacionamentos no momento do registro e constrói o payload JSON aninhado correto para a API do Discord.
+Essa hierarquia é imposta pelo Discord no nível da API. Um comando que possui subcomandos não pode aceitar também opções no nível raiz, porque o Discord não permite misturar opções e subcomandos no mesmo nível. Da mesma forma, um grupo de subcomandos só pode conter subcomandos, não opções diretas. O Spraxium espelha essas restrições no sistema de decorators: _@SlashSubcommand_ transforma métodos em subcomandos, _@SlashSubcommandGroup_ transforma classes em contêineres de grupo e _@SlashSubcommandGroups_ registra os grupos no comando pai. O framework valida essas relações no momento do registro e monta o JSON aninhado correto para a API do Discord.
 
-Entender qual nível usar depende da complexidade do comando. Comandos simples com poucas opções usam opções de nível raiz. Comandos com 2-5 ações distintas usam subcomandos. Comandos com muitas ações que podem ser logicamente agrupadas em categorias usam grupos de subcomandos.
+Entender qual nível usar depende da complexidade do comando. Comandos simples, com poucas opções, usam opções no nível raiz. Comandos com de 2 a 5 ações distintas usam subcomandos. Comandos com muitas ações que podem ser agrupadas de forma lógica em categorias usam grupos de subcomandos.
 
-<Callout tone="info" title="O Discord impõe limites rígidos de subcomandos">
+<Callout tone="info" title="O Discord impõe limites rígidos para subcomandos">
   Um comando pode ter no máximo 25 subcomandos no nível superior, e cada grupo
   de subcomandos também pode conter no máximo 25 subcomandos. Planeje a
-  hierarquia do comando antes de registrar para evitar reconstruir o schema após
-  atingir esses limites.
+  hierarquia do comando antes do registro para evitar ter de reconstruir o
+  schema depois de atingir esses limites.
 </Callout>
 
 ## Subcomandos com @SlashSubcommand
 
-Um subcomando é declarado decorando um método na classe _@SlashCommand_ com _@SlashSubcommand_. Cada método decorado representa um subcomando no seletor do Discord. Opções para um subcomando são declaradas no mesmo método usando decorators _@SlashOption_, assim como opções raiz são declaradas no método _build()_.
+Um subcomando é declarado ao decorar um método da classe _@SlashCommand_ com _@SlashSubcommand_. Cada método decorado representa um subcomando no seletor do Discord. As opções do subcomando são declaradas nesse mesmo método com decorators _@SlashOption_, do mesmo jeito que opções de raiz são declaradas no método _build()_.
 
 ```typescript filename="commands/user.command.ts"
 import { SlashCommand, SlashOption, SlashSubcommand } from '@spraxium/common';
@@ -47,9 +63,9 @@ export class UserCommand {
 }
 ```
 
-O decorator _@SlashSubcommand_ aceita um objeto de metadados com _name_, _description_ e chaves _i18n_ opcionais. O nome do método na classe serve como identificador interno que o framework usa durante a coleta de metadados, mas a propriedade _name_ na configuração do decorator é o que aparece no seletor de comandos do Discord. O corpo do método permanece vazio porque a lógica de execução fica nas classes handler.
+O decorator _@SlashSubcommand_ aceita um objeto de metadados com _name_, _description_ e chaves _i18n_ opcionais. O nome do método na classe serve como identificador interno, usado pelo framework durante a coleta de metadados, mas a propriedade _name_ na configuração do decorator é o que aparece no seletor de comandos do Discord. O corpo do método continua vazio, porque a lógica de execução vive nas classes de handler.
 
-Cada subcomando recebe sua própria classe handler. O handler usa a opção _sub_ no _@SlashCommandHandler_ para especificar qual subcomando ele trata.
+Cada subcomando recebe sua própria classe de handler. O handler usa a opção _sub_ em _@SlashCommandHandler_ para especificar qual subcomando ele trata.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="commands/user.command.ts" language="typescript">
@@ -102,7 +118,6 @@ export class UserAvatarHandler {
     const user = target ?? interaction.user;
     await interaction.reply(user.displayAvatarURL({ size: 512 }));
   }
-}
 
 ````
   </Tab>
@@ -110,9 +125,9 @@ export class UserAvatarHandler {
 
 ## Grupos de subcomandos com @SlashSubcommandGroup
 
-Quando um comando tem muitos subcomandos, você pode organizá-los em grupos nomeados. Um grupo de subcomandos é declarado como uma classe separada decorada com *@SlashSubcommandGroup*. Dentro da classe de grupo, subcomandos são declarados com *@SlashSubcommand* exatamente como na classe do comando. A classe de grupo é então registrada no comando pai usando *@SlashSubcommandGroups*.
+Quando um comando tem muitos subcomandos, você pode organizá-los em grupos nomeados. Um grupo de subcomandos é declarado como uma classe separada decorada com *@SlashSubcommandGroup*. Dentro da classe do grupo, os subcomandos são declarados com *@SlashSubcommand* exatamente como são na classe do comando. Depois, a classe do grupo é registrada no comando pai usando *@SlashSubcommandGroups*.
 
-A classe de grupo serve como um namespace para subcomandos. No seletor do Discord, o usuário vê o nome do comando, depois o nome do grupo, depois o nome do subcomando: `/config moderation automod`. Opções são declaradas nos métodos de subcomando dentro da classe de grupo, não na classe de grupo em si. Assim como o *@SlashSubcommand*, o *@SlashSubcommandGroup* também aceita uma propriedade *i18n* opcional com a mesma estrutura *SlashI18nKeys*, permitindo localizar o nome e a descrição do grupo por locale do Discord.
+A classe do grupo funciona como um namespace para subcomandos. No seletor do Discord, o usuário vê o nome do comando, depois o nome do grupo e depois o nome do subcomando: `/config moderation automod`. As opções são declaradas nos métodos de subcomando dentro da classe do grupo, não na própria classe do grupo. Assim como *@SlashSubcommand*, *@SlashSubcommandGroup* também aceita uma propriedade *i18n* opcional com a mesma estrutura de *SlashI18nKeys*, permitindo localizar o nome e a descrição do grupo por locale do Discord.
 
 ```typescript filename="commands/config.command.ts"
 import {
@@ -180,18 +195,18 @@ export class ConfigCommand {
 }
 ````
 
-## Misturando subcomandos de nível superior com grupos
+## Misturando subcomandos de topo com grupos
 
-Um único comando pode ter tanto subcomandos de nível superior (declarados na classe do comando) quanto grupos de subcomandos (registrados via _@SlashSubcommandGroups_). No exemplo acima, `ConfigCommand` tem dois subcomandos de nível superior (_view_ e _reset_) mais dois grupos (_moderation_ e _welcome_). O _SlashRegistrar_ lida com isso automaticamente: ele primeiro aplica os subcomandos de nível superior da classe do comando, depois itera sobre as classes de grupo e adiciona cada grupo com seus subcomandos.
+Um mesmo comando pode ter subcomandos de topo, declarados na classe do comando, e grupos de subcomandos, registrados via _@SlashSubcommandGroups_. No exemplo acima, `ConfigCommand` tem dois subcomandos de topo (_view_ e _reset_) mais dois grupos (_moderation_ e _welcome_). O _SlashRegistrar_ lida com isso automaticamente: primeiro aplica os subcomandos de topo da classe do comando, depois percorre as classes de grupo e adiciona cada grupo com seus respectivos subcomandos.
 
-No seletor do Discord, o usuário vê todos os três níveis: `/config view`, `/config reset`, `/config moderation automod`, `/config moderation logging`, `/config welcome channel`, `/config welcome message`. Os subcomandos de nível superior aparecem sem prefixo de grupo.
+No seletor do Discord, o usuário vê os três níveis: `/config view`, `/config reset`, `/config moderation automod`, `/config moderation logging`, `/config welcome channel`, `/config welcome message`. Os subcomandos de topo aparecem sem prefixo de grupo.
 
-## Roteamento de handler com group e sub
+## Roteamento de handlers com group e sub
 
-Handlers para subcomandos agrupados usam ambas as opções _sub_ e _group_ no decorator _@SlashCommandHandler_. O framework faz correspondência de handlers verificando nome do comando, nome do grupo e nome do subcomando como uma tripla. Um handler com `{ sub: 'automod', group: 'moderation' }` só recebe interações para `/config moderation automod` e nunca para `/config view` ou `/config welcome channel`.
+Handlers de subcomandos agrupados usam tanto a opção _sub_ quanto a _group_ no decorator _@SlashCommandHandler_. O framework associa handlers verificando nome do comando, nome do grupo e nome do subcomando como uma trinca. Um handler com `{ sub: 'automod', group: 'moderation' }` só recebe interações para `/config moderation automod`, e nunca para `/config view` ou `/config welcome channel`.
 
 <CodeTabs defaultIndex={0}>
-  <Tab label="Subcomando de nível superior" language="typescript">
+  <Tab label="Subcomando de topo" language="typescript">
 ```typescript filename="handlers/config-view.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { EmbedBuilder, type ChatInputCommandInteraction } from 'discord.js';
@@ -240,7 +255,7 @@ export class ConfigAutomodHandler {
 
 ## Registro no módulo para comandos complexos
 
-Quando um comando tem múltiplos handlers de subcomando, todos os handlers devem ser registrados no array _handlers_ do módulo. O array _commands_ precisa apenas da classe do comando pai, não das classes de grupo. Classes de grupo são descobertas através dos metadados de _@SlashSubcommandGroups_ na classe do comando.
+Quando um comando tem vários handlers de subcomando, todos os handlers precisam ser registrados no array _handlers_ do módulo. O array _commands_ só precisa da classe do comando pai, não das classes de grupo. Classes de grupo são descobertas por meio dos metadados _@SlashSubcommandGroups_ na classe do comando.
 
 ```typescript filename="modules/slash/slash.module.ts"
 import { Module } from '@spraxium/common';
@@ -266,18 +281,18 @@ import { ConfigWelcomeMessageHandler } from './handlers/config-welcome-message.h
 export class SlashModule {}
 ```
 
-O module loader instancia cada handler através do container DI e o conecta ao comando, subcomando e grupo para o qual foi declarado.
+O carregador de módulos instancia cada handler pelo container de DI e o conecta ao comando, ao subcomando e ao grupo para os quais ele foi declarado.
 
 ## Estrutura de pastas para hierarquias complexas
 
 <FolderStructure>
-  <Folder name="src" defaultOpen>
-    <Folder name="modules" defaultOpen>
-      <Folder name="slash" defaultOpen>
-        <Folder name="commands" defaultOpen>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="slash" open>
+        <Folder name="commands" open>
           <File name="config.command.ts" />
         </Folder>
-        <Folder name="handlers" defaultOpen>
+        <Folder name="handlers" open>
           <File name="config-view.handler.ts" />
           <File name="config-reset.handler.ts" />
           <File name="config-automod.handler.ts" />
@@ -291,25 +306,42 @@ O module loader instancia cada handler através do container DI e o conecta ao c
   </Folder>
 </FolderStructure>
 
-Classes de grupo como _ModerationGroup_ e _WelcomeGroup_ ficam no mesmo arquivo de comando que a classe do comando pai porque fazem parte do schema do comando, não da lógica de execução. Arquivos de handler são nomeados seguindo o caminho completo do subcomando que tratam, facilitando encontrar o handler para qualquer caminho de interação específico.
+Classes de grupo como _ModerationGroup_ e _WelcomeGroup_ vivem no mesmo arquivo de comando que a classe do comando pai, porque fazem parte do schema do comando, não da lógica de execução. Arquivos de handler recebem nomes baseados no caminho completo do subcomando que tratam, o que facilita localizar o handler de qualquer rota de interação específica.
 
 ## Checklist de design para subcomandos e grupos
 
 <Steps>
-  <Step title="Use subcomandos para ações distintas sob um namespace">
-    Quando um comando agrupa operações relacionadas mas distintas (visualizar, criar, excluir, atualizar), use subcomandos. Cada subcomando recebe sua própria classe handler com lógica focada. Evite usar um único handler raiz com branching condicional baseado em um valor de opção.
+  <Step title="Use subcomandos para ações distintas sob o mesmo namespace">
+    Quando um comando agrupa operações relacionadas, mas diferentes, como ver,
+    criar, excluir e atualizar, use subcomandos. Cada subcomando recebe sua
+    própria classe de handler com lógica focada. Evite usar um único handler de
+    raiz com ramificações condicionais baseadas no valor de uma opção.
   </Step>
   <Step title="Use grupos para categorizar conjuntos grandes de subcomandos">
-    Quando um comando tem mais de cinco subcomandos, considere organizá-los em grupos. Grupos adicionam um namespace visual no seletor do Discord e tornam o comando mais fácil de navegar. Limite grupos a categorias significativas em vez de criar grupos com apenas um subcomando.
+    Quando um comando tiver mais de cinco subcomandos, considere organizá-los em
+    grupos. Grupos adicionam um namespace visual no seletor do Discord e deixam
+    o comando mais fácil de navegar. Limite os grupos a categorias realmente
+    significativas, em vez de criar grupos com um único subcomando.
   </Step>
   <Step title="Mantenha classes de grupo no arquivo do comando">
-    Classes de grupo decoradas com *@SlashSubcommandGroup* fazem parte da definição do schema do comando. Mantenha-as no mesmo arquivo que a classe *@SlashCommand* para que toda a estrutura do comando seja visível em um só lugar. Se o arquivo ficar grande, considere se o comando está fazendo demais.
+    Classes de grupo decoradas com *@SlashSubcommandGroup* fazem parte da
+    definição do schema do comando. Mantenha-as no mesmo arquivo da classe
+    *@SlashCommand* para que a estrutura inteira do comando fique visível em um
+    só lugar. Se o arquivo crescer demais, vale questionar se o comando está
+    fazendo coisas demais.
   </Step>
-  <Step title="Corresponda o roteamento do handler exatamente">
-    Um handler com `{ sub: 'automod', group: 'moderation' }` só faz correspondência com interações onde tanto o grupo QUANTO o subcomando correspondem. Esquecer a propriedade *group* ou escrevê-la diferente faz com que o handler nunca receba interações. Use go-to-definition da IDE para verificar se as strings *sub* e *group* correspondem aos metadados do decorator na classe do comando.
+  <Step title="Faça o roteamento do handler bater exatamente">
+    Um handler com `{ sub: 'automod', group: 'moderation' }` só corresponde a
+    interações em que tanto o grupo quanto o subcomando batem. Esquecer a
+    propriedade *group* ou escrevê-la diferente faz o handler nunca receber
+    interações. Use go-to-definition da IDE para verificar se as strings *sub* e
+    *group* batem com os metadados dos decorators na classe do comando.
   </Step>
   <Step title="Registre apenas o comando pai no módulo">
-    O array *commands* no *@Module* deve conter apenas a classe *@SlashCommand*, não as classes de grupo. Classes de grupo são descobertas automaticamente através dos metadados de *@SlashSubcommandGroups*. Adicionar classes de grupo ao array *commands* não tem efeito, mas adiciona confusão.
+    O array *commands* em *@Module* deve conter apenas a classe *@SlashCommand*,
+    não as classes de grupo. As classes de grupo são descobertas automaticamente
+    pelos metadados de *@SlashSubcommandGroups*. Adicioná-las ao array
+    *commands* não produz efeito e só gera confusão.
   </Step>
 </Steps>
 

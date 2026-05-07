@@ -1,58 +1,66 @@
 ---
 title: Inicio
 description: |
-  Introducción arquitectural para construir un bot con Spraxium desde cero hasta un módulo en ejecución.
-  Cubre prerrequisitos, scaffold del proyecto, estructura de carpetas, flujo de bootstrap y reglas arquitecturales.
+  Introducción orientada a arquitectura para construir un bot con Spraxium desde cero hasta un grafo de módulos en ejecución.
+  Cubre prerrequisitos, scaffolding del proyecto, estructura de carpetas, flujo de bootstrap y las reglas arquitectónicas principales.
 order: 1
 category: Getting Started
 ---
 
 ## Qué es Spraxium
 
-Spraxium es un framework TypeScript construido sobre Discord.js que proporciona la capa de arquitectura que Discord.js intencionalmente no incluye. Discord.js maneja la comunicación de bajo nivel con el gateway, cubriendo conexiones WebSocket, llamadas REST, eventos brutos y modelos de datos. Spraxium toma el control desde ahí y entrega módulos, inyección de dependencias, pipeline de guards, lifecycle hooks y una secuencia de boot determinística que garantiza que tu bot inicie de la misma forma cada vez.
+Spraxium es un framework de TypeScript que se sitúa sobre Discord.js y aporta la capa de arquitectura que Discord.js intencionalmente no incluye. Discord.js maneja la comunicación de bajo nivel con el gateway, incluyendo conexiones WebSocket, llamadas REST, eventos crudos y modelos de datos. Spraxium toma el control desde ahí y te ofrece módulos, inyección de dependencias, pipeline de guards, hooks de ciclo de vida y una secuencia de arranque determinista que garantiza que tu bot inicie igual en cada ejecución.
 
-El resultado práctico es una base de código que se mantiene organizada a medida que el bot crece de un puñado de comandos a un sistema de producción completo. En lugar de un archivo único lleno de event listeners dispersos y lógica duplicada, cada feature vive en su propio módulo con fronteras claras y dependencias explícitas. El contenedor de DI conecta todo automáticamente, así que declaras lo que cada clase necesita y el framework resuelve e inyecta sin instanciación manual ni acoplamiento oculto entre módulos.
+Cada funcionalidad vive en su propio módulo con límites claros y dependencias explícitas. El contenedor de DI resuelve e inyecta todo automáticamente; tú declaras qué necesita cada clase y el framework se encarga del wiring.
 
 ## Prerrequisitos
 
-Antes de crear el scaffold de tu primer proyecto, asegúrate de tener las siguientes herramientas y cuentas listas. Cada una es necesaria para que el framework funcione correctamente, y la ausencia de cualquiera bloqueará tu progreso antes de que el bot pueda siquiera iniciar.
+Necesitas tres cosas antes de empezar:
 
-- **Node.js 20 o superior.** Spraxium apunta a las versiones LTS actuales. Puedes verificar tu versión instalada ejecutando `node -v` en la terminal, y tanto LTS 20 como LTS 22 están completamente soportadas.
-- **Un token de bot de Discord.** Crea una nueva aplicación en [Discord Developer Portal](https://discord.com/developers/applications), agrega un Bot y copia el token. Este token es lo que permite a tu bot autenticarse con el gateway de Discord.
-- **Proyecto TypeScript.** El scaffold de la CLI configura automáticamente el _tsconfig.json_ con _experimentalDecorators_ y _emitDecoratorMetadata_ habilitados, que son necesarios para el sistema de inyección de dependencias basado en decorators de Spraxium.
+- **Node.js 20 o superior.** Spraxium está orientado a las versiones LTS actuales. Puedes verificar tu versión instalada ejecutando `node -v` en tu terminal, y tanto LTS 20 como LTS 22 son totalmente compatibles.
+- **Un token de bot de Discord.** Crea una aplicación nueva en [Discord Developer Portal](https://discord.com/developers/applications), añade un Bot y copia el token. Ese token es lo que permite que tu bot se autentique con el gateway de Discord.
+- **Proyecto TypeScript.** El scaffold del CLI configura automáticamente _tsconfig.json_ con _experimentalDecorators_ y _emitDecoratorMetadata_ habilitados, necesarios para el sistema de inyección de dependencias basado en decorators del que depende Spraxium.
 
-<Callout tone="warning" title="Nunca expongas tu token de bot">
-  El token actúa como la contraseña de tu bot, quien lo tenga puede controlarlo
-  completamente. Agrégalo siempre al archivo .env y asegúrate de que .env esté
-  listado en .gitignore. El scaffold de Spraxium ya incluye esa regla en el
-  .gitignore generado automáticamente.
+<Callout tone="warning" title="Nunca expongas el token de tu bot">
+  El token actúa como la contraseña de tu bot; cualquiera que lo tenga puede tomar
+  control total del bot. Guárdalo siempre en .env y asegúrate de que .env esté
+  incluido en .gitignore. El scaffold de Spraxium agrega esa regla al .gitignore
+  generado automáticamente.
 </Callout>
 
-## Crear el proyecto
+<Callout tone="info" title="Usa un servidor de pruebas">
+  Durante el desarrollo, apunta siempre tu bot a un servidor privado de Discord
+  que controles. Así podrás registrar slash commands al instante con registro por
+  guild y probar interacciones sin afectar a usuarios reales. Mantenlo separado
+  de cualquier servidor de producción para evitar conflictos accidentales de
+  comandos o problemas de rate limit.
+</Callout>
 
-La forma más rápida de comenzar es a través del comando oficial de creación, que genera un proyecto listo para ejecutar con la estructura de carpetas correcta, configuración TypeScript y todas las dependencias por defecto preinstaladas. La CLI preguntará qué template usar, qué gestor de paquetes prefieres y si deseas inicializar un repositorio Git. Los valores por defecto son sensatos para la mayoría de los bots, así que puedes presionar Enter en todas las opciones en un primer proyecto.
+## Genera el proyecto
+
+Ejecuta el comando de creación para generar un proyecto con la estructura de carpetas correcta, configuración TypeScript y todas las dependencias preinstaladas. El CLI solicita una plantilla, package manager y si deseas inicializar un repositorio Git.
 
 <CodeTabs>
   <Tab label="npm" language="bash">
-    ```
-    npx @spraxium/cli@latest new mi-bot
+    ```bash
+    npx @spraxium/cli@latest new my-bot
     ```
   </Tab>
   <Tab label='pnpm' language='bash'>
-    ```
-    pnpm dlx @spraxium/cli@latest new mi-bot
+    ```bash
+    pnpm dlx @spraxium/cli@latest new my-bot
     ```
   </Tab>
   <Tab label='bun' language='bash'>
-    ```
-    bunx @spraxium/cli@latest new mi-bot
+    ```bash
+    bunx @spraxium/cli@latest new my-bot
     ```
   </Tab>
 </CodeTabs>
 
 ## Estructura inicial
 
-El proyecto generado por el scaffold sigue una convención que Spraxium mantiene durante todo el ciclo de vida del bot. Cada archivo tiene un rol arquitectural específico, y entender esta organización desde el principio facilita mucho agregar features, depurar problemas e incorporar a otros desarrolladores al proyecto.
+Cada archivo tiene un rol arquitectónico específico:
 
 <FolderStructure title='Estructura mínima'>
   <Folder name='src' open>
@@ -69,11 +77,14 @@ El proyecto generado por el scaffold sigue una convención que Spraxium mantiene
   <File name='.env' />
 </FolderStructure>
 
-La separación aquí es intencional y arquitectural. El archivo _main.ts_ controla el flujo de startup y nada más, sirviendo como el punto de entrada único que valida variables de entorno y arranca el framework. El archivo _app.env.ts_ define un schema tipado para variables de entorno que se validan al inicio antes de que el bot se conecte a Discord, capturando tokens faltantes o URLs malformadas inmediatamente. El archivo _app.module.ts_ sirve como la raíz de composición que importa módulos de feature pero no contiene lógica de negocio, manteniendo el módulo de nivel superior limpio y legible sin importar el tamaño del bot. Cada módulo de feature bajo la carpeta _modules_ es responsable de exactamente un dominio, haciendo sencillo localizar, probar o eliminar cualquier comportamiento sin afectar el resto de la base de código.
+- _main.ts_: solo bootstrap; valida env y arranca el framework
+- _app.env.ts_: schema de env tipado, validado antes de conectar a Discord
+- _app.module.ts_: raíz de composición, importa módulos de funcionalidades, sin lógica de negocio
+- _modules/_: una carpeta por dominio funcional
 
 ## Bootstrap
 
-El archivo de entrada _main.ts_ es responsable de validar variables de entorno, crear la instancia de la aplicación, cargar el grafo de módulos e iniciar la conexión con Discord. Este es el único archivo que interactúa directamente con la factory del framework, y su estructura debe permanecer mínima y predecible.
+_main.ts_ es el único archivo que toca la factory del framework. Valida variables de entorno, crea la aplicación, carga el grafo de módulos y abre la conexión con Discord.
 
 ```typescript filename='src/main.ts'
 import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
@@ -84,6 +95,7 @@ import { AppModule } from './app.module';
 async function main(): Promise<void> {
   const env = EnvValidator.validate(AppEnv);
   const app = await SpraxiumFactory.create({ token: env.token });
+
   app.useModule(AppModule);
   app.intents(IntentPreset.Standard);
 
@@ -93,11 +105,11 @@ async function main(): Promise<void> {
 main();
 ```
 
-La llamada _EnvValidator.validate_ lee tu archivo _.env_, valida cada campo contra el schema definido en _AppEnv_, y lanza un error descriptivo al iniciar si algo falta o está malformado en lugar de dejar que el bot crashee durante la operación cuando un usuario dispare la feature afectada. Después de la validación, _SpraxiumFactory.create_ crea la instancia de la aplicación, _useModule_ carga todo el grafo de módulos desde el módulo raíz, y _app.listen()_ dispara la secuencia completa de boot incluyendo resolución de DI, instanciación de providers, binding de listeners y finalmente el login en Discord.
+`EnvValidator.validate` lee _.env_ y valida cada campo contra _AppEnv_; valores ausentes o malformados lanzan error de inmediato, antes de que Discord conecte. `app.listen()` resuelve el grafo de DI, instancia providers, enlaza listeners y hace login.
 
 ## Módulo raíz
 
-El módulo raíz es tu punto de entrada arquitectural y el único lugar donde todos los módulos de feature se encuentran. Importa módulos de feature pero no posee providers ni listeners directamente, manteniendo el archivo pequeño y legible sin importar cuántas features tenga el bot. A medida que el bot crece, simplemente agregas más imports de módulos de feature aquí sin tocar _main.ts_ ni cambiar cómo el contenedor de DI resuelve dependencias.
+_AppModule_ es la raíz de composición: importa módulos de funcionalidades, pero no contiene providers ni listeners. Agregar funcionalidades significa agregar imports de módulos aquí.
 
 ```typescript filename="src/app.module.ts"
 import { Module } from '@spraxium/common';
@@ -109,13 +121,13 @@ import { DefaultModule } from './modules/default/default.module';
 export class AppModule {}
 ```
 
-## Reglas arquitecturales fundamentales
+## Reglas arquitectónicas principales
 
-Spraxium sigue un conjunto de convenciones que traen beneficios inmediatos en organización de código, testabilidad y predictibilidad operacional. Estas reglas no son sugerencias sino principios fundamentales en los que el framework se apoya para garantizar resolución de dependencias, seguridad en el boot y aislamiento entre módulos.
+Tres reglas que sustentan cómo opera el framework:
 
-- **Un módulo por dominio de feature.** Cada dominio en tu bot, ya sea moderación, comandos, eventos o integraciones externas, recibe su propia carpeta de módulo dedicada con sus propios archivos de service, listener y module. Las dependencias entre features pasan por imports y exports explícitos en lugar de estado global compartido, lo que hace fácil entender exactamente de qué depende cada módulo.
-- **Inyección de dependencias para todo.** Nunca debes instanciar services manualmente con la palabra clave _new_. En su lugar, declara dependencias como parámetros de constructor y deja que el contenedor de DI las resuelva automáticamente. Esto mantiene el acoplamiento explícito, facilita los tests con inyección de mocks, y asegura que el framework controle el ciclo de vida de cada service.
-- **Validación al inicio antes de Discord.** Todo el grafo de DI se resuelve y todos los providers son instanciados antes de que el login en Discord ocurra. Si algún service tiene configuración inválida o una dependencia faltante, el error aparece al arrancar con un mensaje claro en lugar de surgir después del deploy cuando un usuario dispare el comando afectado.
+- **Un módulo por dominio funcional.** Cada dominio de tu bot, ya sea moderación, comandos, eventos o integraciones externas, obtiene su propia carpeta de módulo dedicada con sus archivos de servicio, listener y módulo. Las dependencias entre funcionalidades pasan por imports y exports explícitos en lugar de estado global compartido, lo que facilita entender exactamente de qué depende cada módulo.
+- **Inyección de dependencias para todo.** Nunca deberías instanciar servicios manualmente con la palabra clave _new_. En su lugar, declara dependencias como parámetros del constructor y deja que el contenedor de DI las resuelva automáticamente. Esto mantiene el acoplamiento explícito, hace que las pruebas con mocks sean directas y garantiza que el framework controle el ciclo de vida de cada servicio.
+- **Validación de arranque antes de Discord.** Todo el grafo de DI se resuelve y todos los providers se instancian antes del login de Discord. Si cualquier servicio tiene configuración inválida o una dependencia faltante, el error aparece en el arranque con un mensaje claro en lugar de aparecer tras desplegar, cuando un usuario dispara el comando afectado.
 
 ## Siguiente página
 

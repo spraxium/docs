@@ -1,0 +1,311 @@
+---
+title: Comandos de menú contextual
+description: |
+  Los comandos de menú contextual aparecen en el submenú Apps del clic derecho de Discord para usuarios y mensajes.
+  Aprende el patrón command-handler, el direccionamiento a usuario versus mensaje, la inyección de parámetros, el control de permisos y el registro en módulos.
+order: 1
+category: Context Menu
+---
+
+## Qué son los comandos de menú contextual
+
+Los comandos de menú contextual son comandos de aplicación que Discord expone en el menú de contexto del clic derecho sobre usuarios y mensajes, en lugar del selector de `/`. Cuando alguien hace clic derecho en un miembro del servidor y abre el submenú _Apps_, todos los comandos de menú contextual del tipo _user_ registrados aparecen allí. Cuando alguien hace clic derecho en un mensaje, aparecen los comandos de menú contextual del tipo _message_. Discord llama a ambos tipos _application commands_, pero el flujo de despacho y los datos que traen son bastante distintos de los slash commands.
+
+La diferencia principal respecto a los slash commands es que los comandos de menú contextual no tienen opciones. La propia interacción ya trae el objetivo, sea el `User` y el `GuildMember` opcional en un comando de usuario, o la `Message` en un comando de mensaje, y el handler accede a ese objetivo directamente en el objeto de interacción. No existe inyección con `@SlashOpt()` ni un schema de opciones para definir.
+
+Spraxium implementa comandos de menú contextual con el mismo patrón de separación entre command y handler usado en slash commands. Una clase _@ContextMenuCommand_ declara los metadatos del comando, y una clase separada _@ContextMenuCommandHandler_ implementa la lógica del handler. Guards, permisos y pipeline de excepciones funcionan igual que en slash commands.
+
+## Cuándo elegir comandos de menú contextual
+
+Los comandos de menú contextual funcionan muy bien cuando la persona está actuando sobre algo que ya existe en pantalla. Si la acción parte de un mensaje seleccionado o de un usuario seleccionado, el menú contextual suele ser más rápido que pedir que la persona escriba un slash command y vuelva a informar ese objetivo como opción.
+
+Casos comunes incluyen acciones de moderación sobre un mensaje, flujos de cita o bookmark, inspección rápida de usuarios, consulta de avatar y herramientas internas de staff en las que el objetivo ya queda claro por el propio clic derecho. Si la acción necesita muchas opciones configurables, los slash commands siguen siendo la mejor elección.
+
+## Definiendo un comando de menú contextual
+
+El decorator _@ContextMenuCommand_ acepta un objeto de configuración con _name_ y _type_ del comando. El nombre es lo que aparece en el submenú Apps de Discord y puede incluir espacios, con hasta 32 caracteres. El tipo puede ser `'user'` para comandos dirigidos a usuarios o `'message'` para comandos dirigidos a mensajes.
+
+La clase del comando en sí es solo una declaración, sin implementación. Piensa en ella como el schema: define qué se registrará del lado de Discord y qué metadatos usa el resolvedor de handlers para conectar todo.
+
+<CodeTabs>
+  <Tab label="Comando de usuario" language="typescript">
+```typescript filename="src/modules/user-info/commands/user-info.command.ts"
+import { ContextMenuCommand } from '@spraxium/common';
+
+@ContextMenuCommand({ name: 'User Info', type: 'user' })
+export class UserInfoCommand {}
+```
+  </Tab>
+  <Tab label="Comando de mensaje" language="typescript">
+```typescript filename="src/modules/quotes/commands/quote.command.ts"
+import { ContextMenuCommand } from '@spraxium/common';
+
+@ContextMenuCommand({ name: 'Quote', type: 'message' })
+export class QuoteCommand {}
+```
+  </Tab>
+</CodeTabs>
+
+## Escribiendo el handler
+
+La clase del handler recibe el decorator _@ContextMenuCommandHandler_, pasando la clase del comando como argumento. El handler debe exponer un método `handle()`. Usa _@Ctx()_ para recibir la interacción; el tipo exacto depende del tipo de comando.
+
+En un comando `'user'`, la interacción es `UserContextMenuCommandInteraction`. Expone `interaction.targetUser` (objeto `User`) y `interaction.targetMember` (`GuildMember` resuelto si el bot está en una guild; en caso contrario `null`).
+
+En un comando `'message'`, la interacción es `MessageContextMenuCommandInteraction`. Expone `interaction.targetMessage` (objeto `Message`).
+
+El patrón de handler es intencionalmente simple: lee el objetivo, aplica tus reglas de negocio y responde. Como no hay opciones declaradas para parsear, los handlers de menú contextual suelen ser más pequeños que handlers de slash commands y más fáciles de entender rápido.
+
+<CodeTabs>
+  <Tab label="Handler de usuario" language="typescript">
+```typescript filename="src/modules/user-info/handlers/user-info-command.handler.ts"
+import { ContextMenuCommandHandler, Ctx } from '@spraxium/common';
+import { type UserContextMenuCommandInteraction, time } from 'discord.js';
+import { UserInfoCommand } from '../commands/user-info.command';
+
+@ContextMenuCommandHandler(UserInfoCommand)
+export class UserInfoHandler {
+  async handle(@Ctx() interaction: UserContextMenuCommandInteraction): Promise<void> {
+    const user = interaction.targetUser;
+    const member = interaction.targetMember;
+
+    const lines = [
+      `**${user.tag}** (\`${user.id}\`)`,
+      `Account created: ${time(user.createdAt, 'R')}`,
+    ];
+
+    if (member && 'joinedAt' in member && member.joinedAt) {
+      lines.push(`Joined server: ${time(member.joinedAt, 'R')}`);
+    }
+
+    await interaction.reply({ content: lines.join('\n'), flags: 'Ephemeral' });
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler de mensaje" language="typescript">
+```typescript filename="src/modules/quotes/handlers/quote-command.handler.ts"
+import { ContextMenuCommandHandler, Ctx } from '@spraxium/common';
+import type { MessageContextMenuCommandInteraction } from 'discord.js';
+import { QuoteCommand } from '../commands/quote.command';
+
+@ContextMenuCommandHandler(QuoteCommand)
+export class QuoteHandler {
+  async handle(@Ctx() interaction: MessageContextMenuCommandInteraction): Promise<void> {
+    const message = interaction.targetMessage;
+    const content = message.content?.trim().length
+      ? message.content
+      : '*(no text content)*';
+
+    const quoted = content
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+
+    await interaction.reply({
+      content: `Quoting **${message.author.tag}**:\n${quoted}`,
+      allowedMentions: { parse: [] },
+    });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Referencia de configuración del comando
+
+La configuración de _@ContextMenuCommand_ acepta varios campos opcionales además de _name_ y _type_.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Obligatorio</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*name*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Nombre mostrado en el submenú Apps. Puede tener hasta 32 caracteres y admite espacios.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*type*</TableCell>
+      <TableCell>*user* o *message*</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Define si el comando aparece en el clic derecho sobre usuario o sobre mensaje.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*guild*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Registra como comando de guild en vez de global. Propaga de inmediato, sin cola de aprobación de Discord. Útil para pruebas.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultMemberPermissions*</TableCell>
+      <TableCell>bigint, number, or null</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Bitfield de permisos de Discord que controla quién ve el comando. Administradores del servidor pueden sobrescribirlo en configuración de guild.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*dmPermission*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Define si el comando estará disponible en DM. El predeterminado es *true*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*nsfw*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Marca el comando como NSFW. Discord lo oculta fuera de canales con restricción de edad para usuarios no verificados.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Guards y permisos
+
+Los handlers de comandos de menú contextual aceptan _@UseGuards_ exactamente igual que los handlers de slash commands. El pipeline de guards corre antes del método del handler, y cualquier guard que niegue la interacción detiene la ejecución. El pipeline de excepciones también funciona igual: lanzar una _SpraxiumException_ dentro del handler o de un guard produce una respuesta estructurada en Discord.
+
+```typescript filename="src/modules/moderation/handlers/flag-message.handler.ts"
+import { ContextMenuCommandHandler, Ctx, UseGuards } from '@spraxium/common';
+import { GuildOnlyGuard } from '@spraxium/common';
+import { PermissionFlagsBits } from 'discord.js';
+import type { MessageContextMenuCommandInteraction } from 'discord.js';
+import { FlagMessageCommand } from '../commands/flag-message.command';
+
+@ContextMenuCommandHandler(FlagMessageCommand)
+@UseGuards(GuildOnlyGuard)
+export class FlagMessageHandler {
+  async handle(@Ctx() interaction: MessageContextMenuCommandInteraction): Promise<void> {
+    const message = interaction.targetMessage;
+    // ... moderation logic
+    await interaction.reply({ content: 'Message flagged.', flags: 'Ephemeral' });
+  }
+}
+```
+
+_@Defer_ y _@AutoDefer_ también son compatibles. Aplícalos a la clase del handler de la misma forma que en handlers de slash commands. El comportamiento de defer es idéntico: el framework difiere la interacción después de que el pipeline de guards pasa.
+
+## Comandos de usuario versus mensaje
+
+La diferencia práctica es simple:
+
+1. Comandos *user* tratan del miembro seleccionado o de la identidad del usuario.
+2. Comandos *message* tratan del contenido y del autor del mensaje seleccionado.
+
+Si la acción depende del cuerpo del mensaje, de adjuntos o de una jump URL, usa un comando de mensaje. Si depende de identidad de cuenta, asociación a guild, roles o datos de perfil, usa un comando de usuario.
+
+## Registro en el módulo
+
+Tanto la clase del comando como la clase del handler deben registrarse en un módulo. Las clases de comando van en el array _commands_ y las clases de handler van en _handlers_. El framework lee metadatos de comandos desde _commands_ para montar el payload de registro en Discord y lee metadatos de handlers para conectar el dispatcher de runtime.
+
+```typescript filename="src/modules/user-info/user-info.module.ts"
+import { Module } from '@spraxium/common';
+import { AvatarCommand } from './commands/avatar.command';
+import { UserInfoCommand } from './commands/user-info.command';
+import { AvatarHandler } from './handlers/avatar-command.handler';
+import { UserInfoHandler } from './handlers/user-info-command.handler';
+
+@Module({
+  commands: [UserInfoCommand, AvatarCommand],
+  handlers: [UserInfoHandler, AvatarHandler],
+})
+export class UserContextMenuModule {}
+```
+
+Comandos de menú contextual y slash commands pueden coexistir en el mismo módulo sin conflictos. Ambos tipos comparten la misma fase de registro y la misma infraestructura de dispatch. Puedes mantener, en el mismo módulo, un slash command, su handler y un comando de menú contextual enfocado en una funcionalidad similar, si eso tiene sentido para la organización de tu bot.
+
+Esta suele ser la estructura más limpia para módulos de moderación o perfil. Un slash command puede cubrir el flujo explícito, con muchas opciones, mientras un comando de menú contextual ofrece el camino rápido por clic derecho en el mismo dominio.
+
+## Comportamiento de runtime en 0.2.0 y uso avanzado
+
+En 0.2.0, handlers de menú contextual comparten el mismo modelo de ejecución de handlers de slash command, incluyendo pipeline de guard, flujo de excepciones y control de defer. En la práctica, puedes aplicar las mismas reglas operativas para ambos tipos de comando sin crear infraestructura paralela.
+
+### Estrategias de defer en handlers de menú contextual
+
+`@Defer()` y `@AutoDefer()` funcionan en handlers de menú contextual.
+
+1. `@Defer({ ephemeral? })`: difiere inmediatamente después de que pasen los guards.
+2. `@AutoDefer({ threshold, ephemeral? })`: solo difiere cuando el handler supera el threshold.
+
+Para flujos de mensaje con procesamiento pesado (moderación, análisis de adjuntos, enrichment), `@AutoDefer` suele dar mejor UX: rutas rápidas responden al instante, rutas lentas no agotan la ventana de timeout de Discord.
+
+```typescript filename="src/modules/moderation/handlers/analyze-message.handler.ts"
+import { AutoDefer, ContextMenuCommandHandler, Ctx } from '@spraxium/common';
+import type { MessageContextMenuCommandInteraction } from 'discord.js';
+import { AnalyzeMessageCommand } from '../commands/analyze-message.command';
+
+@ContextMenuCommandHandler(AnalyzeMessageCommand)
+@AutoDefer({ threshold: 1500, ephemeral: true })
+export class AnalyzeMessageHandler {
+  async handle(@Ctx() interaction: MessageContextMenuCommandInteraction): Promise<void> {
+    const message = interaction.targetMessage;
+
+    const analysis = `Length=${message.content.length}, Attachments=${message.attachments.size}`;
+
+    await interaction.reply({ content: `Analysis: ${analysis}` });
+  }
+}
+```
+
+### Seguridad entre targetUser y targetMember
+
+En comandos de usuario, trata `targetUser` y `targetMember` como fuentes distintas:
+
+1. `targetUser` siempre representa la cuenta seleccionada.
+2. `targetMember` puede ser null fuera de contexto de guild o sin datos de miembro cargados.
+
+Si la acción depende de roles, permisos o joinedAt, valida `targetMember` antes y responde con fallback explícito cuando no esté disponible.
+
+### Patrones de moderación para comandos de mensaje
+
+Comandos de mensaje son ideales para moderación porque el objetivo es explícito y auditable. Un flujo robusto suele tener:
+
+1. Guard de permiso.
+2. Respuesta estructurada (normalmente ephemeral para UX de staff).
+3. Dispatch opcional para webhook/auditoría de largo plazo.
+
+```typescript filename="src/modules/moderation/handlers/flag-message.handler.ts"
+import { ContextMenuCommandHandler, Ctx, UseGuards } from '@spraxium/common';
+import { GuildOnlyGuard } from '@spraxium/common';
+import type { MessageContextMenuCommandInteraction } from 'discord.js';
+import { FlagMessageCommand } from '../commands/flag-message.command';
+
+@ContextMenuCommandHandler(FlagMessageCommand)
+@UseGuards(GuildOnlyGuard)
+export class FlagMessageHandler {
+  async handle(@Ctx() interaction: MessageContextMenuCommandInteraction): Promise<void> {
+    const message = interaction.targetMessage;
+
+    await interaction.reply({
+      content: `Flagged message ${message.id} from ${message.author.tag}`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+### Checklist operativa para producción
+
+Al llevar comandos de menú contextual a guilds de producción:
+
+1. Mantén nombres cortos y orientados a acción en el submenú Apps.
+2. Itera con registro por guild y promueve a global después de validar.
+3. Prefiere respuestas ephemeral en comandos internos/de moderación.
+4. Asegura cobertura de guard equivalente a la versión slash.
+5. Mantén comandos de usuario y de mensaje separados para claridad de permisos.
+
+### Referencias de apps de ejemplo
+
+Para patrones ejecutables y actualizados:
+
+1. `apps/context-menu-bot` para flujos dedicados de usuario/mensaje.
+2. `apps/sandbox` para arquitectura mixta con co-location de módulos.
+3. `apps/slash-bot` para patrones de guard y pipeline que pueden reflejarse en context menu.
+
+## Siguiente página
+
+Continúa con [Visión general de guards](/guards-overview).

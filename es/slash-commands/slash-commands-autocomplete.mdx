@@ -1,23 +1,23 @@
 ---
 title: Autocomplete
 description: |
-  Proporciona sugerencias dinámicas mientras los usuarios escriben valores de opción en el cliente Discord.
-  Aprende los decoradores @SlashAutocompleteHandler y @SlashFocused, patrones de filtrado y el límite de 25 opciones.
+  Proporciona sugerencias dinámicas mientras los usuarios escriben valores de opciones en el cliente de Discord.
+  Aprende los decoradores @SlashAutocompleteHandler y @SlashFocused, patrones de filtrado y el límite de 25 choices.
 order: 5
 category: Slash Commands
 ---
 
 ## Qué es autocomplete
 
-Autocomplete es un tipo de interacción de Discord que se dispara cada vez que un usuario escribe en una opción de comando marcada con `autocomplete: true`. En vez de esperar a que el usuario envíe el comando completo, Discord envía una _AutocompleteInteraction_ que contiene el texto parcial que el usuario ha escrito hasta el momento. El bot responde con hasta 25 sugerencias que Discord muestra como dropdown debajo del campo de entrada. El usuario puede seleccionar una sugerencia o continuar escribiendo, y Discord envía nuevas interacciones de autocomplete conforme la entrada cambia.
+Autocomplete es un tipo de interacción de Discord que se dispara cada vez que un usuario escribe en una opción de comando marcada con `autocomplete: true`. En lugar de esperar a que el usuario envíe el comando completo, Discord envía una _AutocompleteInteraction_ que contiene el texto parcial que el usuario escribió hasta ese momento. El bot responde con hasta 25 sugerencias que Discord muestra como un desplegable debajo del campo de entrada. El usuario puede seleccionar una sugerencia o seguir escribiendo, y Discord envía nuevas interacciones de autocomplete a medida que cambia la entrada.
 
-En Spraxium, el autocomplete se maneja con una clase handler dedicada decorada con _@SlashAutocompleteHandler_. Este handler es separado del handler de comando porque las interacciones de autocomplete llegan antes de que el comando se envíe y tienen un tipo de interacción diferente. El handler de autocomplete recibe la entrada parcial a través del decorador de parámetro _@SlashFocused_ y responde con sugerencias filtradas a través del objeto _AutocompleteInteraction_ inyectado por _@Ctx_.
+En Spraxium, autocomplete se maneja con una clase handler dedicada decorada con _@SlashAutocompleteHandler_. Este handler está separado del handler del comando porque las interacciones de autocomplete llegan antes de que el comando sea enviado y tienen un tipo de interacción distinto. El handler de autocomplete recibe la entrada parcial mediante el decorador de parámetro _@SlashFocused_ y responde con sugerencias filtradas a través del objeto _AutocompleteInteraction_ inyectado por _@Ctx_.
 
-El sistema de autocomplete se integra con el mismo contenedor DI, registro de módulos y manejo de excepciones que los handlers de comando. Las clases handler de autocomplete pueden inyectar servicios para obtener sugerencias de bases de datos, APIs o fuentes de datos en caché. Los errores durante la evaluación de autocomplete son capturados por el exception handler y no hacen caer el proceso del bot.
+El sistema de autocomplete se integra con el mismo contenedor DI, registro de módulos y manejo de excepciones que los command handlers. Las clases handler de autocomplete pueden inyectar servicios para obtener sugerencias desde bases de datos, APIs o fuentes de datos en caché. Los errores durante la evaluación de autocomplete son capturados por el exception handler y no derriban el proceso del bot.
 
-## Habilitando autocomplete en una opción
+## Habilitar autocomplete en una opción
 
-El autocomplete se habilita del lado de la definición del comando configurando `autocomplete: true` en los parámetros de la opción. Este flag le dice a Discord que envíe interacciones de autocomplete cuando el usuario enfoque el campo de la opción. Solo las opciones _String_, _Integer_ y _Number_ soportan autocomplete. Cuando _autocomplete_ es `true`, la propiedad _choices_ se ignora porque Discord no permite choices estáticos y autocomplete dinámico en la misma opción.
+Autocomplete se habilita del lado de la definición del comando estableciendo `autocomplete: true` en la configuración de la opción. Este flag indica a Discord que envíe interacciones de autocomplete cuando el usuario enfoca la entrada de la opción. Solo las opciones _String_, _Integer_ y _Number_ soportan autocomplete. Cuando _autocomplete_ es `true`, la propiedad _choices_ se ignora porque Discord no permite choices estáticos y autocomplete dinámico en la misma opción.
 
 ```typescript filename="commands/search.command.ts"
 import { SlashCommand, SlashOption } from '@spraxium/common';
@@ -38,7 +38,7 @@ export class SearchCommand {
 
 ## La clase handler de autocomplete
 
-El decorador _@SlashAutocompleteHandler_ marca una clase como proveedor de autocomplete para una opción específica en un comando específico. Acepta dos argumentos: la clase _@SlashCommand_ dueña de la opción, y el nombre de la opción como string. La clase debe exponer un método _handle_ que recibe el valor enfocado y la interacción, procesa la entrada y responde con sugerencias.
+El decorador _@SlashAutocompleteHandler_ marca una clase como proveedor de autocomplete para una opción específica de un comando específico. Acepta dos argumentos: la clase _@SlashCommand_ propietaria de la opción y el nombre de la opción como string. La clase debe exponer un método _handle_ que reciba el valor enfocado y la interacción, procese la entrada y responda con sugerencias.
 
 ```typescript filename="handlers/search.autocomplete.ts"
 import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
@@ -66,52 +66,51 @@ export class SearchAutocomplete {
 }
 ```
 
-El decorador _@SlashAutocompleteHandler_ recibe la referencia de la clase de comando como primer argumento y el nombre de la opción como segundo. Durante la carga de módulos, el framework lee estos metadatos y empareja el handler con la opción exacta a la que debe responder. Cada handler está vinculado a un comando y a una opción, por lo que debes crear una clase separada para cada opción que necesite autocomplete.
+El decorador _@SlashAutocompleteHandler_ toma la referencia de clase del comando como primer argumento y el nombre de opción como segundo. Durante la carga del módulo, el framework lee estos metadatos y asocia el handler con la opción exacta a la que debe responder. Cada handler se limita a un comando y una opción, por lo que debes crear una clase separada para cada opción que requiera autocomplete.
 
 ## Inyección de parámetros en handlers de autocomplete
 
-Los handlers de autocomplete usan dos decoradores de parámetro: _@SlashFocused()_ y _@Ctx()_. El decorador _@SlashFocused_ inyecta el valor parcial que el usuario ha escrito hasta el momento. Para opciones _String_ esto es un string, para opciones _Integer_ y _Number_ puede ser un string o número dependiendo del estado actual de la entrada. El decorador _@Ctx_ inyecta el objeto _AutocompleteInteraction_, que proporciona el método _respond_ para enviar sugerencias de vuelta a Discord.
+Los handlers de autocomplete usan dos decoradores de parámetro: _@SlashFocused()_ y _@Ctx()_. El decorador _@SlashFocused_ inyecta el valor parcial que el usuario escribió hasta ese momento. Para opciones _String_ esto es un string; para opciones _Integer_ y _Number_ puede ser string o number según el estado actual de la entrada. El decorador _@Ctx_ inyecta el objeto _AutocompleteInteraction_, que proporciona el método _respond_ para enviar sugerencias de vuelta a Discord.
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header="Decorador">Decorador</TableCell>
-      <TableCell header="Valor inyectado">Valor inyectado</TableCell>
-      <TableCell header="Tipo">Tipo</TableCell>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Valor inyectado</TableCell>
+      <TableCell header>Tipo</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*@SlashFocused()*</TableCell>
       <TableCell>
-        El texto parcial que el usuario ha escrito en el campo de la opción
-        enfocada.
+        El texto parcial que el usuario escribió en el campo de opción enfocado.
       </TableCell>
-      <TableCell>`string | number`</TableCell>
+      <TableCell>string or number</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@Ctx()*</TableCell>
-      <TableCell>El objeto Discord *AutocompleteInteraction* crudo.</TableCell>
-      <TableCell>`AutocompleteInteraction`</TableCell>
+      <TableCell>El objeto de Discord *AutocompleteInteraction* en bruto.</TableCell>
+      <TableCell>*AutocompleteInteraction*</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-El orden de los parámetros no importa. El _SlashBinder_ lee los índices de metadatos de ambos decoradores y construye el array de parámetros posicionalmente. Si colocas _@SlashFocused_ en el índice 0 y _@Ctx_ en el índice 1, o los inviertes, el framework inyecta los valores correctos en las posiciones correctas.
+El orden de parámetros no importa. El _SlashBinder_ lee los índices de metadatos de ambos decoradores y construye el arreglo de parámetros por posición. Si colocas _@SlashFocused_ en índice 0 y _@Ctx_ en índice 1, o al revés, el framework inyecta los valores correctos en las posiciones correctas.
 
-<Callout tone="warning" title="Responde en menos de tres segundos">
-  Discord exige que las respuestas de autocomplete lleguen dentro de los tres
-  segundos posteriores al envío de la interacción. Si tu handler supera el
-  límite de tiempo, el cliente Discord muestra una lista vacía o con error y el
+<Callout tone="warning" title="Responde dentro de tres segundos">
+  Discord exige que las respuestas de autocomplete lleguen dentro de tres
+  segundos desde que se envía la interacción. Si tu handler excede ese límite,
+  el cliente de Discord muestra una lista de sugerencias vacía o fallida y el
   usuario no puede seleccionar ninguna opción.
 </Callout>
 
 ## Patrones de filtrado y respuesta
 
-Discord impone un máximo de 25 sugerencias por respuesta de autocomplete. Tu handler debe filtrar y recortar los resultados antes de llamar a _interaction.respond()_. Cada sugerencia es un objeto con _name_ (mostrado al usuario, máximo 100 caracteres) y _value_ (enviado al handler de comando cuando se selecciona).
+Discord impone un máximo de 25 sugerencias por respuesta de autocomplete. Tu handler debe filtrar y recortar resultados antes de llamar a _interaction.respond()_. Cada sugerencia es un objeto con _name_ (mostrado al usuario, máximo 100 caracteres) y _value_ (enviado al command handler cuando se selecciona).
 
 <CodeTabs defaultIndex={0}>
-  <Tab label="Filtro de lista estática" language="typescript">
+  <Tab label="Static list filter" language="typescript">
 ```typescript filename="handlers/ping-service.autocomplete.ts"
 import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
 import type { AutocompleteInteraction } from 'discord.js';
@@ -140,7 +139,7 @@ export class PingServiceAutocomplete {
 
 ````
   </Tab>
-  <Tab label="Filtro con base de datos" language="typescript">
+  <Tab label="Database-backed filter" language="typescript">
 ```typescript filename="handlers/tag-search.autocomplete.ts"
 import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
 import type { AutocompleteInteraction } from 'discord.js';
@@ -169,7 +168,7 @@ export class TagSearchAutocomplete {
 
 ## Autocomplete con inyección de dependencias
 
-Los handlers de autocomplete se instancian a través del contenedor DI, así que pueden inyectar servicios exactamente como los handlers de comando. Esto habilita patrones donde las sugerencias de autocomplete vienen de una base de datos, caché o API externa. La clase handler declara parámetros de constructor, y el contenedor DI los resuelve de los providers del módulo durante la carga.
+Los handlers de autocomplete se instancian mediante el contenedor DI, por lo que pueden inyectar servicios igual que los command handlers. Esto permite patrones donde las sugerencias de autocomplete provienen de base de datos, caché o APIs externas. La clase handler declara parámetros de constructor, y el contenedor DI los resuelve desde los providers del módulo durante la carga del módulo.
 
 ```typescript filename="handlers/song-search.autocomplete.ts"
 import { Ctx, SlashAutocompleteHandler, SlashFocused } from '@spraxium/common';
@@ -196,9 +195,9 @@ export class SongSearchAutocomplete {
 }
 ```
 
-## Registro en módulo para handlers de autocomplete
+## Registro de módulo para handlers de autocomplete
 
-Los handlers de autocomplete se registran en el array _handlers_ del módulo junto con los handlers de comando. El framework detecta los metadatos de _@SlashAutocompleteHandler_ durante la carga del módulo y conecta el handler a su comando y opción de forma automática. No necesitas arrays separados o configuración especial para handlers de autocomplete.
+Los handlers de autocomplete se registran en el arreglo _handlers_ del módulo junto con los command handlers. El framework detecta metadatos _@SlashAutocompleteHandler_ durante la carga del módulo y conecta el handler con su comando y opción automáticamente. No necesitas arreglos separados ni configuración especial para handlers de autocomplete.
 
 ```typescript filename="modules/slash/slash.module.ts"
 import { Module } from '@spraxium/common';
@@ -216,36 +215,36 @@ export class SlashModule {}
 ## Checklist de diseño para autocomplete
 
 <Steps>
-  <Step title="Siempre recorta a 25 resultados">
-    Discord rechaza respuestas de autocomplete con más de 25 opciones. Aplica
-    `.slice(0, 25)` a todo array de respuesta, incluso si esperas menos
-    resultados. Esto previene fallos inesperados cuando los datos crecen más
-    allá de tus expectativas iniciales.
+  <Step title="Recorta siempre a 25 resultados">
+    Discord rechaza respuestas de autocomplete con más de 25 choices. Aplica
+    `.slice(0, 25)` a todo arreglo de respuesta, incluso si esperas menos
+    resultados. Esto evita fallos inesperados cuando los datos crecen más allá
+    de tus expectativas iniciales.
   </Step>
   <Step title="Trunca nombres de sugerencia a 100 caracteres">
     Discord limita el campo *name* a 100 caracteres. Cuando las sugerencias
-    vienen de contenido generado por usuarios o fuentes externas, aplica
-    `.slice(0, 100)` al nombre para prevenir rechazo de la API.
+    provienen de contenido generado por usuarios o fuentes externas, aplica
+    `.slice(0, 100)` al nombre para evitar rechazo de la API.
   </Step>
-  <Step title="Convierte el valor enfocado a string antes de filtrar">
+  <Step title="Convierte focused a string antes de filtrar">
     Para opciones *Integer* y *Number*, el valor enfocado puede llegar como
-    número o string parcial que aún no es un número válido. Usa
-    `String(focused)` antes de operaciones con string como *toLowerCase()* o
+    number o como string parcial que aún no es un número válido. Usa
+    `String(focused)` antes de operaciones de string como *toLowerCase()* o
     *includes()* para evitar errores de tipo.
   </Step>
-  <Step title="Responde rápido con datos en caché o pre-computados">
+  <Step title="Responde rápido con datos en caché o precomputados">
     Discord espera respuestas de autocomplete dentro de tres segundos. Para
     sugerencias respaldadas por base de datos, considera cachear consultas
     frecuentes o usar índices de búsqueda optimizados. Para listas estáticas,
-    define los datos como constante a nivel de módulo para evitar asignaciones
+    define los datos como constantes a nivel de módulo para evitar asignaciones
     repetidas.
   </Step>
-  <Step title="Retorna array vacío cuando no exista handler">
+  <Step title="Devuelve arreglo vacío cuando no exista handler">
     Si una opción de comando tiene `autocomplete: true` pero no hay handler
-    registrado, el binder envía un array vacío automáticamente. Sin embargo, si
-    creas un handler que falla al responder, el usuario ve un estado de carga
-    perpetuo. Siempre llama a `interaction.respond()` en cada camino de código,
-    incluso con un array vacío.
+    registrado, el binder envía un arreglo vacío automáticamente. Sin embargo,
+    si creas un handler que no responde, el usuario ve un estado de carga
+    perpetuo. Llama siempre a `interaction.respond()` en todas las rutas de
+    código, incluso con un arreglo vacío.
   </Step>
 </Steps>
 

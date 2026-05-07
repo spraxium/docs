@@ -1,17 +1,17 @@
 ---
-title: Opciones y Guards Built-in
+title: Opciones y guards integrados
 description: |
-  Haz guards configurables con GuardOption y el helper withOptions para parámetros tipados.
-  Explora los diez guards built-in disponibles en el paquete core y como usar cada uno.
+  Haz los guards configurables con GuardOption y el helper withOptions para parámetros tipados.
+  Explora los diez guards integrados disponibles en el paquete core y cómo usar cada uno.
 order: 3
 category: Guards
 ---
 
-## Haciendo guards configurables con @GuardOption
+## Hacer configurables los guards con @GuardOption
 
-Algunos guards necesitan parámetros para funcionar. Un guard de role necesita saber cuáles roles chequear, un guard de cooldown necesita saber la ventana de tiempo, y un guard de permiso necesita saber cuáles permisos requerir. En lugar de hardcodear estos valores dentro de la clase guard, declaras propiedades configurables con el decorator _@GuardOption_ y pasas valores cuando aplicas el guard.
+Algunos guards necesitan parámetros para funcionar. Un role guard necesita saber qué roles revisar, un cooldown guard necesita la ventana de tiempo y un permission guard necesita qué permisos exigir. En lugar de hardcodear estos valores dentro de la clase guard, declaras propiedades configurables con el decorador _@GuardOption_ y pasas valores cuando adjuntas el guard.
 
-El decorator _@GuardOption_ acepta un objeto de configuración con dos campos opcionales. El campo _required_ hace la opción obligatoria, significando que el framework lanza un error de configuración en runtime si la opción no se provee. El campo _default_ establece un valor fallback que aplica cuando ningún valor se pasa explícitamente. Si ni _required_ ni _default_ está definido, la opción es simplemente opcional y sera undefined si no se provee.
+El decorador _@GuardOption_ acepta un objeto de configuración con dos campos opcionales. El campo _required_ vuelve obligatoria la opción, lo que significa que el framework lanza un error de configuración en runtime si no se proporciona. El campo _default_ define un valor de respaldo que se aplica cuando no se pasa uno explícitamente. Si no defines ni _required_ ni _default_, la opción simplemente es opcional y será undefined si no se proporciona.
 
 ```typescript filename="min-roles.guard.ts"
 import { Guard, GuardOption } from '@spraxium/common';
@@ -30,11 +30,11 @@ export class MinRolesGuard implements SpraxiumGuard {
 }
 ```
 
-En el ejemplo de arriba, la propiedad _minRoles_ tiene default de 1, así que si aplicas este guard sin especificar un valor, requerira al menos un role. Si quieres un umbral diferente, lo pasas a través de _withOptions_ al aplicar el guard.
+En el ejemplo anterior, la propiedad _minRoles_ tiene valor por defecto 1, así que si adjuntas este guard sin especificar valor, exigirá al menos un rol. Si quieres un umbral distinto, lo pasas mediante _withOptions_ al adjuntar el guard.
 
 ## El helper withOptions
 
-La función _withOptions_ es como pasas opciones tipadas a un guard al aplicarlo con _@UseGuards_. Toma la clase guard como primer argumento y un objeto de opciones como segundo. El sistema de tipos de TypeScript infiere la forma de las opciones desde las propiedades _@GuardOption_ del guard, así que recibes autocompletado y errores de tipo si pasas la forma incorrecta.
+La función _withOptions_ es la forma de pasar opciones tipadas a un guard al adjuntarlo con _@UseGuards_. Recibe la clase guard como primer argumento y un objeto de opciones como segundo. El sistema de tipos de TypeScript infiere la forma de las opciones a partir de las propiedades _@GuardOption_ del guard, así que obtienes autocompletado y errores de tipo si pasas una forma incorrecta.
 
 ```typescript filename="moderation.handler.ts"
 import { UseGuards, withOptions } from '@spraxium/common';
@@ -48,12 +48,12 @@ import { MinRolesGuard } from '../guards/min-roles.guard';
 )
 export class ModerationHandler {
   async handle() {
-    // los tres guards deben pasar antes de que esto corra
+    // all three guards must pass before this runs
   }
 }
 ```
 
-Si no necesitas pasar opciones porque el guard no tiene opciones obligatorias o sus defaults son suficientes, puedes pasar la clase guard directamente sin _withOptions_. Ambos estilos funcionan en la misma llamada de _@UseGuards_, así que puedes mezclar guards que necesitan opciones con guards que no.
+Si no necesitas pasar opciones porque el guard no tiene opciones obligatorias o sus valores por defecto son suficientes, puedes pasar la clase guard directamente sin _withOptions_. Ambos estilos funcionan dentro de la misma llamada a _@UseGuards_, así que puedes mezclar guards que requieren opciones con guards que no.
 
 ```typescript filename="mixed-guards.handler.ts"
 import { UseGuards, withOptions } from '@spraxium/common';
@@ -62,87 +62,88 @@ import { GuildOnly, RoleGuard } from '@spraxium/core';
 @UseGuards(GuildOnly, withOptions(RoleGuard, { roles: ['Admin'] }))
 export class MixedHandler {
   async handle() {
-    // GuildOnly no necesita opciones, RoleGuard necesita roles
+    // GuildOnly needs no options, RoleGuard needs roles
   }
 }
 ```
 
-## Guards built-in
+## Guards integrados
 
-Spraxium viene con diez guards built-in en el paquete core que cubren los patrones de acceso más comunes de Discord. Cada guard ya está decorado con _@Guard()_ y listo para usar con _@UseGuards_ o _useGlobalGuards_. La tabla de abajo muestra cada guard built-in, que chequea y cuáles opciones espera.
+Spraxium incluye diez guards integrados en el paquete core que cubren los patrones de acceso más comunes en Discord. Cada guard ya está decorado con _@Guard()_ y listo para usar con _@UseGuards_ o _useGlobalGuards_. El bloque siguiente muestra cada guard integrado, qué comprueba y qué opciones espera.
 
 <DropdownGroup>
 <Dropdown title="GuildOnly">
-  Niega la ejecución cuando el comando se invoca desde un canal de mensaje directo. Este es el guard más utilizado para asegurar que los comandos exclusivos del servidor no se activen desde DMs. No requiere opciones y se puede pasar directamente a *@UseGuards* sin *withOptions*.
+  Deniega la ejecución cuando el comando se invoca desde un canal de mensaje directo. Este es el guard más usado para asegurar que comandos exclusivos de servidor no puedan activarse desde DMs. No requiere opciones y puede pasarse directamente a *@UseGuards* sin *withOptions*.
 </Dropdown>
 
 <Dropdown title="DMOnly">
-  Niega la ejecución cuando el comando se invoca dentro de un canal de guild. Es
-  el inverso de *GuildOnly* y restringe los comandos solo al contexto de
-  mensajes directos. No requiere opciones y se puede pasar directamente a
+  Deniega la ejecución cuando el comando se invoca dentro de un canal de guild.
+  Es el inverso de *GuildOnly* y restringe comandos únicamente a contextos de
+  mensaje directo. No requiere opciones y puede pasarse directamente a
   *@UseGuards*.
 </Dropdown>
 
 <Dropdown title="OwnerOnly">
-  Niega la ejecución cuando el ID del usuario no está en la lista de owners
-  configurada. Este guard requiere la opción *ownerIds*, que es un `string[]` de
-  snowflake IDs de usuarios de Discord. Usa *withOptions* para pasar los IDs de
-  los owners al adjuntar este guard.
+  Deniega la ejecución cuando el ID del usuario no está presente en la lista de
+  owners configurada. Este guard requiere la opción *ownerIds*, que es un
+  `string[]` de IDs snowflake de usuario de Discord. Usa *withOptions* para
+  pasar los owner IDs al adjuntar este guard.
 </Dropdown>
 
 <Dropdown title="PermissionGuard">
-  Niega la ejecución cuando el miembro del guild carece de alguno de los
-  permisos requeridos de Discord. Este guard requiere la opción *permissions*,
-  que es un `PermissionsString[]` usando strings de permiso de discord.js como
+  Deniega la ejecución cuando el miembro de guild no tiene alguno de los
+  permisos de Discord requeridos. Este guard requiere la opción *permissions*,
+  que es un `PermissionsString[]` usando cadenas de permisos de discord.js como
   `"BanMembers"` o `"ManageGuild"`. El miembro debe tener todos los permisos
   listados para que el guard pase.
 </Dropdown>
 
 <Dropdown title="RoleGuard">
-  Niega la ejecución cuando el miembro del guild no tiene ninguno de los roles
+  Deniega la ejecución cuando el miembro de guild no tiene ninguno de los roles
   especificados. Este guard requiere la opción *roles*, que es un `string[]` de
-  nombres de roles o snowflake IDs de roles. El miembro necesita al menos un rol
+  nombres de rol o IDs snowflake de rol. El miembro necesita al menos un rol
   coincidente para que el guard pase.
 </Dropdown>
 
 <Dropdown title="CooldownGuard">
-  Niega la ejecución cuando el usuario activo el mismo comando dentro de la
+  Deniega la ejecución cuando el usuario activó el mismo comando dentro de la
   ventana de cooldown. Este guard requiere la opción *cooldown*, que es un
-  `number` en milisegundos. Rastrea el timestamp de la última ejecución por
+  `number` en milisegundos. Registra el timestamp de la última ejecución por
   usuario y bloquea invocaciones repetidas hasta que la ventana expire.
 </Dropdown>
 
 <Dropdown title="NoBotGuard">
-  Niega la ejecución cuando el usuario que activo es una cuenta de bot. Este
-  guard es útil cuando tus listeners o comandos prefix deben ignorar mensajes de
-  otros bots. No requiere opciones y se puede pasar directamente a *@UseGuards*.
-</Dropdown>
-
-<Dropdown title="NSFWGuard">
-  Niega la ejecución cuando el canal no está marcado como NSFW en la
-  configuración del servidor de Discord. Usa este guard para contenido con
-  restricción de edad que solo debe aparecer en canales designados. No requiere
-  opciones y se puede pasar directamente a *@UseGuards*.
-</Dropdown>
-
-<Dropdown title="ThreadOnlyGuard">
-  Niega la ejecución cuando el canal no es un thread. Este guard es útil para
-  comandos que solo deben ejecutarse dentro de conversaciones en threads, como
-  sistemas de tickets. No requiere opciones y se puede pasar directamente a
+  Deniega la ejecución cuando el usuario que activa el comando es una cuenta
+  bot. Este guard es útil cuando tus listeners o prefix commands deben ignorar
+  mensajes de otros bots. No requiere opciones y puede pasarse directamente a
   *@UseGuards*.
 </Dropdown>
 
+<Dropdown title="NSFWGuard">
+  Deniega la ejecución cuando el canal no está marcado como NSFW en la
+  configuración del servidor de Discord. Usa este guard para contenido con
+  restricción de edad que solo debe aparecer en canales designados. No requiere
+  opciones y puede pasarse directamente a *@UseGuards*.
+</Dropdown>
+
+<Dropdown title="ThreadOnlyGuard">
+  Deniega la ejecución cuando el canal no es un thread. Este guard es útil para
+  comandos que solo deberían correr dentro de conversaciones en thread, como
+  sistemas basados en tickets. No requiere opciones y puede pasarse directamente
+  a *@UseGuards*.
+</Dropdown>
+
 <Dropdown title="VoiceChannelGuard">
-  Niega la ejecución cuando el miembro del guild no está conectado a un canal de voz. Usa este guard para comandos que requieren conexión de voz, como reproducción de música o funcionalidades basadas en voz. No requiere opciones y se puede pasar directamente a *@UseGuards*.
+  Deniega la ejecución cuando el miembro de guild no está conectado a un canal de voz. Usa este guard para comandos que requieren conexión de voz, como reproducción de música o funcionalidades basadas en voz. No requiere opciones y puede pasarse directamente a *@UseGuards*.
 </Dropdown>
 </DropdownGroup>
 
-## Usando guards built-in
+## Uso de guards integrados
 
-Guards built-in sin opciones pueden pasarse directamente a _@UseGuards_ o _useGlobalGuards_. Guards con opciones obligatorias deben usar _withOptions_ o el segundo parámetro de _useGlobalGuards_. aquí hay ejemplos prácticos que muestran los patrones más comunes.
+Los guards integrados sin opciones pueden pasarse directamente a _@UseGuards_ o _useGlobalGuards_. Los guards con opciones obligatorias deben usar _withOptions_ o el segundo parámetro de _useGlobalGuards_. Aquí tienes ejemplos prácticos con los patrones más comunes.
 
 <CodeTabs>
-  <Tab label="Registro Global" language="typescript">
+  <Tab label="Registro global" language="typescript">
 ```typescript filename="src/main.ts"
 import { SpraxiumFactory } from '@spraxium/core';
 import { NoBotGuard, OwnerOnly, CooldownGuard } from '@spraxium/core';
@@ -157,7 +158,7 @@ await app.listen();
 
 ````
   </Tab>
-  <Tab label="Clase & Método" language="typescript">
+  <Tab label="Clase y método" language="typescript">
 ```typescript filename="moderation.handler.ts"
 import { UseGuards, withOptions } from '@spraxium/common';
 import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
@@ -169,11 +170,11 @@ import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
 export class ModerationHandler {
   @UseGuards(withOptions(PermissionGuard, { permissions: ['BanMembers'] }))
   async handleBan() {
-    // chequeo de guild + role en clase, chequeo de permiso solo en este método
+    // guild + role check on class, permission check on this method only
   }
 
   async handleWarn() {
-    // solo chequeo de guild + role del guard de clase
+    // only guild + role check from the class guard
   }
 }
 ````
@@ -181,39 +182,39 @@ export class ModerationHandler {
   </Tab>
 </CodeTabs>
 
-El _RoleGuard_ chequea si el miembro tiene al menos uno de los roles listados. Puedes pasar nombres de role como "Moderator" o snowflake IDs de role como "1234567890". El _PermissionGuard_ chequea si el miembro tiene todos los permisos listados, usando strings de permiso de Discord.js como "BanMembers", "ManageGuild" o "Administrator".
+El _RoleGuard_ comprueba si el miembro tiene al menos uno de los roles listados. Puedes pasar nombres de rol como "Moderator" o IDs snowflake de rol como "1234567890". El _PermissionGuard_ comprueba si el miembro tiene todos los permisos listados, usando cadenas de permisos de Discord.js como "BanMembers", "ManageGuild" o "Administrator".
 
-## Creando un guard personalizado con opciones
+## Crear un guard personalizado con opciones
 
-Cuando los guards built-in no cubren tu caso de uso, creas un guard personalizado que declara propiedades configurables a través de _@GuardOption_. La clase guard define cuáles parámetros necesita, y cada lugar que usa el guard provee los valores concretos a través de _withOptions_. Este patrón es como guards built-in como _RoleGuard_ y _CooldownGuard_ funcionan internamente, y sigues la misma aproximación para tus propios guards.
+Cuando los guards integrados no cubren tu caso de uso, creas un guard personalizado que declara propiedades configurables mediante _@GuardOption_. La clase guard define qué parámetros necesita, y cada lugar donde se usa aporta valores concretos mediante _withOptions_. Este patrón es cómo funcionan internamente guards integrados como _RoleGuard_ y _CooldownGuard_, y sigues exactamente el mismo enfoque para tus propios guards.
 
 <Steps>
   <Step title="Define la clase guard con @Guard">
-    Empieza con una clase decorada con *@Guard()* que implementa
-    *SpraxiumGuard*. El método *canActivate* contiene la lógica de chequeo, y
-    cualquier parámetro configurable recibe el decorator *@GuardOption* en su
+    Empieza con una clase decorada con *@Guard()* que implemente
+    *SpraxiumGuard*. El método *canActivate* contiene la lógica de comprobación,
+    y cualquier parámetro configurable recibe el decorador *@GuardOption* en su
     propiedad. Marca opciones como *required* cuando el guard no puede funcionar
-    sin ellas, o define un *default* cuando un fallback razonable existe. El
-    framework lee estos decorators al momento de instanciación y llena los
-    valores antes de que *canActivate* corra.
+    sin ellas, o define un *default* cuando exista un valor de respaldo
+    razonable. El framework lee estos decoradores en el momento de instanciación
+    y rellena los valores antes de que *canActivate* llegue a ejecutarse.
   </Step>
-  <Step title="Pasa opciones con withOptions en cada sitio de uso">
-    Al aplicar el guard con *@UseGuards*, envuelvelo en *withOptions* y pasa los
-    valores concretos que tu guard espera. TypeScript infiere la forma de las
-    opciones desde las propiedades *@GuardOption*, así que recibes
-    autocompletado y errores de compilación si pasas el tipo incorrecto. Si
-    olvidas una opción *required*, el framework lanza un error claro de
-    configuración durante el bootstrap.
+  <Step title="Pasa opciones con withOptions en cada punto de uso">
+    Al adjuntar el guard con *@UseGuards*, envuélvelo en *withOptions* y pasa
+    los valores concretos que espera tu guard. TypeScript infiere la forma de
+    las opciones a partir de las propiedades *@GuardOption*, así que obtienes
+    autocompletado y errores en compilación si pasas un tipo incorrecto. Si
+    olvidas una opción *required*, el framework lanza un error de configuración
+    claro durante el bootstrap.
   </Step>
   <Step title="Reutiliza el mismo guard con valores diferentes">
-    El poder de los guards configurables es que una clase sirve muchos
+    El poder de los guards configurables es que una sola clase sirve para muchos
     escenarios. Un *MinAccountAgeGuard* con *minDays: 7* en un comando general y
     *minDays: 90* en un comando de giveaway usa la misma clase con umbrales
-    diferentes. No necesitas clases guard separadas para cada umbral.
+    distintos. No necesitas clases guard separadas para cada umbral.
   </Step>
 </Steps>
 
-aquí hay un ejemplo completo de un guard personalizado que chequea edad mínima de cuenta y soporta múltiples opciones configurables. El guard tiene una opción obligatoria y una opción opcional con valor por defecto.
+Aquí tienes un ejemplo completo de un guard personalizado que comprueba una edad mínima de cuenta y soporta múltiples opciones configurables. El guard tiene una opción obligatoria y otra opcional con valor por defecto.
 
 <CodeTabs>
   <Tab label="Guard" language="typescript">
@@ -253,13 +254,13 @@ import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
 )
 export class GiveawayHandler {
   async handle() {
-    // solo cuentas humanas con más de 30 dias pueden participar
+    // only human accounts older than 30 days can participate
   }
 }
 ````
 
   </Tab>
-  <Tab label="Umbrales Diferentes" language="typescript">
+  <Tab label="Umbrales diferentes" language="typescript">
 ```typescript filename="verification.handler.ts"
 import { UseGuards, withOptions } from '@spraxium/common';
 import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
@@ -267,7 +268,7 @@ import { MinAccountAgeGuard } from '../guards/min-account-age.guard';
 @UseGuards(withOptions(MinAccountAgeGuard, { minDays: 7, allowBots: true }))
 export class VerificationHandler {
   async handle() {
-    // solo 7 dias requeridos aquí, bots permitidos
+    // only 7 days required here, bots allowed
   }
 }
 
@@ -275,13 +276,14 @@ export class VerificationHandler {
   </Tab>
 </CodeTabs>
 
-Nota que el guard tiene dos opciones: *minDays* es obligatoria porque el guard no puede funcionar sin saber el umbral, y *allowBots* tiene default false porque la mayoría de sitios de uso quieren bloquear bots. La tercera tab muestra como la misma clase guard acepta configuraciones completamente diferentes en otro sitio de uso sin ninguna duplicacion de código.
+Observa que el guard tiene dos opciones: *minDays* es obligatoria porque el guard no puede funcionar sin conocer el umbral, y *allowBots* tiene valor por defecto false porque la mayoría de los puntos de uso quieren bloquear bots. La tercera pestaña muestra cómo la misma clase guard acepta una configuración completamente distinta en otro punto de uso sin duplicar código.
 
-<Callout tone="info" title="Empieza con built-ins">
-  Antes de crear un guard personalizado, verifica si uno de los diez guards built-in ya cubre tu caso de uso. Guards personalizados son poderosos pero innecesarios cuando un built-in ya hace exactamente lo que necesitas.
+<Callout tone="info" title="Empieza por los integrados">
+  Antes de crear un guard personalizado, revisa si uno de los diez guards
+  integrados ya cubre tu caso de uso. Los guards personalizados son potentes,
+  pero innecesarios cuando un integrado ya hace exactamente lo que necesitas.
 </Callout>
 
 ## Siguiente página
 
-Continúa con [Denegaciones e Integración con Exceptions](/guards-failures-testing).
-```
+Continúa con [Denegaciones e integración con excepciones](/guards-failures-testing).

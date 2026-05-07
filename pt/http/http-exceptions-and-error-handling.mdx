@@ -2,113 +2,140 @@
 title: Exceções e Tratamento de Erros
 description: |
   Modele falhas HTTP previsíveis com a hierarquia HttpError e detalhes de validação.
-  Mantenha respostas de erro estáveis entre controllers, middleware e endpoints baseados em bridge.
+  Mantenha respostas de erro estáveis entre controllers, middleware e endpoints apoiados por bridge.
 order: 7
 category: "@spraxium/http"
+keywords:
+  - spraxium http exceptions and error handling
+  - exceções e tratamento de erros no spraxium
+  - "@spraxium/http http exceptions and error handling guia"
+  - http exceptions and error handling bot discord
+  - http exceptions and error handling typescript
+  - documentacao spraxium @spraxium/http
+  - exceções e tratamento de erros @spraxium/http
+  - spraxium exceções e tratamento de erros
+faq:
+  - question: "O que \"Exceções e Tratamento de Erros\" cobre no Spraxium?"
+    answer: "Modele falhas HTTP previsíveis com a hierarquia HttpError e detalhes de validação. Mantenha respostas de erro estáveis entre controllers, middleware e endpoints apoiados por bridge."
+  - question: "Quando devo usar \"Exceções e Tratamento de Erros\"?"
+    answer: "Use esta pagina quando voce estiver implementando http exceptions and error handling dentro da area de @spraxium/http do seu bot."
+  - question: "Qual o proximo passo depois de \"Exceções e Tratamento de Erros\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/http para conectar este conceito com implementacao pratica."
 ---
 
 ## Por que exceções explícitas importam
 
-Clientes HTTP dependem de status codes e formatos de resposta estáveis. Lançar classes _HttpError_ explícitas torna falhas observáveis, testáveis e mais fáceis de monitorar em produção. Cada classe de erro exportada pela package carrega um status code semântico e uma mensagem padrão, permitindo que o servidor normalize respostas sem lógica condicional em cada handler.
+Clientes HTTP dependem de status codes estáveis e formatos de resposta estáveis. Lançar classes explícitas de _HttpError_ torna falhas observáveis, testáveis e mais fáceis de monitorar em produção. Toda classe de erro exportada pelo pacote carrega um status code semântico e uma mensagem padrão, então o servidor consegue normalizar respostas sem lógica condicional em cada handler.
 
-Quando controllers retornam erros genéricos, clientes perdem contexto semântico e estratégia de retry fica frágil. A package evita isso oferecendo uma classe dedicada para cada cenário de falha, todas estendendo a mesma base, garantindo serialização consistente em toda a superfície da API.
+Quando controllers retornam erros genéricos, clientes perdem contexto semântico e o comportamento de retry fica frágil. O pacote evita isso ao dar a cada cenário de falha uma classe dedicada que estende a mesma base, garantindo serialização consistente em toda a superfície da API.
 
-## Classe base HttpError
+## HttpError base class
 
-Cada erro da hierarquia estende _HttpError_, que por sua vez estende a classe nativa _Error_. Ela adiciona a propriedade read-only _statusCode_ e sobrescreve o construtor para aceitar uma mensagem e um status HTTP numérico. Esse contrato é a única interface que a camada de normalização do servidor lê, então qualquer classe que estender _HttpError_ participa automaticamente do tratamento centralizado sem configuração adicional.
+Todo erro da hierarquia estende _HttpError_, que por sua vez estende a classe nativa _Error_. Ela adiciona uma propriedade _statusCode_ somente leitura e sobrescreve o construtor para aceitar uma mensagem e um status HTTP numérico. Esse formato é o único contrato que a camada de normalização do servidor lê, então qualquer classe que estenda _HttpError_ participa automaticamente do tratamento centralizado de erros sem wiring adicional.
 
-A classe base também define `this.name` com o nome concreto da classe, tornando stack traces e dashboards de monitoramento imediatamente distinguíveis entre tipos de erro. Subclasses só precisam chamar `super(message, statusCode)` com seus próprios defaults para manter o contrato.
+A classe base também define `this.name` com o nome da classe concreta, o que torna stack traces e dashboards de monitoramento imediatamente distinguíveis entre tipos de erro. Subclasses só precisam chamar `super(message, statusCode)` com seus próprios padrões para manter esse contrato.
 
-## Hierarquia de erros exportada pela package
+## Hierarquia de erros exportada pelo pacote
 
 <DropdownGroup>
 <Dropdown title="BadRequestError, 400">
-  Sinaliza que a request é válida sintaticamente mas semanticamente incorreta ou contém combinações de input malformadas. Use essa classe quando a lógica de domínio rejeita uma request por razões além da validação DTO, como referenciar uma entidade em estado inválido ou fornecer parâmetros conflitantes. A mensagem padrão é `'Bad request'`.
+  Indica que a requisição é sintaticamente válida, mas semanticamente incorreta
+  ou contém combinações de entrada malformadas. Use essa classe quando a lógica
+  de domínio rejeitar uma requisição por motivos fora da validação de DTO, como
+  referenciar uma entidade em estado inválido ou fornecer parâmetros
+  conflitantes. A mensagem padrão é `'Bad request'`.
 </Dropdown>
 
 <Dropdown title="ValidationError, 400">
   A única classe de erro que carrega estrutura adicional além de mensagem e
-  status code. Ela estende *HttpError* com um array *details* onde cada entrada
-  mapeia o nome de uma propriedade DTO para as constraints que falharam. O
-  *ValidationPipe* lança essa classe automaticamente quando a validação via
-  *@HttpBody* falha, então raramente é necessário construí-la manualmente.
+  status code. Ela estende *HttpError* com um array *details* no qual cada
+  entrada mapeia o nome de uma propriedade do DTO para as constraints que
+  falharam. *ValidationPipe* lança essa classe automaticamente quando a
+  validação de *@HttpBody* falha, então você raramente precisa construí-la
+  manualmente.
 </Dropdown>
 
 <Dropdown title="UnauthorizedError, 401">
-  Sinaliza que a request não possui credenciais de autenticação válidas. Use
-  quando o solicitante não forneceu nenhuma prova de identidade, ao contrário de
-  *ForbiddenError* que se aplica quando uma identidade autenticada não tem
-  permissão. A mensagem padrão é `'Unauthorized'`.
+  Indica que a requisição não traz credenciais de autenticação válidas. Use essa
+  classe quando quem faz a requisição não forneceu nenhuma prova de identidade,
+  ao contrário de *ForbiddenError*, que se aplica quando uma identidade já
+  autenticada não tem permissão. A mensagem padrão é `'Unauthorized'`.
 </Dropdown>
 
 <Dropdown title="ForbiddenError, 403">
-  Sinaliza que uma request autenticada não tem permissão para realizar a ação
-  solicitada. Use quando a identidade está estabelecida mas a verificação de
-  autorização falha, por exemplo quando uma operação de admin é tentada por um
-  usuário comum. A mensagem padrão é `'Forbidden'`.
+  Indica que uma requisição autenticada não tem permissão para executar a ação
+  pedida. Use essa classe quando a identidade já estiver estabelecida, mas a
+  checagem de autorização falhar, por exemplo quando uma operação de admin é
+  tentada por um usuário comum. A mensagem padrão é `'Forbidden'`.
 </Dropdown>
 
 <Dropdown title="NotFoundError, 404">
-  Sinaliza que o recurso solicitado não existe ou não está acessível pelo
-  contrato. É a classe de erro mais comum para endpoints GET e PATCH que buscam
+  Indica que o recurso solicitado não existe ou está inacessível pelo contrato.
+  Essa é a classe de erro mais comum para endpoints GET e PATCH que buscam
   entidades por ID e não encontram nada. A mensagem padrão é `'Not found'`.
 </Dropdown>
 
 <Dropdown title="MethodNotAllowedError, 405">
-  Sinaliza que o método HTTP usado na request não é suportado pelo endpoint de
-  destino. Use em lógica de controller quando um handler rejeita
-  condicionalmente o método com base no estado do recurso, não porque uma rota
-  não está registrada. A mensagem padrão é `'Method not allowed'`.
+  Indica que o método HTTP usado na requisição não é suportado pelo endpoint de
+  destino. Use essa classe na lógica do controller quando um handler rejeita o
+  método de forma condicional por causa do estado do recurso, e não porque a
+  rota não está registrada. A mensagem padrão é `'Method not allowed'`.
 </Dropdown>
 
 <Dropdown title="ConflictError, 409">
-  Sinaliza que a request não pode ser concluída por causa de um conflito de
-  estado no recurso alvo. Cenários comuns incluem criar um registro duplicado,
-  atribuir um valor que já está definido, ou realizar uma operação que exige um
-  estado diferente. A mensagem padrão é `'Conflict'`.
+  Indica que a requisição não pode ser concluída por causa de um conflito de
+  estado no recurso de destino. Cenários comuns incluem criar um registro
+  duplicado, atribuir um valor já atribuído ou executar uma operação que exige
+  um estado diferente do recurso. A mensagem padrão é `'Conflict'`.
 </Dropdown>
 
 <Dropdown title="UnprocessableEntityError, 422">
-  Sinaliza que o servidor entendeu o conteúdo da request mas não pode
-  processá-lo por restrições semânticas. Use quando uma request parseada atende
-  aos requisitos estruturais mas viola regras de negócio que a validação DTO não
-  consegue verificar. A mensagem padrão é `'Unprocessable entity'`.
+  Indica que o servidor entendeu o conteúdo da requisição, mas não consegue
+  processá-lo por causa de constraints semânticas. Use essa classe quando uma
+  requisição já parseada atende aos requisitos estruturais, mas viola regras de
+  negócio que a validação de DTO não consegue impor. A mensagem padrão é
+  `'Unprocessable entity'`.
 </Dropdown>
 
 <Dropdown title="TooManyRequestsError, 429">
-  Sinaliza que o cliente excedeu um limite de rate ou política de quota. O
-  *RateLimitMiddleware* retorna uma resposta 429 diretamente sem lançar essa
-  classe, mas você pode lançá-la manualmente quando verificações personalizadas
-  de quota falham. A mensagem padrão é `'Too many requests'`.
+  Indica que o cliente excedeu uma política de rate limit ou de quota.
+  *RateLimitMiddleware* retorna uma resposta 429 diretamente, sem lançar essa
+  classe, mas você pode lançá-la manualmente na lógica do handler quando
+  checagens customizadas de quota falharem. A mensagem padrão é
+  `'Too many requests'`.
 </Dropdown>
 
 <Dropdown title="InternalServerError, 500">
-  Sinaliza uma falha interna inesperada onde uma resposta JSON controlada ainda
-  é necessária. Use quando catching erros não recuperáveis onde você quer expor
-  um status code previsível em vez de deixar o fallback genérico de 500 tratar.
-  A mensagem padrão é `'Internal server error'`.
+  Indica uma falha interna inesperada em que ainda se deseja uma resposta JSON
+  controlada. Use essa classe ao capturar erros irrecuperáveis que você quer
+  expor com um status code previsível, em vez de deixar o fallback genérico 500
+  tratá-los. A mensagem padrão é `'Internal server error'`.
 </Dropdown>
 
 <Dropdown title="NotImplementedError, 501">
-  Sinaliza que uma operação reconhecida ainda não foi implementada na versão
-  atual. Use como placeholder durante o desenvolvimento quando uma rota está
-  registrada mas seu handler ainda não foi concluído, dando aos clientes um
-  sinal semântico claro em vez de uma resposta 500 genérica. A mensagem padrão é
-  `'Not implemented'`.
+  Indica que uma operação reconhecida ainda não foi implementada na versão
+  atual. Use essa classe como placeholder durante o desenvolvimento quando uma
+  rota já está registrada, mas seu handler ainda não foi concluído, dando aos
+  clientes um sinal semântico em vez de uma resposta 500 vaga. A mensagem padrão
+  é `'Not implemented'`.
 </Dropdown>
 
 <Dropdown title="ServiceUnavailableError, 503">
-  Sinaliza uma indisponibilidade temporária de infraestrutura ou dependência. Use quando o servidor está rodando mas uma dependência downstream como banco de dados ou API externa está inacessível, estabelecendo a expectativa de que uma nova tentativa pode ter sucesso. A mensagem padrão é `'Service unavailable'`.
+  Indica uma indisponibilidade temporária de infraestrutura ou dependência. Use
+  essa classe quando o servidor está rodando, mas uma dependência downstream,
+  como banco de dados ou API externa, está inacessível, estabelecendo a
+  expectativa de que um retry pode funcionar mais tarde. A mensagem padrão é
+  `'Service unavailable'`.
 </Dropdown>
 </DropdownGroup>
 
 ## ValidationError e detalhes estruturados
 
-_ValidationError_ é a única classe de erro que carrega mais do que uma mensagem. Ela inclui um array _details_ onde cada entrada mapeia um nome de propriedade para as constraints que falharam. Essa estrutura é produzida automaticamente por _ValidationPipe_ quando validação de body executa regras do _class-validator_.
+_ValidationError_ é a única classe de erro que carrega mais do que uma mensagem. Ela inclui um array _details_ em que cada entrada mapeia o nome de uma propriedade para as constraints que falharam. Essa estrutura é produzida automaticamente por _ValidationPipe_ quando a validação do payload de body roda pelas regras de _class-validator_.
 
-A interface _ValidationDetail_ expõe dois campos: _property_ (nome do campo no DTO) e _constraints_ (registro de nomes de regra para mensagens legíveis). Como o pipeline usa `whitelist: true` e `forbidNonWhitelisted: true`, qualquer campo inesperado no body também dispara erro de validação, impedindo poluição de payload de alcançar a lógica de negócio.
+A interface _ValidationDetail_ expõe dois campos: _property_, o nome do campo do DTO, e _constraints_, um registro que mapeia nomes de regras que falharam para mensagens legíveis por humanos. Como o pipeline usa `whitelist: true` e `forbidNonWhitelisted: true`, qualquer campo inesperado no body também dispara um erro de validação, impedindo que poluição de payload chegue à regra de negócio.
 
-Clientes recebem uma estrutura previsível onde `details` é sempre um array, mesmo para um único campo inválido. Isso permite que consumidores da API iterem o array e mapeiem cada entrada para erros inline de formulário ou resumos de erro sem condicionais especiais na forma da resposta.
+Clientes recebem um formato previsível em que `details` é sempre um array, mesmo quando há só um campo inválido. Isso permite que consumidores da API percorram o array e mapeiem cada entrada para erros inline de formulário ou resumos de erro sem precisar ramificar pela forma da resposta.
 
 ## Padrões de exceção em controllers
 
@@ -138,11 +165,11 @@ export class GuildHttpController {
     const guild = await this.findGuild(guildId);
 
     if (!guild) {
-      throw new NotFoundError('Guild não encontrada');
+      throw new NotFoundError('Guild not found');
     }
 
     if (!guild.available) {
-      throw new ServiceUnavailableError('Guild temporariamente indisponível');
+      throw new ServiceUnavailableError('Guild is temporarily unavailable');
     }
 
     return { ok: true, guildId: guild.id, name: guild.name };
@@ -156,14 +183,14 @@ export class GuildHttpController {
     @HttpBody(UpdateGuildConfigDto) body: UpdateGuildConfigDto,
   ) {
     const guild = await this.findGuild(guildId);
-    if (!guild) throw new NotFoundError('Guild não encontrada');
+    if (!guild) throw new NotFoundError('Guild not found');
 
     if (guild.locked) {
-      throw new ForbiddenError('Configuração da guild está bloqueada por admin');
+      throw new ForbiddenError('Guild configuration is locked by an admin');
     }
 
     if (guild.prefix === body.prefix) {
-      throw new ConflictError('Prefix já está definido com esse valor');
+      throw new ConflictError('Prefix is already set to that value');
     }
 
     return { ok: true, guildId, applied: body };
@@ -173,7 +200,6 @@ export class GuildHttpController {
   private async findGuild(\_guildId: string) {
     return null;
   }
-}
 }
 
 ````
@@ -201,11 +227,11 @@ import { HttpClientModule, HttpModule } from '@spraxium/http';
 import { GuildHttpController } from './http/controllers/guild-http.controller';
 
 @HttpClientModule({
-controllers: [GuildHttpController],
+  controllers: [GuildHttpController],
 })
 @Module({
-imports: [HttpModule],
-providers: [GuildHttpController],
+  imports: [HttpModule],
+  providers: [GuildHttpController],
 })
 export class AppModule {}
 
@@ -213,43 +239,57 @@ export class AppModule {}
   </Tab>
 </CodeTabs>
 
-## Comportamento de normalização no servidor
+## Comportamento de normalização no nível do servidor
 
-*HttpServer* registra dois handlers terminais no final do pipeline Hono: *notFound* e *onError*. Juntos eles garantem que toda saída possível produz uma resposta JSON com a mesma estrutura.
+*HttpServer* registra dois handlers terminais no fim do pipeline do Hono: *notFound* e *onError*. Juntos, eles garantem que toda saída possível produza uma resposta JSON com o mesmo formato.
 
-O handler *notFound* dispara para qualquer request sem rota registrada e retorna `{ ok: false, error: 'Not Found' }` com status 404. O handler *onError* cobre exceções lançadas com esta precedência:
+O handler *notFound* dispara para qualquer requisição que não corresponda a uma rota registrada e retorna `{ ok: false, error: 'Not Found' }` com status 404. O handler *onError* cobre exceções lançadas usando esta precedência:
 
 1. *ValidationError* retorna status 400 com `{ ok: false, error: 'Validation failed', details: [...] }`;
 2. qualquer outra subclasse de *HttpError* retorna seu próprio status code com `{ ok: false, error: message }`;
-3. exceções desconhecidas são logadas e retornam `{ ok: false, error: 'Internal server error' }` com status 500.
+3. exceções desconhecidas são registradas em log e retornadas como `{ ok: false, error: 'Internal server error' }` com status 500.
 
-Como esse mapeamento é centralizado, controllers devem lançar a classe de erro mais específica disponível e nunca construir payloads JSON de erro manuais no código do handler. A camada de normalização cuida do resto.
+Como esse mapeamento é centralizado, controllers devem lançar a classe de erro mais específica disponível e nunca montar payloads JSON de erro ad hoc dentro do handler. A camada de normalização cuida do restante.
 
-## Contrato de formato de resposta
+## Contrato do formato de resposta
 
-Toda resposta de erro segue o mesmo envelope independente do status code. O campo `ok` é sempre `false`, o campo `error` carrega a string de mensagem, e `details` aparece somente em respostas de *ValidationError*. Isso permite que consumidores da API verifiquem `ok` primeiro e depois ramifiquem por `error` ou `details` sem tratamento especial por endpoint.
+Toda resposta de erro segue o mesmo envelope, independentemente do status code. O campo `ok` é sempre `false`, o campo `error` carrega a mensagem em string e `details` aparece apenas em respostas de *ValidationError*. Isso permite que consumidores da API verifiquem primeiro `ok` e depois desviem para `error` ou `details` sem tratamento especial por endpoint.
 
-<DropdownGroup>
-<Dropdown title="Rota sem correspondência: 404">
-  Corpo: `{ ok: false, error: "Not Found" }`
-</Dropdown>
-
-<Dropdown title="Falha de validação DTO: 400">
-  Corpo: `{ ok: false, error: "Validation failed", details: [{ property, constraints }] }`
-</Dropdown>
-
-<Dropdown title="Qualquer subclasse HttpError: varia">
-  Corpo: `{ ok: false, error: "Mensagem padrão ou customizada" }`
-</Dropdown>
-
-<Dropdown title="Exceção desconhecida: 500">
-  Corpo: `{ ok: false, error: "Internal server error" }`
-</Dropdown>
-</DropdownGroup>
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Cenário</TableCell>
+      <TableCell header>Status</TableCell>
+      <TableCell header>Corpo da resposta</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>Rota sem correspondência</TableCell>
+      <TableCell>404</TableCell>
+      <TableCell>Objeto com *ok: false* e erro *Not Found*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Falha de validação de DTO</TableCell>
+      <TableCell>400</TableCell>
+      <TableCell>Objeto com *ok: false*, erro *Validation failed* e uma lista *details* com *property* e *constraints*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Qualquer subclasse de HttpError</TableCell>
+      <TableCell>Varia</TableCell>
+      <TableCell>Objeto com *ok: false* e a mensagem padrão ou customizada da classe</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Exceção desconhecida</TableCell>
+      <TableCell>500</TableCell>
+      <TableCell>Objeto com *ok: false* e erro *Internal server error*</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ## Classes de erro customizadas
 
-Você pode criar classes de erro próprias estendendo *HttpError* ou qualquer subclasse existente. O único requisito é chamar `super` com mensagem e status code. Qualquer classe customizada que estender *HttpError* é automaticamente capturada e serializada pela camada de normalização do servidor sem alterações em middleware ou configuração.
+Você pode criar suas próprias classes de erro estendendo *HttpError* ou qualquer subclasse existente. A única exigência é chamar `super` com uma mensagem e um status code. Qualquer classe customizada que estenda *HttpError* é capturada e serializada automaticamente pela camada de normalização do servidor, sem mudanças em middleware ou configuração.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="http/errors/guild-locked.error.ts" language="typescript">
@@ -258,7 +298,7 @@ import { ForbiddenError } from '@spraxium/http';
 
 export class GuildLockedError extends ForbiddenError {
   constructor(guildId: string) {
-    super(`Guild ${guildId} está bloqueada e não pode ser modificada`);
+    super(`Guild ${guildId} is locked and cannot be modified`);
     this.name = 'GuildLockedError';
   }
 }
@@ -271,7 +311,7 @@ import { ServiceUnavailableError } from '@spraxium/http';
 
 export class BridgeUnavailableError extends ServiceUnavailableError {
   constructor() {
-    super('Bot bridge não está respondendo, tente novamente em alguns segundos');
+    super('Bot bridge is not responding, retry after a few seconds');
     this.name = 'BridgeUnavailableError';
   }
 }
@@ -310,39 +350,54 @@ export class GuildHttpController {
 
 ## Rejeição de guard como fronteira de erro
 
-*GuardExecutor* executa guards globais em sequência antes de qualquer handler de controller. Quando um guard retorna `false`, o executor interrompe a execução e retorna `{ ok: false, error: 'Unauthorized' }` com status 401. Essa resposta é injetada diretamente, não pelo handler *onError*, o que significa que rejeições de guard são finais e não podem ser capturadas ou modificadas por middleware posterior.
+*GuardExecutor* executa guards globais em sequência antes de qualquer handler de controller. Quando um guard retorna `false`, o executor interrompe a execução e retorna `{ ok: false, error: 'Unauthorized' }` com status 401. Essa resposta é injetada diretamente, e não pelo handler *onError*, o que significa que rejeições de guard são finais e não podem ser capturadas nem modificadas por middleware posterior.
 
-Como o comportamento de guard está fora do caminho de normalização do *HttpError*, implementações de guard devem manter semântica de rejeição simples. O formato de resposta 401 segue o mesmo envelope de todos os outros erros, então clientes não precisam de tratamento especial para falhas de guard.
+Como o comportamento de guard fica fora do caminho de normalização de *HttpError*, implementações de guard devem manter a semântica de rejeição simples. O formato da resposta 401 segue o mesmo envelope dos demais erros, então clientes não precisam de tratamento especial para falhas de guard.
 
-## Checklist de design de exceções
+## Checklist de design para exceções
 
 <Steps>
-  <Step title="Lançar erros semânticos perto da regra de negócio">
-    Use classes *HttpError* específicas no ponto onde a decisão de domínio acontece, não apenas na borda do controller. Lançar *ConflictError* dentro da lógica de service é mais claro do que retornar uma flag e converter em erro no handler depois.
+  <Step title="Lance erros semânticos perto das regras de negócio">
+    Lance classes específicas de *HttpError* onde as decisões de domínio são
+    tomadas, e não apenas na borda do controller. Lançar um *ConflictError*
+    dentro da lógica de service é mais claro do que retornar uma flag e
+    convertê-la depois em erro no handler.
   </Step>
-  <Step title="Manter mensagens acionáveis e estáveis">
-    Mensagens de erro devem orientar clientes e operações sem expor detalhes internos sensíveis. Redação estável também melhora deduplicação de alertas e leitura de dashboards ao longo do tempo.
+  <Step title="Mantenha mensagens acionáveis e estáveis">
+    Mensagens de erro devem ajudar clientes e operadores a entender os próximos
+    passos sem vazar detalhes internos sensíveis. Uma redação estável também
+    melhora deduplicação de alertas e a qualidade dos dashboards ao longo do
+    tempo.
   </Step>
-  <Step title="Usar validação DTO para garantia de formato">
-    Deixe *ValidationPipe* e *class-validator* impor garantias estruturais antes da lógica de domínio. O pipeline usa `whitelist: true` e `forbidNonWhitelisted: true` por padrão, rejeitando propriedades inesperadas automaticamente.
+  <Step title="Use validação de DTO para garantir o formato">
+    Deixe *ValidationPipe* e *class-validator* impor garantias estruturais antes
+    de a lógica de domínio rodar. O pipeline usa `whitelist: true` e
+    `forbidNonWhitelisted: true` por padrão, o que significa que propriedades
+    inesperadas são rejeitadas automaticamente.
   </Step>
-  <Step title="Preferir subclasses customizadas a HttpError direto">
-    Crie subclasses com nomes descritivos como *GuildLockedError* ou *BridgeUnavailableError* em vez de lançar *ForbiddenError* com uma string. Classes nomeadas são mais fáceis de buscar em logs, testar em asserções e filtrar em dashboards.
+  <Step title="Prefira subclasses customizadas a HttpError bruto">
+    Crie subclasses com nomes descritivos como *GuildLockedError* ou
+    *BridgeUnavailableError* em vez de lançar um *ForbiddenError* puro com uma
+    string. Classes nomeadas são mais fáceis de buscar em logs, testar em
+    assertions e filtrar em dashboards de monitoramento.
   </Step>
-  <Step title="Confiar no mapeamento centralizado de resposta">
-    Permita que *HttpServer* normalize erros em JSON de forma consistente em vez de criar payloads ad-hoc por handler. Mapeamento unificado é mais fácil de testar e evoluir entre times, reduzindo drift acidental no formato de resposta.
+  <Step title="Confie no mapeamento centralizado de resposta">
+    Deixe *HttpServer* normalizar erros para JSON de forma consistente, em vez
+    de montar payloads de erro ad hoc em cada handler. Um mapeamento unificado é
+    mais fácil de testar e raciocinar entre equipes, além de reduzir a chance
+    de desvio acidental no formato da resposta.
   </Step>
 </Steps>
 
-<Callout tone="warning" title="Nunca exponha detalhes internos de erro aos clientes">
-  Exceções desconhecidas são capturadas pela camada de normalização e retornadas como resposta genérica 500. A mensagem original do erro é logada apenas no servidor. Não sobreponha esse comportamento para encaminhar stack traces ou mensagens internas, pois isso vaza detalhes de implementação para consumidores externos.
+<Callout tone="warning" title="Nunca exponha detalhes internos de erro para clientes">
+  Exceções desconhecidas são capturadas pela camada de normalização e devolvidas
+  como uma resposta 500 genérica. A mensagem original do erro é registrada em
+  log apenas no lado do servidor. Não sobrescreva esse comportamento para
+  encaminhar stack traces brutos ou mensagens internas, porque isso vaza
+  detalhes de implementação para consumidores externos.
 </Callout>
 
-## Próximo passo
+## Next page
 
-Continue com [Signal Overview](/guide/signal-overview) se seus endpoints HTTP disparam fluxos assíncronos via Signal.
-
-## Próximo estudo
-
-Continue com [Fundamentos do Signal](/guide/signal-overview).
+Continue com [Fundamentos de Signal](/guide/signal-overview).
 ```

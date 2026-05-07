@@ -1,89 +1,91 @@
 ---
-title: Store API
+title: API de Store
 description: |
-  A store é a camada de persistência para as preferências de locale de usuários e servidores.
-  Entenda como o I18nStoreRegistry desacopla o registro da store da configuração do plugin.
+  A store é a camada de persistência das preferências de locale por usuário e por guild.
+  Aprenda como I18nStoreRegistry desacopla o registro da store da configuração do plugin.
 order: 3
 category: i18n
+keywords:
+  - spraxium i18n store
+  - api de store no spraxium
+  - i18n i18n store guia
+  - i18n store bot discord
+  - i18n store typescript
+  - documentacao spraxium i18n
+  - api de store i18n
+  - spraxium api de store
+faq:
+  - question: "O que \"API de Store\" cobre no Spraxium?"
+    answer: "A store é a camada de persistência das preferências de locale por usuário e por guild. Aprenda como I18nStoreRegistry desacopla o registro da store da configuração do plugin."
+  - question: "Quando devo usar \"API de Store\"?"
+    answer: "Use esta pagina quando voce estiver implementando i18n store dentro da area de i18n do seu bot."
+  - question: "Qual o proximo passo depois de \"API de Store\"?"
+    answer: "Continue nas paginas relacionadas de i18n para conectar este conceito com implementacao pratica."
 ---
 
-## Por que as preferências de locale precisam de uma store persistente
+## Por que preferências de locale precisam de uma store persistente
 
-_I18nService.tUser()_ resolve o locale para um usuário por uma cadeia de prioridades: preferência do
-usuário, depois preferência do servidor, depois o padrão configurado. Para que essa cadeia funcione
-entre reinicializações do bot, algo precisa lembrar essas preferências. A store é esse elemento. É
-a única interface responsável por persistir e recuperar as escolhas de locale de usuários e servidores.
+_I18nService.tUser()_ resolve o locale de uma pessoa seguindo uma cadeia de prioridade: preferência do usuário, depois preferência da guild e, por fim, o locale padrão configurado. Para essa cadeia continuar funcionando depois de um restart do bot, alguém precisa lembrar essas preferências. A store é exatamente esse componente. Ela é a interface responsável por persistir e recuperar a escolha de locale feita por usuários e guilds.
 
-A store é um componente separado e substituível, não uma estrutura de dados in-memory fixa, porque
-preferências de locale têm os mesmos requisitos de persistência que qualquer outra configuração do
-usuário. Um usuário que escolhe português hoje espera que sua preferência ainda esteja ativa na
-próxima vez que o bot reiniciar.
+O motivo de a store existir como peça separada e intercambiável, em vez de ser uma estrutura em memória hardcoded, é simples: preferências de locale têm o mesmo requisito de persistência de qualquer outra configuração visível para a pessoa usuária. Quem escolhe português hoje espera continuar em português amanhã, mesmo depois de o bot reiniciar. Isso exige um backend que sobreviva a reinícios de processo. O backend ideal depende do que o bot já usa para persistência no restante do projeto, e é por isso que a store é uma interface, não uma implementação fixa.
 
 ## Como o I18nStoreRegistry funciona
 
-_I18nStoreRegistry_ é uma classe estática que mantém a referência da store ativa. O lifecycle do i18n
-sempre chama _I18nStoreRegistry.get()_ na inicialização para recuperar a store, independentemente de
-uma customizada ter sido registrada ou não. Se nenhuma store customizada foi definida, o registro cria
-e retorna uma instância de _MemoryStore_ automaticamente. Nenhum erro é lançado e nenhuma configuração
-extra é necessária para o uso básico.
+_I18nStoreRegistry_ é uma classe estática que guarda a referência da store ativa. O lifecycle de i18n sempre chama _I18nStoreRegistry.get()_ durante o boot para recuperar a store, exista ou não uma implementação customizada registrada. Se nenhuma store customizada tiver sido definida, o registry cria e devolve automaticamente uma instância de _MemoryStore_. Não há erro e nenhuma configuração extra é exigida para o uso básico.
 
-A propriedade principal desse design é que o registro da store é independente do objeto de configuração
-do plugin. Você chama _I18nStoreRegistry.set_ em qualquer momento antes do lifecycle do i18n ser
-executado, seja no arquivo principal de bootstrap, dentro de um lifecycle hook customizado, ou em
-qualquer outro ponto da sequência de inicialização do bot.
+O ponto mais importante desse desenho é que o registro da store é **independente do objeto de configuração do plugin**. Você chama _I18nStoreRegistry.set(yourStore)_ em qualquer momento anterior à execução do lifecycle de i18n. Pode ser no bootstrap principal, em um hook customizado de lifecycle ou em qualquer outro ponto da sequência de startup. O registry mantém essa referência até o bot desligar ou até _reset()_ ser chamado.
 
 ## Registrando uma store customizada
 
 ```typescript filename="src/main.ts"
 import { I18nStoreRegistry } from '@spraxium/i18n';
-import { SpraxiumFactory } from '@spraxium/core';
-import { IntentPreset } from '@spraxium/common';
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
 import { DrizzleLocaleStore } from './stores/drizzle-locale.store';
 import { db } from './database/connection';
 
 async function main(): Promise<void> {
   I18nStoreRegistry.set(new DrizzleLocaleStore(db));
+
   const app = await SpraxiumFactory.create({
     token: process.env.DISCORD_TOKEN!,
   });
+
   app.intents(IntentPreset.Standard);
+
   await app.listen();
 }
 
 main();
 ```
 
-A store é definida antes de _SpraxiumFactory.create_ ser chamado, garantindo que esteja disponível
-antes do lifecycle do i18n ser executado. Registrá-la no arquivo de bootstrap principal mantém a
-dependência explícita e visível.
+A store é registrada logo no topo de _main_, antes de _SpraxiumFactory.create()_ ser chamado. Isso garante que ela já esteja disponível quando o lifecycle de i18n rodar. Colocar esse registro no bootstrap principal também torna a dependência explícita e fácil de localizar.
 
 ## Implementando uma store customizada
 
-Qualquer classe que implementa _I18nStore_ é uma store válida. Use a ORM que já faz parte do projeto:
+Qualquer classe que implemente _I18nStore_ é uma store válida. A interface exige cinco métodos. Os exemplos abaixo mostram implementações equivalentes usando bibliotecas de banco bastante comuns, para que você adapte o padrão ao ORM já usado no projeto.
 
 <CodeTabs>
   <Tab label="Drizzle ORM" language="typescript">
 ```typescript filename="stores/drizzle-locale.store.ts"
-import { eq } from 'drizzle-orm';
 import type { I18nStore } from '@spraxium/i18n';
+import { eq } from 'drizzle-orm';
+import { localePreferences, guildLocalePreferences } from '../db/schema';
 
 export class DrizzleLocaleStore implements I18nStore {
   constructor(private readonly db: DrizzleDatabase) {}
 
   async init(): Promise<void> {
-    await this.db.execute(sql`       CREATE TABLE IF NOT EXISTS locale_preferences (
-        user_id TEXT PRIMARY KEY, locale  TEXT NOT NULL
-      )
-    `);
+    // Run migrations, create tables, or perform connection checks here.
+    // Called once at boot by I18nLifecycle, not on every translation request.
   }
 
   async getUser(userId: string): Promise<string | undefined> {
-    const linha = await this.db
+    const row = await this.db
       .select()
       .from(localePreferences)
       .where(eq(localePreferences.userId, userId))
       .limit(1);
-    return linha[0]?.locale ?? undefined;
+    return row[0]?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
@@ -94,12 +96,12 @@ export class DrizzleLocaleStore implements I18nStore {
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
-    const linha = await this.db
+    const row = await this.db
       .select()
       .from(guildLocalePreferences)
       .where(eq(guildLocalePreferences.guildId, guildId))
       .limit(1);
-    return linha[0]?.locale ?? undefined;
+    return row[0]?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
@@ -120,18 +122,18 @@ import type { PrismaClient } from '@prisma/client';
 export class PrismaLocaleStore implements I18nStore {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async init(): Promise<void> {}
+  async init(): Promise<void> {
+    // Optionally verify connection or run a lightweight query here.
+    // Called once at boot by I18nLifecycle, not on every translation request.
+  }
 
   async getUser(userId: string): Promise<string | undefined> {
-    const registro = await this.prisma.localePreference.findUnique({
-      where:  { userId },
-      select: { locale: true },
-    });
-    return registro?.locale ?? undefined;
+    const record = await this.prisma.userLocale.findUnique({ where: { userId } });
+    return record?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
-    await this.prisma.localePreference.upsert({
+    await this.prisma.userLocale.upsert({
       where:  { userId },
       create: { userId, locale },
       update: { locale },
@@ -139,15 +141,12 @@ export class PrismaLocaleStore implements I18nStore {
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
-    const registro = await this.prisma.guildLocalePreference.findUnique({
-      where:  { guildId },
-      select: { locale: true },
-    });
-    return registro?.locale ?? undefined;
+    const record = await this.prisma.guildLocale.findUnique({ where: { guildId } });
+    return record?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
-    await this.prisma.guildLocalePreference.upsert({
+    await this.prisma.guildLocale.upsert({
       where:  { guildId },
       create: { guildId, locale },
       update: { locale },
@@ -159,54 +158,54 @@ export class PrismaLocaleStore implements I18nStore {
   </Tab>
   <Tab label="TypeORM" language="typescript">
 ```typescript filename="stores/typeorm-locale.store.ts"
-import { Entity, Column, PrimaryColumn, DataSource, Repository } from 'typeorm';
 import type { I18nStore } from '@spraxium/i18n';
+import type { Repository, DataSource } from 'typeorm';
+import { Entity, PrimaryColumn, Column } from 'typeorm';
 
-@Entity('locale_preferences')
-class LocalePreference {
+@Entity('user_locales')
+class UserLocale {
   @PrimaryColumn()
   userId!: string;
   @Column()
   locale!: string;
 }
 
-@Entity('guild_locale_preferences')
-class GuildLocalePreference {
+@Entity('guild_locales')
+class GuildLocale {
   @PrimaryColumn()
   guildId!: string;
   @Column()
   locale!: string;
 }
 
-export class TypeOrmLocaleStore implements I18nStore {
-  private usuarios: Repository<LocalePreference>;
-  private servidores: Repository<GuildLocalePreference>;
+export class TypeORMLocaleStore implements I18nStore {
+  private users!: Repository<UserLocale>;
+  private guilds!: Repository<GuildLocale>;
 
-  constructor(private readonly dataSource: DataSource) {
-    this.usuarios = dataSource.getRepository(LocalePreference);
-    this.servidores = dataSource.getRepository(GuildLocalePreference);
-  }
+  constructor(private readonly dataSource: DataSource) {}
 
   async init(): Promise<void> {
     await this.dataSource.synchronize();
+    this.users = this.dataSource.getRepository(UserLocale);
+    this.guilds = this.dataSource.getRepository(GuildLocale);
   }
 
   async getUser(userId: string): Promise<string | undefined> {
-    const registro = await this.usuarios.findOne({ where: { userId } });
-    return registro?.locale ?? undefined;
+    const record = await this.users.findOne({ where: { userId } });
+    return record?.locale ?? undefined;
   }
 
   async setUser(userId: string, locale: string): Promise<void> {
-    await this.usuarios.upsert({ userId, locale }, ['userId']);
+    await this.users.upsert({ userId, locale }, ['userId']);
   }
 
   async getGuild(guildId: string): Promise<string | undefined> {
-    const registro = await this.servidores.findOne({ where: { guildId } });
-    return registro?.locale ?? undefined;
+    const record = await this.guilds.findOne({ where: { guildId } });
+    return record?.locale ?? undefined;
   }
 
   async setGuild(guildId: string, locale: string): Promise<void> {
-    await this.servidores.upsert({ guildId, locale }, ['guildId']);
+    await this.guilds.upsert({ guildId, locale }, ['guildId']);
   }
 }
 
@@ -214,7 +213,7 @@ export class TypeOrmLocaleStore implements I18nStore {
   </Tab>
 </CodeTabs>
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
@@ -225,33 +224,39 @@ export class TypeOrmLocaleStore implements I18nStore {
   <TableBody>
     <TableRow>
       <TableCell>*init()*</TableCell>
-      <TableCell>Uma vez na inicialização, pelo I18nLifecycle</TableCell>
-      <TableCell>Configuração e migrações. Pode lançar erro. Se falhar aqui, a inicialização é cancelada.</TableCell>
+      <TableCell>Uma vez no boot, via I18nLifecycle</TableCell>
+      <TableCell>Setup e migrations. Pode lançar erro. Falha aqui aborta o boot.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getUser(userId)*</TableCell>
-      <TableCell>Em cada chamada de tUser() ou resolveLocale()</TableCell>
-      <TableCell>Retorna o locale salvo ou undefined. Pode ser assíncrono.</TableCell>
+      <TableCell>Em toda chamada de tUser() ou resolveLocale()</TableCell>
+      <TableCell>Deve retornar a string do locale salvo ou undefined. Pode ser assíncrono.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*setUser(userId, locale)*</TableCell>
-      <TableCell>Quando o usuário executa um comando de mudança de locale</TableCell>
-      <TableCell>Persiste a preferência. Deve sobrescrever valores existentes.</TableCell>
+      <TableCell>Quando a pessoa usuária executa um comando de troca de locale</TableCell>
+      <TableCell>Persiste a preferência. Deve sobrescrever o valor anterior.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getGuild(guildId)*</TableCell>
-      <TableCell>Em chamadas tUser() sem preferência de usuário</TableCell>
-      <TableCell>Retorna o locale do servidor ou undefined. Pode ser assíncrono.</TableCell>
+      <TableCell>Em toda chamada de tUser() ou resolveLocale() sem pref de usuário</TableCell>
+      <TableCell>Deve retornar a string do locale salvo ou undefined. Pode ser assíncrono.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*setGuild(guildId, locale)*</TableCell>
-      <TableCell>Quando um admin executa um comando de locale do servidor</TableCell>
-      <TableCell>Persiste a preferência do servidor. Deve sobrescrever valores existentes.</TableCell>
+      <TableCell>Quando uma pessoa admin executa um comando de troca de locale</TableCell>
+      <TableCell>Persiste a preferência da guild. Deve sobrescrever o valor anterior.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Um comando de mudança de locale que escreve na store
+## Usando a MemoryStore embutida no desenvolvimento
+
+*MemoryStore* é o fallback padrão. Ela guarda preferências em dois *Map*s criados do zero a cada início do processo e perdidos quando ele termina. Não exige setup, banco nem variável de ambiente. Para desenvolvimento local, ou para bots em que preferência de locale não seja uma funcionalidade relevante, *MemoryStore* é a escolha certa: o sistema funciona normalmente, só que as preferências não sobrevivem a reinícios.
+
+Você nunca precisa registrar *MemoryStore* explicitamente. Ela entra automaticamente quando nenhuma store customizada for registrada. Se quiser deixar isso explícito por clareza de documentação ou em testes, ainda assim pode chamar *I18nStoreRegistry.set(new MemoryStore())* em qualquer ponto do startup.
+
+## Um comando de troca de locale que grava na store
 
 ```typescript filename="locale.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
@@ -269,21 +274,22 @@ export class LocaleHandler {
 
     await this.i18n.setUserLocale(userId, locale);
 
-    const confirmacao = await this.i18n.tUser(
+    const confirmation = await this.i18n.tUser(
       userId,
-      'commands.locale.alterado',
+      'commands.locale.changed',
       { locale },
     );
 
-    await interaction.reply({ content: confirmacao, ephemeral: true });
+    await interaction.reply({ content: confirmation, flags: 'Ephemeral' });
   }
 }
 ````
 
-## Reiniciando a store em testes
+_I18nService.setUserLocale()_ delega diretamente para _store.setUser()_. A próxima chamada de _tUser()_ desse mesmo usuário já será resolvida no novo locale. Não existe cache para invalidar porque a cadeia de prioridade sempre consulta a store a cada chamada.
 
-A natureza estática do _I18nStoreRegistry_ significa que o estado pode vazar entre casos de teste.
-Use _reset()_ nos hooks de teardown para manter os testes isolados:
+## Resetando a store em testes
+
+Como _I18nStoreRegistry_ é estático, estado pode vazar de um teste para outro. Use _reset()_ nos hooks de teardown para manter os casos isolados:
 
 <CodeTabs>
   <Tab label="Vitest" language="typescript">
@@ -300,8 +306,22 @@ afterEach(() => {
 
 ````
   </Tab>
-  <Tab label="Store com spy" language="typescript">
-```typescript filename="test/locale.handler.test.ts"
+  <Tab label="Jest" language="typescript">
+```typescript filename="test/i18n.test.ts"
+import { I18nStoreRegistry, MemoryStore } from '@spraxium/i18n';
+
+beforeEach(() => {
+  I18nStoreRegistry.set(new MemoryStore());
+});
+
+afterEach(() => {
+  I18nStoreRegistry.reset();
+});
+````
+
+  </Tab>
+  <Tab label="Spy test" language="typescript">
+```typescript filename="test/locale-handler.test.ts"
 import { I18nStoreRegistry } from '@spraxium/i18n';
 import { vi } from 'vitest';
 
@@ -321,11 +341,12 @@ afterEach(() => {
   I18nStoreRegistry.reset();
   vi.clearAllMocks();
 });
-````
 
+```
   </Tab>
 </CodeTabs>
 
 ## Próxima página
 
-Continue com [Pluralização](/guide/i18n-pluralization).
+Continue em [Pluralização](/guide/i18n-pluralization).
+```

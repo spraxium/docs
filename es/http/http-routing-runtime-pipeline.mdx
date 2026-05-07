@@ -1,71 +1,107 @@
 ---
-title: Pipeline de Rutas y Decorators
+title: Enrutamiento y Decoradores de Controladores
 description: |
-  Entiende cómo la metadata de rutas se convierte en handlers ejecutables en @spraxium/http.
-  Sigue el flujo desde decorators hasta resolución de parámetros, validación y serialización de respuesta.
+  Entiende cómo los metadatos de rutas se convierten en handlers ejecutables en @spraxium/http.
+  Sigue el flujo desde los decoradores hasta la resolución de parámetros, validación y forma de respuesta.
 order: 4
 category: "@spraxium/http"
 ---
 
-## Superficie de decorators
+## Superficie de decoradores
 
-Los decorators definen intención de transporte al momento de carga de clase, mientras los servicios de runtime convierten esa intención en handlers ejecutables de Hono durante el arranque del servidor. Mantener esa separación en mente ayuda a depurar comportamiento de rutas rápidamente porque el decorator siempre es la fuente de verdad y el runtime simplemente lee lo que el decorator almacenó en _reflect-metadata_.
+Los decoradores definen la intención de transporte en tiempo de carga de clase, mientras que los servicios runtime convierten esa intención en handlers Hono ejecutables durante el arranque del servidor. Mantener clara esa separación te ayuda a depurar rápido el comportamiento de rutas, porque el decorador siempre es la fuente de verdad y el runtime solo lee lo que el decorador guardó en _reflect-metadata_.
 
-Todos los decorators del paquete escriben a claves definidas en _HTTP_METADATA_KEYS_. _@HttpController_ establece el prefijo, los decorators de método de ruta empujan entradas a un array _ROUTES_, _@HttpUseMiddleware_ agrega a un array _MIDDLEWARE_, y los decorators de parámetro empujan a un array _PARAMS_ indexado por nombre de handler. Esta metadata es inmutable después de la inicialización de clase, así que el runtime puede leerla de forma segura al arrancar sin efectos secundarios.
+Todos los decoradores del paquete escriben en claves definidas en _HTTP_METADATA_KEYS_. _@HttpController_ define el prefijo, los decoradores de método de ruta agregan entradas a un arreglo _ROUTES_, _@HttpUseMiddleware_ agrega a un arreglo _MIDDLEWARE_, _@HttpGuards_ agrega a un arreglo _GUARDS_ y los decoradores de parámetro agregan a un arreglo _PARAMS_ indexado por nombre de handler. Estos metadatos son inmutables tras la inicialización de la clase, por lo que el runtime puede leerlos en startup de forma segura y sin efectos secundarios.
 
 <DropdownGroup>
-<Dropdown title="@HttpController('/prefix'): Clase, Prefijo de ruta">
-  Establece el prefijo de ruta compartido por todos los métodos de la clase. Usado por *RouteBuilder* para construir rutas completas.
+<Dropdown title="@HttpController(prefix)">
+  Un decorador de clase que define el prefijo de ruta compartido por todos los métodos del controlador. *RouteBuilder* lee el metadato de prefijo y lo antepone al subpath de cada método al construir la ruta Hono completa. Los controladores sin prefijo usan `'/'` por defecto, lo que registra sus rutas directamente sobre la raíz.
 </Dropdown>
 
-<Dropdown title="@HttpGet / @HttpPost / @HttpPut / @HttpPatch / @HttpDelete: Método, Definición de ruta">
-  Registra un par método HTTP + sub-ruta. Cada llamada empuja un
-  *RouteDefinition* con método, ruta y nombre de handler.
+<Dropdown title="@HttpGet · @HttpPost · @HttpPut · @HttpPatch · @HttpDelete">
+  Decoradores de método que registran un par de método HTTP y subpath opcional
+  en el controlador contenedor. Cada llamada inserta una entrada
+  *RouteDefinition* con método, subpath y nombre de handler en el arreglo de
+  metadatos `ROUTES` de la clase del controlador. *RouteBuilder* lee este
+  arreglo en startup y crea una ruta Hono para cada entrada, calculando la ruta
+  completa al unir el prefijo del controlador con el subpath del método.
 </Dropdown>
 
-<Dropdown title="@HttpStatus(code): Método, Código de status de éxito">
-  Reemplaza el código de status de éxito por defecto (200). *RouteBuilder* lee
-  esto al dar forma a la respuesta JSON final.
+<Dropdown title="@HttpStatus(code)">
+  Un decorador de método que sobrescribe el código de estado de éxito por
+  defecto (200) con cualquier número de estado HTTP válido. *RouteBuilder* lee
+  este metadato al serializar el valor retornado del handler mediante
+  `ctx.json(result, statusCode)`. Este decorador no tiene efecto cuando el
+  handler devuelve un objeto nativo `Response`, porque esa respuesta evita la
+  ruta normal de serialización JSON.
 </Dropdown>
 
-<Dropdown title="@HttpUseMiddleware(...classes): Clase o método, Middleware por ruta">
-  Adjunta tokens de clase de middleware resueltos a través de
-  *middlewareProviders*. Decorators a nivel de clase se ejecutan antes de los de
-  nivel de método.
+<Dropdown title="@HttpGuards(...classes)">
+  Un decorador de clase o método que adjunta tokens de clases guard a un
+  controlador o ruta individual. Los guards se resuelven mediante el sistema DI
+  en startup y se ejecutan antes del handler con *GuardExecutor*, ejecutándose
+  primero los guards de nivel clase y después los de nivel método. Un único
+  retorno `false` termina la request en la capa de guard con estado 401, antes
+  de ejecutar middleware o código del handler.
 </Dropdown>
 
-<Dropdown title="@HttpParam(key): Parámetro, Parámetro URL">
-  Extrae un parámetro URL con nombre desde `ctx.req.param(key)` y lo inyecta
-  como argumento del handler.
+<Dropdown title="@HttpUseMiddleware(...classes)">
+  Un decorador de clase o método que adjunta tokens de clases middleware
+  resueltos mediante *middlewareProviders*. *@HttpUseMiddleware* de nivel clase
+  corre antes de las declaraciones de nivel método, y ambas corren después del
+  middleware global y de la ejecución de guards. Los tokens de clase deben estar
+  registrados en *@HttpClientModule({middlewareProviders})* o el enlace se omite
+  silenciosamente durante el setup de rutas.
 </Dropdown>
 
-<Dropdown title="@HttpQuery(key): Parámetro, Query string">
-  Extrae un parámetro de query string desde `ctx.req.query(key)` y lo inyecta
-  como argumento del handler.
+<Dropdown title="@HttpParam(key)">
+  Un decorador de parámetro que extrae un parámetro de ruta URL nombrado desde
+  `ctx.req.param(key)` y lo inyecta en la posición correspondiente del argumento
+  del handler. La clave debe coincidir con el nombre del placeholder definido en
+  la ruta, por ejemplo `:guildId` en `'/:guildId'` se extrae con
+  `@HttpParam('guildId')`. El valor siempre es string porque los segmentos de
+  ruta URL siempre son strings.
 </Dropdown>
 
-<Dropdown title="@HttpBody(DtoClass?): Parámetro, Body JSON">
-  Parsea el body JSON. Cuando se provee una clase DTO, *ValidationPipe*
-  transforma y valida antes de la inyección.
+<Dropdown title="@HttpQuery(key)">
+  Un decorador de parámetro que lee un parámetro de query string desde
+  `ctx.req.query(key)` y lo inyecta como argumento del handler. El valor
+  resuelto es string cuando la clave está presente en la query o `undefined`
+  cuando está ausente, así que los handlers que usan query params opcionales
+  deberían contemplar ambos casos. Múltiples parámetros query en el mismo
+  handler requieren cada uno su propio decorador *@HttpQuery*.
 </Dropdown>
 
-<Dropdown title="@HttpHeader(key): Parámetro, Header de request">
-  Lee un header del request por nombre desde `ctx.req.header(key)` y lo inyecta
-  como argumento del handler.
+<Dropdown title="@HttpBody(DtoClass?)">
+  Un decorador de parámetro que parsea el body JSON de la request y lo inyecta
+  como argumento del handler. Cuando se provee una clase DTO, *ValidationPipe*
+  ejecuta `plainToInstance` seguido de `validate` con `whitelist: true` y
+  `forbidNonWhitelisted: true`, lanzando un *ValidationError* con detalles
+  estructurados si falla cualquier restricción. Omitir la clase DTO inyecta el
+  body parseado en crudo como objeto anónimo sin validación.
 </Dropdown>
 
-<Dropdown title="@HttpCtx(): Parámetro, Context completo de Hono">
-  Inyecta el objeto *Context* completo de Hono para escenarios avanzados donde otros decorators son insuficientes.
+<Dropdown title="@HttpHeader(key)">
+  Un decorador de parámetro que lee un header específico de la request desde
+  `ctx.req.header(key)` e inyecta su valor como argumento del handler. Los
+  nombres de header son case-insensitive según la especificación HTTP y Hono los
+  normaliza antes de buscar, por lo que `'x-request-id'` y `'X-Request-Id'`
+  resuelven al mismo valor. El valor resuelto es string o `undefined` cuando el
+  header está ausente.
+</Dropdown>
+
+<Dropdown title="@HttpCtx()">
+  Un decorador de parámetro que inyecta el objeto *Context* completo de Hono en el handler. Esto da acceso directo a todos los datos crudos de request, métodos de respuesta y stores de middleware de Hono para escenarios donde los demás decoradores de parámetro no son suficientes. Usar *@HttpCtx()* junto a otros decoradores de parámetro está soportado; cada posición de argumento anotada se resuelve de forma independiente desde su propia fuente.
 </Dropdown>
 </DropdownGroup>
 
-## Resolución de parámetros en profundidad
+## Resolución de parámetros en detalle
 
-_ParamResolver_ es el servicio que lee metadata de _PARAMS_ y extrae valores del _Context_ de Hono para cada invocación de handler. Soporta cinco tipos de fuente, cada uno mapeado a una estrategia de extracción específica.
+_ParamResolver_ es el servicio que lee metadatos _PARAMS_ y extrae valores desde el _Context_ de Hono para cada invocación de handler. Soporta cinco tipos de origen, cada uno mapeado a una estrategia de extracción específica.
 
-Cuando un handler no tiene decorators de parámetro en absoluto, _ParamResolver_ recurre a inyectar el _Context_ completo como único argumento. Este comportamiento por defecto significa que puedes escribir handlers simples que acepten `ctx` directamente sin decorators, lo cual es útil para escenarios de migración o handlers que necesitan control total. En cuanto aparece un decorator de parámetro, solo los parámetros decorados se resuelven.
+Cuando un handler no tiene decoradores de parámetro, _ParamResolver_ usa como fallback la inyección del _Context_ completo como único argumento. Este comportamiento por defecto significa que puedes escribir handlers simples que acepten `ctx` directamente sin decoradores, útil en escenarios de migración o handlers que requieren control total. En cuanto aparece un decorador de parámetro, solo se resuelven parámetros decorados.
 
-La fuente body merece atención especial. _ParamResolver_ parsea JSON del body del request solo una vez por invocación de handler y cachea el resultado incluso si múltiples decorators _@Body_ existen en el mismo método. Cuando se provee una clase DTO, _ValidationPipe_ ejecuta `plainToInstance` de _class-transformer_ para crear una instancia tipada y luego `validate` de _class-validator_ con `whitelist: true` y `forbidNonWhitelisted: true`. Esto significa que propiedades inesperadas en el payload se rechazan automáticamente antes de que la lógica de negocio se ejecute.
+La fuente de body merece atención especial. _ParamResolver_ parsea el JSON del body solo una vez por invocación de handler y cachea el resultado incluso si existen múltiples decoradores _@HttpBody_ en el mismo método. Cuando se provee una clase DTO, _ValidationPipe_ ejecuta `plainToInstance` de _class-transformer_ para crear una instancia tipada y luego `validate` de _class-validator_ con `whitelist: true` y `forbidNonWhitelisted: true`. Esto significa que propiedades inesperadas en el payload se rechazan automáticamente antes de ejecutar lógica de negocio.
 
 ## Ejemplo enfocado con todas las fuentes de parámetros
 
@@ -78,13 +114,13 @@ import {
   HttpCtx,
   HttpGet,
   HttpHeader,
-  HttpStatus,
   HttpParam,
   HttpPatch,
   HttpQuery,
+  HttpStatus,
+  NotFoundError,
 } from '@spraxium/http';
 import type { Context } from 'hono';
-import { NotFoundError } from '@spraxium/http';
 import { GuildHttpService } from '../services/guild-http.service';
 import { UpdateGuildConfigDto } from '../dto/update-guild-config.dto';
 
@@ -164,47 +200,47 @@ export class AppModule {}
   </Tab>
 </CodeTabs>
 
-## Pipeline de validación DTO
+## Pipeline de validación de DTO
 
-Cuando se usa *@Body(DtoClass)*, el body JSON crudo pasa por *ValidationPipe* antes de llegar al handler. El pipeline realiza dos transformaciones en secuencia y rechaza el request si la validación falla.
+Cuando se usa *@HttpBody(DtoClass)*, el body JSON crudo pasa por *ValidationPipe* antes de llegar al handler. El pipeline realiza dos transformaciones en secuencia y rechaza la request si falla la validación.
 
-Primero, `plainToInstance(DtoClass, body)` de *class-transformer* convierte el objeto anónimo en una instancia de clase tipada. Este paso habilita a *class-validator* para leer metadata de decorators desde la clase DTO. Segundo, `validate(instance, { whitelist: true, forbidNonWhitelisted: true })` ejecuta todos los decorators de restricción sobre la instancia. La opción *whitelist* elimina propiedades desconocidas, y *forbidNonWhitelisted* rechaza activamente requests que las incluyan.
+Primero, `plainToInstance(DtoClass, body)` de *class-transformer* convierte el objeto anónimo en una instancia de clase tipada. Este paso permite que *class-validator* lea metadatos de decoradores desde la clase DTO. Después, `validate(instance, { whitelist: true, forbidNonWhitelisted: true })` ejecuta todos los decoradores de constraints sobre la instancia. La opción *whitelist* elimina propiedades desconocidas y *forbidNonWhitelisted* rechaza activamente requests que las incluyan.
 
-Cuando existen errores de validación, *ValidationPipe* lanza un *ValidationError* con status 400. Cada entrada de error en el array *details* mapea un nombre de *property* a un registro de *constraints*. El handler centralizado *onError* captura esto y retorna `{ ok: false, error: 'Validation failed', details: [...] }`. Este flujo automatizado significa que los handlers nunca necesitan validar payloads de body manualmente, y cada endpoint de mutación obtiene shapes de error consistentes de forma gratuita.
+Cuando hay errores de validación, *ValidationPipe* lanza un *ValidationError* con estado 400. Cada entrada de error en el arreglo *details* mapea un nombre de *property* a un registro de *constraints*. El handler centralizado *onError* captura esto y devuelve `{ ok: false, error: 'Validation failed', details: [...] }`. Este flujo automático significa que los handlers nunca necesitan validar payloads manualmente, y cada endpoint de mutación obtiene formas de error consistentes sin esfuerzo adicional.
 
-## Secuencia interna de ejecución
+## Secuencia de ejecución interna
 
 <Steps>
-  <Step title="Resolver grafo de services con ordenamiento topológico">
-    *RouteRegistry* lee tipos de parámetro de constructor desde *reflect-metadata* y construye un grafo de dependencias. Los services se instancian en orden para que cada clase reciba sus dependencias ya resueltas. Si se detecta una dependencia circular, el arranque falla con un error listando los nombres de clase involucrados.
+  <Step title="Resolver grafo de servicios con orden topológico">
+    *RouteRegistry* lee los tipos de parámetros del constructor desde *reflect-metadata* y construye un grafo de dependencias. Los servicios se instancian en orden para que cada clase reciba sus dependencias ya resueltas. Si se detecta una dependencia circular, el startup falla con un error que lista los nombres de clases involucradas.
   </Step>
-  <Step title="Instanciar controllers con DI">
-    Las clases de controller se instancian usando el mapa de dependencias resuelto más cualquier valor fallback del contenedor core. *RouteRegistry* también lee metadata de *@UseMiddleware* a nivel de clase en esta etapa para que esté disponible durante el binding de rutas.
+  <Step title="Instanciar controladores con DI">
+    Las clases de controlador se instancian usando el mapa de dependencias resuelto más cualquier valor fallback del contenedor core. *RouteRegistry* también lee en esta etapa metadatos de *@HttpUseMiddleware* y *@HttpGuards* de nivel clase para que estén disponibles durante el binding de rutas.
   </Step>
-  <Step title="Vincular handlers de ruta en Hono">
-    *RouteBuilder* itera las definiciones de ruta de cada controller. Para cada ruta, computa la ruta completa uniendo el prefijo del controller con la sub-ruta del método. Mergea referencias de middleware a nivel de clase y método, las resuelve a través de *middlewareProviders* y registra la cadena completa como handler de ruta en Hono. El binding ocurre una vez al arranque, haciendo los contratos de ruta inmutables durante runtime.
+  <Step title="Enlazar handlers de rutas en Hono">
+    *RouteBuilder* itera las definiciones de rutas de cada controlador. Para cada ruta, calcula el path completo uniendo el prefijo del controlador con el subpath del método. Fusiona referencias de middleware de nivel clase y método, las resuelve mediante *middlewareProviders* y registra la cadena completa como handler de ruta en Hono. El binding ocurre una sola vez en startup, haciendo inmutables los contratos de ruta durante runtime.
   </Step>
   <Step title="Resolver parámetros de método por request">
-    Cuando un request coincide con una ruta, *ParamResolver* lee la metadata de *PARAMS* para ese handler. Extrae valores de parámetros URL, query strings, body parseado, headers o el contexto completo. Si un decorator *@Body* referencia una clase DTO, se activa *ValidationPipe*. El array final de argumentos se pasa a la función handler vía `apply()`.
+    Cuando una request coincide con una ruta, *ParamResolver* lee metadatos *PARAMS* de ese handler. Extrae valores de params URL, query strings, body parseado, headers o el context completo. Si un decorador *@HttpBody* referencia una clase DTO, se dispara *ValidationPipe*. El arreglo final de argumentos se pasa a la función handler mediante `apply()`.
   </Step>
   <Step title="Ejecutar handler y dar forma a la respuesta">
-    El handler se ejecuta con argumentos resueltos. Si retorna un `Response` nativo, Hono lo pasa sin cambios. De lo contrario, *RouteBuilder* serializa el valor de retorno con `ctx.json()` usando el status de *@HttpStatus* o 200 por defecto. Cualquier *HttpError* lanzado durante la ejecución se propaga al handler centralizado *onError*.
+    El handler se ejecuta con los argumentos resueltos. Si devuelve un `Response` nativo, Hono lo pasa sin cambios. En caso contrario, *RouteBuilder* serializa el valor retornado con `ctx.json()` usando el estado de *@HttpStatus* o 200 por defecto. Cualquier *HttpError* lanzado durante la ejecución se propaga al handler centralizado *onError*.
   </Step>
 </Steps>
 
-## Reglas de shaping de respuesta
+## Reglas para dar forma a respuestas
 
-Los handlers pueden retornar dos tipos de valores: objetos plain o instancias nativas de *Response*. Entender la diferencia previene confusión sobre códigos de status y tipos de contenido.
+Los handlers pueden devolver dos tipos de valores: objetos planos o instancias nativas de *Response*. Entender la diferencia evita confusión con códigos de estado y tipos de contenido.
 
-Cuando un handler retorna un objeto plain, *RouteBuilder* lo envuelve con `ctx.json(result, statusCode)` donde el código de status viene de *@HttpStatus* o por defecto es 200. El content type se establece a `application/json` automáticamente. Este es el patrón recomendado para la mayoría de endpoints porque mantiene los handlers enfocados en datos y deja que el framework maneje la serialización.
+Cuando un handler devuelve un objeto plano, *RouteBuilder* lo envuelve con `ctx.json(result, statusCode)` donde el código de estado proviene de *@HttpStatus* o usa 200 por defecto. El tipo de contenido se define automáticamente como `application/json`. Este es el patrón recomendado para la mayoría de endpoints porque mantiene a los handlers enfocados en datos y deja la serialización al framework.
 
-Cuando un handler retorna un `Response` nativo (construido con `ctx.json()`, `ctx.text()` o `new Response(...)`), Hono lo pasa sin modificación. Esto da control total sobre headers, status y formato del body, lo cual es útil para respuestas streaming, descargas binarias o redirecciones. La contrapartida es que el código de status centralizado de *@HttpStatus* se ignora, y la respuesta elude la ruta normal de serialización JSON.
+Cuando un handler devuelve un `Response` nativo (construido con `ctx.json()`, `ctx.text()` o `new Response(...)`), Hono lo pasa sin modificación. Esto da control total sobre headers, estado y formato de body, útil para respuestas por streaming, descargas binarias o redirects. El costo es que el estado centralizado de *@HttpStatus* se ignora y la respuesta evita el camino normal de serialización JSON.
 
-<Callout tone="warning" title="Trata las rutas como contratos públicos">
-  Publica versionamiento intencional en las rutas cuando el comportamiento del endpoint cambie. El runtime no auto-detecta colisiones de rutas, así que renombramientos silenciosos rompen clientes. Mantén prefijos de ruta estables y explícitos entre despliegues.
+<Callout tone="warning" title="Trata los paths de ruta como contratos públicos">
+  Publica versionado intencional en rutas cuando cambie el comportamiento de un endpoint. El runtime no detecta automáticamente colisiones de path, así que renombres silenciosos rompen clientes. Mantén prefijos de rutas estables y explícitos entre despliegues.
 </Callout>
 
-## Página siguiente
+## Siguiente página
 
 Continúa con [Seguridad, Guards y Middleware](/guide/http-security-guards-middleware).
 ```

@@ -1,7 +1,7 @@
 ---
-title: Registro de Plugins
+title: Registro de plugins
 description: |
-  Las factories de plugin producen entradas tipadas para el array plugins en spraxium.config.ts.
+  Las factories de plugins producen entradas tipadas para el array plugins en spraxium.config.ts.
   Aprende a registrar plugins oficiales y a mantener la configuración de cada plugin aislada y auditable.
 order: 3
 category: Configuration
@@ -9,69 +9,78 @@ category: Configuration
 
 ## Cómo funciona el array plugins
 
-El array _plugins_ reúne entradas retornadas por helpers de factory tipados. Cada entrada contiene un string _namespace_ que identifica el plugin de forma única y un payload _config_ tipado. No crees estas entradas manualmente. Las factories oficiales como _defineHttp_, _defineI18n_, _defineSchedule_, _defineSignal_ y _defineComponents_ se encargan del empaquetado. El orden de las entradas en el array no importa porque los plugins se resuelven por namespace en runtime, no por posición.
+Cada entrada en el array _plugins_ es un objeto plano con dos propiedades: un string _namespace_ que identifica de forma única al plugin y una carga _config_ con sus opciones. Nunca creas este objeto manualmente. Los paquetes de plugins exportan helpers de factory tipados como _defineHttp_, _defineI18n_, _defineSchedule_ y _defineSignal_ que producen entradas con la forma correcta y con inferencia completa en TypeScript. El framework resuelve la configuración de cada plugin en runtime emparejando el namespace, por lo que cambiar un plugin nunca afecta a otro.
 
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
 import { defineHttp } from '@spraxium/http';
+import { defineI18n } from '@spraxium/i18n';
 import { defineSchedule } from '@spraxium/schedule';
 
 export default defineConfig({
   plugins: [
+    defineI18n({
+      defaultLocale: 'en-US',
+      references: [{ name: 'commands', path: './locales' }],
+    }),
     defineHttp({
       enabled: true,
       port: 3001,
       host: 'localhost',
-      apiKey: 'dev-key',
+      apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
       sharding: false,
     }),
-    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+    defineSchedule({
+      timezone: 'America/Sao_Paulo',
+      defaultLockTtlMs: 60_000,
+      disableAll: false,
+    }),
   ],
 });
 ```
 
-## Factories oficiales
+## Factories de plugins oficiales
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Factory</TableCell>
       <TableCell header>Paquete</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidad</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*defineHttp*</TableCell>
-      <TableCell>`@spraxium/http`</TableCell>
-      <TableCell>
-        Puente HTTP con ruteo estilo Express para APIs del bot.
-      </TableCell>
+      <TableCell>*@spraxium/http*</TableCell>
+      <TableCell>Puente HTTP con enrutado estilo Express para APIs de bots.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*defineI18n*</TableCell>
-      <TableCell>`@spraxium/i18n`</TableCell>
+      <TableCell>*@spraxium/i18n*</TableCell>
       <TableCell>
         Internacionalización con referencias de locale y cadenas de fallback.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*defineSchedule*</TableCell>
-      <TableCell>`@spraxium/schedule`</TableCell>
+      <TableCell>*@spraxium/schedule*</TableCell>
       <TableCell>
-        Agendamiento de tareas basado en cron con soporte de zona horaria.
+        Programación de tareas basada en cron con soporte de zona horaria y
+        locks.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*defineSignal*</TableCell>
-      <TableCell>`@spraxium/signal`</TableCell>
+      <TableCell>*@spraxium/signal*</TableCell>
       <TableCell>
-        Receptor en el lado del bot para envelopes de eventos firmados.
+        Receptor en el lado del bot para sobres de eventos firmados desde
+        servicios externos.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*defineComponents*</TableCell>
-      <TableCell>`@spraxium/components`</TableCell>
+      <TableCell>*@spraxium/components*</TableCell>
       <TableCell>
         Sistema de interacción de componentes para botones, selects y modales.
       </TableCell>
@@ -79,11 +88,22 @@ export default defineConfig({
   </TableBody>
 </Table>
 
-## Extracción de config de plugins a archivos separados
+## Extraer la configuración de plugins en archivos separados
 
-Para proyectos con muchos plugins, el patrón recomendado es extraer la llamada de cada factory a un archivo dedicado dentro de un directorio `config/` y luego importarla en la config raíz. Las opciones de cada plugin quedan aisladas y son auditables de forma independiente. Esto también facilita las revisiones de código durante incidentes, ya que el lector no tiene que buscar en un archivo de config extenso.
+En proyectos con varios plugins, mantener todas las llamadas de factory inline en `spraxium.config.ts` vuelve el archivo difícil de revisar. El patrón recomendado es extraer la llamada de factory de cada plugin a un archivo dedicado dentro de `config/`, exportar el resultado como constante con nombre e importarlo en la configuración raíz. Esto mantiene las opciones de cada plugin aisladas y auditables de forma independiente.
 
 <CodeTabs>
+  <Tab label="config/schedule.config.ts" language="typescript">
+```typescript filename="config/schedule.config.ts"
+import { defineSchedule } from '@spraxium/schedule';
+
+export const schedulePlugin = defineSchedule({
+  timezone: 'America/Sao_Paulo',
+  defaultLockTtlMs: 60_000,
+  disableAll: false,
+});
+```
+  </Tab>
   <Tab label="config/http.config.ts" language="typescript">
 ```typescript filename="config/http.config.ts"
 import { defineHttp } from '@spraxium/http';
@@ -94,17 +114,6 @@ export const httpPlugin = defineHttp({
   host: 'localhost',
   apiKey: process.env.HTTP_API_KEY ?? 'dev-secret',
   sharding: false,
-});
-```
-  </Tab>
-  <Tab label="config/schedule.config.ts" language="typescript">
-```typescript filename="config/schedule.config.ts"
-import { defineSchedule } from '@spraxium/schedule';
-
-export const schedulePlugin = defineSchedule({
-  timezone: 'America/Sao_Paulo',
-  defaultLockTtlMs: 60_000,
-  disableAll: false,
 });
 ```
   </Tab>
@@ -121,12 +130,13 @@ export default defineConfig({
   </Tab>
 </CodeTabs>
 
-<Callout tone="success" title="Mantén la config cerca del import de la factory">
-  Cuando el namespace y el payload están en el mismo archivo, las auditorías y
-  los refactors son significativamente más rápidos. Evita dispersar opciones de
-  plugin en módulos utilitarios compartidos.
+<Callout tone="success" title="Mantén la configuración cerca del import de la factory">
+  Cuando el namespace y la carga están visibles juntos en el mismo archivo, las
+  auditorías y refactors son significativamente más rápidos. Evita repartir
+  opciones de plugins entre módulos utilitarios o archivos de constantes
+  compartidos para otros fines.
 </Callout>
 
 ## Siguiente página
 
-[Creando un Plugin](/guide/config-creating-plugins)
+[Crear un plugin](/guide/config-creating-plugins)

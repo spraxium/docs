@@ -1,76 +1,106 @@
 ---
-title: "Execução e Prefixos por Servidor"
+title: Execução e Prefixos por Guild
 description: |
-  A resolução de prefixo segue uma hierarquia de precedência que começa com sobrescritas de servidor.
-  Aprenda a configurar prefixos globais e por servidor, cooldowns e o pipeline de resolução.
+  A resolução de prefixos segue uma hierarquia de precedência específica que começa pelas sobrescritas por guild.
+  Aprenda a configurar prefixos globais e por guild, cooldowns e a pipeline de resolução de prefixos.
 order: 4
 category: Prefix Commands
+keywords:
+  - spraxium prefix commands execution guild prefixes
+  - execução e prefixos por guild no spraxium
+  - prefix commands prefix commands execution guild prefixes guia
+  - prefix commands execution guild prefixes bot discord
+  - prefix commands execution guild prefixes typescript
+  - documentacao spraxium prefix commands
+  - execução e prefixos por guild prefix commands
+  - spraxium execução e prefixos por guild
+faq:
+  - question: "O que \"Execução e Prefixos por Guild\" cobre no Spraxium?"
+    answer: "A resolução de prefixos segue uma hierarquia de precedência específica que começa pelas sobrescritas por guild. Aprenda a configurar prefixos globais e por guild, cooldowns e a pipeline de resolução de prefixos."
+  - question: "Quando devo usar \"Execução e Prefixos por Guild\"?"
+    answer: "Use esta pagina quando voce estiver implementando prefix commands execution guild prefixes dentro da area de Prefix Commands do seu bot."
+  - question: "Qual o proximo passo depois de \"Execução e Prefixos por Guild\"?"
+    answer: "Continue nas paginas relacionadas de Prefix Commands para conectar este conceito com implementacao pratica."
 ---
 
-## Precedência na resolução de prefixo
+## Precedência na resolução de prefixos
 
-Quando o framework recebe uma mensagem, o _PrefixParser_ verifica se o texto começa com um prefixo reconhecido. A resolução segue uma ordem estrita de precedência: prefixos específicos de servidor são verificados primeiro, depois o prefixo global e, por fim, a menção do bot se habilitada. A primeira correspondência vence e as opções restantes são ignoradas.
+Quando o framework recebe uma mensagem, o _PrefixParser_ verifica se o texto começa com um prefixo reconhecido. A resolução segue uma ordem de precedência estrita: primeiro são verificados os prefixos específicos da guild, depois o prefixo global e, por fim, a menção ao bot, se estiver habilitada. A primeira correspondência vence e as demais opções são ignoradas.
 
-Esse modelo de precedência significa que uma sobrescrita de servidor sempre tem prioridade sobre o padrão global. Se um servidor registrou `?` como seu prefixo e o config global usa `!`, mensagens começando com `?` são capturadas naquele servidor enquanto `!` é ignorado. Se não existir sobrescrita de servidor, o parser recorre ao prefixo global. O prefixo de menção (ex: `@Bot roll 6`) é sempre verificado por último como um fallback universal.
+Esse modelo de precedência significa que uma sobrescrita da guild sempre tem prioridade sobre o padrão global. Se uma guild registrou `?` como prefixo e a config global usa `!`, mensagens que começam com `?` serão reconhecidas nessa guild, enquanto `!` será ignorado. Se não existir sobrescrita por guild, o parser volta para o prefixo global. O prefixo por menção, como em `@Bot roll 6`, sempre é verificado por último como fallback universal.
 
-A ordem de resolução é importante para bots que atendem múltiplas comunidades com convenções diferentes. Um servidor focado em moderação pode preferir `.` como prefixo porque é discreto e silencioso, enquanto um servidor de jogos pode escolher `>>` pela visibilidade. O sistema de prefixos por servidor permite que cada comunidade defina sua própria convenção sem afetar as demais.
+A ordem de resolução importa para bots que atendem múltiplas comunidades com convenções diferentes. Uma guild focada em moderação pode preferir `.` como prefixo porque é discreto e pouco intrusivo, enquanto uma guild gamer pode escolher `>>` para ganhar visibilidade. O sistema de prefixo por guild permite que cada comunidade defina sua própria convenção sem afetar as demais.
 
 <Steps>
-  <Step title="Verifica sobrescritas de servidor">
-    O parser chama *PrefixGuildManager.getGuildPrefix* com o ID do servidor da mensagem recebida. Se o servidor tem um ou mais prefixos registrados, o parser testa a mensagem contra cada um em ordem. O primeiro prefixo correspondente é usado e o parser prossegue diretamente para a tokenização. Prefixos de servidor podem ser uma string única ou um array de strings.
+  <Step title="Verificar sobrescritas da guild">
+    O parser chama *PrefixGuildManager.getGuildPrefix* com o ID da guild vindo
+    da mensagem recebida. Se a guild registrou um ou mais prefixos, o parser
+    testa a mensagem contra cada um deles em ordem. O primeiro prefixo que casa
+    é usado e o parser segue direto para a tokenização. Prefixos de guild podem
+    ser uma única string ou um array de strings.
   </Step>
-  <Step title="Verifica prefixo global">
-    Se nenhuma sobrescrita de servidor combinar (ou a mensagem for de DM), o parser testa a mensagem contra o prefixo global definido no *PrefixConfig*. O prefixo global também suporta arrays, então você pode definir múltiplos prefixos globais como `['!', '?']`. Se a mensagem começar com qualquer um dos prefixos globais, a primeira correspondência é usada.
+  <Step title="Verificar prefixo global">
+    Se nenhuma sobrescrita da guild casar, ou se a mensagem vier de DM, o
+    parser testa a mensagem contra o prefixo global definido em *PrefixConfig*.
+    O prefixo global também aceita arrays, então você pode definir múltiplos
+    prefixos globais como `['!', '?']`. Se a mensagem começar com qualquer um
+    dos prefixos globais, a primeira correspondência será usada.
   </Step>
-  <Step title="Verifica prefixo de menção">
-    Se *mentionPrefix* estiver habilitado (o padrão), o parser verifica se a mensagem começa com uma menção do bot como `<@BOT_ID>`. Isso funciona como um prefixo universal que sempre opera independente da configuração de servidor ou global. O prefixo de menção é útil quando usuários esquecem o prefixo configurado e precisam de um fallback confiável.
+  <Step title="Verificar prefixo por menção">
+    Se *mentionPrefix* estiver habilitado, que é o padrão, o parser verifica se
+    a mensagem começa com uma menção ao bot como `<@BOT_ID>`. Isso funciona
+    como um prefixo universal que sempre vale, independentemente da config da
+    guild ou da config global. O prefixo por menção é útil quando as pessoas
+    esquecem o prefixo configurado e precisam de um fallback confiável.
   </Step>
 </Steps>
 
 ## Referência do PrefixConfig
 
-A interface _PrefixConfig_ controla o comportamento global do subsistema de prefix. Você a passa para _definePrefix_ no arquivo de configuração. Todo campo exceto _prefix_ é opcional e possui um valor padrão adequado.
+A interface _PrefixConfig_ controla o comportamento global do subsistema de prefixos. Você a passa para _definePrefix_ no arquivo de configuração. Todo campo, exceto _prefix_, é opcional e possui um valor padrão sensato.
 
 <DropdownGroup>
   <Dropdown title="prefix (string | string[], obrigatório)">
-    A string de prefixo global ou um array de prefixos que o parser reconhecerá
-    para todos os servidores sem sobrescrita customizada. Definir um array como
-    `['!', '?']` permite que os usuários escolham entre múltiplos prefixos. Não
-    há valor padrão; esse campo é obrigatório e deve ser fornecido em toda
-    configuração.
+    É a string de prefixo global, ou um array de prefixos, que o parser vai
+    reconhecer em todas as guilds sem uma sobrescrita customizada. Definir um
+    array como `['!', '?']` permite que as pessoas usuárias escolham entre
+    múltiplos prefixos. Não existe valor padrão; esse campo é obrigatório e
+    precisa estar presente em toda config.
   </Dropdown>
   <Dropdown title="guildPrefixProvider (PrefixGuildProvider)">
-    Uma função assíncrona chamada na inicialização que retorna um array de
-    objetos *PrefixGuildEntry* para pré-popular o manager de prefixos por
-    servidor. Esta é a forma recomendada de hidratar sobrescritas por servidor a
-    partir de um banco de dados no boot. Se omitida, o store em memória inicia
-    vazio e precisa ser populado em runtime via chamadas diretas à API.
+    É uma função assíncrona chamada no startup que retorna um array de objetos
+    *PrefixGuildEntry* para pré-popular o gerenciador de prefixos por guild.
+    Essa é a forma recomendada de hidratar sobrescritas por guild a partir de
+    um banco no boot. Se esse campo for omitido, o store em memória começa
+    vazio e precisa ser preenchido em runtime por chamadas diretas da API.
   </Dropdown>
   <Dropdown title="caseSensitive (boolean, padrão false)">
-    Controla se a correspondência de string de prefixo diferencia maiúsculas e
-    minúsculas. Quando `false` (o padrão), `!Ping` e `!ping` são tratados de
-    forma idêntica. Ative isso apenas se houver uma razão deliberada para
-    distinguir caracteres de acionamento em maiúsculas e minúsculas.
+    Controla se a comparação das strings de prefixo diferencia maiúsculas de
+    minúsculas. Quando está em `false`, que é o padrão, `!Ping` e `!ping` são
+    tratados da mesma forma. Ative isso apenas se houver um motivo claro para
+    diferenciar caracteres gatilho em caixa alta e caixa baixa.
   </Dropdown>
   <Dropdown title="mentionPrefix (boolean, padrão true)">
-    Quando `true`, uma menção ao bot no início de uma mensagem é tratada como um
-    prefixo válido. Isso permite que usuários invoquem comandos com `@NomeBot
-    roll 6` independentemente do prefixo configurado, fornecendo um fallback
-    confiável quando os usuários esquecem o prefixo ativo. Desative apenas se
-    comandos acionados por menção conflitarem com outro comportamento do bot.
+    Quando está em `true`, uma menção ao bot no início da mensagem é tratada
+    como um prefixo válido. Isso permite invocar comandos com `@BotName roll 6`
+    independentemente do prefixo configurado, fornecendo um fallback confiável
+    quando o prefixo ativo é esquecido. Desative isso apenas se comandos
+    disparados por menção entrarem em conflito com outros comportamentos do
+    bot.
   </Dropdown>
   <Dropdown title="defaultCooldown (number, padrão 0)">
-    Um cooldown global em segundos aplicado a todo comando que não define seu
-    próprio campo *cooldown*. Definir esse valor como `3` significa que todos os
-    comandos têm um cooldown de 3 segundos, salvo sobrescrita específica. Um
-    valor de `0` desabilita o cooldown padrão completamente.
+    É um cooldown global, em segundos, aplicado a todo comando que não define
+    seu próprio campo *cooldown*. Configurar esse valor como `3` significa que
+    todos os comandos terão um cooldown de 3 segundos, a menos que exista uma
+    sobrescrita específica. Um valor `0` desativa completamente o cooldown
+    padrão.
   </Dropdown>
   <Dropdown title="replyOnNotFound (boolean, padrão false)">
-    Quando `true`, o framework envia automaticamente uma resposta quando um
-    usuário digita um prefixo reconhecido seguido de um nome de comando
-    desconhecido. Isso reduz o atrito para usuários que erram a digitação dos
-    comandos. Quando `false`, comandos não reconhecidos são ignorados
-    silenciosamente.
+    Quando está em `true`, o framework envia automaticamente uma resposta
+    quando a pessoa usuária digita um prefixo reconhecido seguido de um nome de
+    comando desconhecido. Isso reduz o atrito para quem digita comandos com
+    erro. Quando está em `false`, comandos não reconhecidos são ignorados em
+    silêncio.
   </Dropdown>
 </DropdownGroup>
 
@@ -89,91 +119,94 @@ export default definePrefix({
 ```
 
 <Callout tone="info">
-  O arquivo de config deve declarar somente política global e hidratação inicial
-  do subsistema de prefix. Lógica de leitura, escrita, auditoria e sincronização
-  de prefixos por servidor deve ficar em services que injetam
-  *PrefixDispatcher*. A página *API de Prefixos via Services* mostra esse padrão
-  completo em cenários de produção.
+  Seu arquivo de config deve definir apenas a política global e a hidratação
+  inicial do subsistema de prefixos. Lógica de leitura e escrita de prefixos,
+  auditoria e sincronização deve viver em serviços que injetam
+  *PrefixDispatcher*. A página *API de Prefixos via Serviços* mostra essa
+  arquitetura em profundidade para fluxos de produção.
 </Callout>
 
-## Gerenciando prefixos de servidor em runtime
+## Gerenciando prefixos por guild em runtime
 
-O _PrefixGuildManager_ é acessível através do _PrefixDispatcher_ e fornece uma API completa para leitura, escrita e remoção de sobrescritas de prefixo por servidor. Alterações entram em vigor imediatamente para a próxima mensagem recebida sem necessidade de reiniciar. Isso permite construir comandos de administração ou integrações de dashboard que atualizam prefixos dinamicamente.
+O _PrefixGuildManager_ fica acessível por meio do _PrefixDispatcher_ e oferece uma API completa para ler, gravar e remover sobrescritas de prefixo específicas por guild. As mudanças entram em vigor imediatamente na próxima mensagem recebida, sem necessidade de restart. Isso permite construir comandos administrativos ou integrações com dashboards que atualizam prefixos de forma dinâmica.
 
-Cada entrada de servidor armazena o ID do servidor, um ou mais prefixos e um registro de metadados opcional. O campo de metadados não é utilizado pelo framework em si, mas oferece um lugar para armazenar contexto como quem alterou o prefixo e quando. Isso é útil para logs de auditoria em bots de moderação.
+Cada entrada de guild armazena o ID da guild, um ou mais prefixos e um registro opcional de metadados. O campo de metadados não é usado pelo framework em si, mas oferece um lugar para guardar contexto, como quem alterou o prefixo e quando isso aconteceu. Isso é útil para logs de auditoria em bots de moderação.
 
-O método _loadFromProvider_ é chamado automaticamente na inicialização se você definir um _guildPrefixProvider_ no config. Você também pode chamá-lo manualmente para recarregar prefixos de servidor do banco de dados a qualquer momento, por exemplo após uma importação em massa ou migração.
+O método _loadFromProvider_ é chamado automaticamente no startup se você definir um _guildPrefixProvider_ na config. Você também pode chamá-lo manualmente para recarregar os prefixos por guild a partir do banco a qualquer momento, por exemplo depois de uma importação em lote ou migração.
 
 <DropdownGroup>
   <Dropdown title="getGuildPrefix(guildId)">
-    Retorna o array de strings de prefixo ativas para o servidor, ou `undefined`
-    se não houver sobrescrita. É o método de leitura principal para verificar o
-    prefixo atual antes de exibi-lo ao usuário ou construir conteúdo de help. A
-    chamada é síncrona e lê diretamente do store em memória.
+    Retorna o array de strings de prefixo ativas para a guild informada, ou
+    `undefined` se não existir sobrescrita. Esse é o principal método de
+    leitura para verificar o prefixo atual da guild antes de exibi-lo para a
+    pessoa usuária ou montar conteúdo de ajuda. A chamada é síncrona e lê
+    diretamente do store em memória.
   </Dropdown>
   <Dropdown title="getGuildEntry(guildId)">
-    Retorna o objeto *PrefixGuildEntry* completo para o servidor, incluindo
-    `guildId`, `prefix` e qualquer `metadata` armazenado. Use quando você
-    precisa dos metadados além do valor do prefixo, por exemplo para exibir quem
-    o alterou por último. Retorna `undefined` se não houver sobrescrita.
+    Retorna o objeto completo *PrefixGuildEntry* da guild, incluindo
+    `guildId`, `prefix` e qualquer `metadata` armazenado. Use esse método
+    quando você precisar dos metadados junto com o valor do prefixo, por
+    exemplo para mostrar quem mudou o prefixo por último. Retorna `undefined`
+    se não existir sobrescrita.
   </Dropdown>
   <Dropdown title="hasGuildPrefix(guildId)">
-    Retorna `true` se o servidor tem uma sobrescrita de prefixo ativa, `false`
-    caso contrário. Use para verificações de existência quando você só precisa
-    bifurcar na presença sem ler o valor do prefixo. É mais expressivo do que
-    comparar *getGuildPrefix* contra `undefined`.
+    Retorna `true` se a guild possui uma sobrescrita ativa de prefixo, ou
+    `false` caso contrário. Use esse método para checagens de existência quando
+    você só precisa desviar a execução com base na presença da sobrescrita, sem
+    ler o valor do prefixo em si. Isso é mais expressivo do que comparar
+    *getGuildPrefix* com `undefined`.
   </Dropdown>
   <Dropdown title="getAllGuildIds()">
-    Retorna um array de todos os IDs de servidores que atualmente possuem
-    sobrescritas de prefixo registradas. Use em dashboards administrativos,
-    rotinas de sincronização ou ferramentas de diagnóstico que precisam enumerar
-    todos os servidores configurados. O resultado reflete o estado ativo em
-    memória.
+    Retorna um array com todos os IDs de guild que atualmente possuem
+    sobrescritas de prefixo registradas. Use esse método em painéis
+    administrativos, rotinas de sincronização ou ferramentas de diagnóstico que
+    precisem enumerar todas as guilds configuradas. O resultado reflete o
+    estado vivo em memória.
   </Dropdown>
   <Dropdown title="setGuildPrefix(guildId, prefix, metadata?)">
-    Cria uma nova entrada de prefixo para o servidor ou substitui inteiramente
-    uma existente. O objeto de metadados opcional armazena campos de auditoria
-    como ID do ator e timestamp. Sempre persista a alteração no banco de dados
-    antes de chamar esse método para evitar divergência em caso de
-    reinicialização do processo.
+    Cria uma nova entrada de prefixo para a guild ou substitui totalmente uma
+    entrada existente. O objeto opcional de metadados armazena campos de
+    auditoria como ID da pessoa responsável pela ação e timestamp. Sempre
+    persista a mudança no banco antes de chamar esse método para evitar
+    divergência caso o processo reinicie.
   </Dropdown>
   <Dropdown title="updateGuildPrefix(guildId, prefix, metadata?)">
-    Mescla parcialmente os valores fornecidos na entrada existente em vez de
-    substituí-la. Se o servidor não tiver entrada existente, comporta-se como
-    *setGuildPrefix*. Use quando quiser atualizar apenas o prefixo ou apenas os
-    metadados sem sobrescrever o outro campo.
+    Faz um merge parcial dos valores informados na entrada existente, em vez de
+    substituí-la por completo. Se a guild não tiver entrada, o comportamento é
+    igual ao de *setGuildPrefix*. Use esse método quando quiser atualizar só o
+    prefixo ou só os metadados, sem sobrescrever o outro campo.
   </Dropdown>
   <Dropdown title="removeGuildPrefix(guildId)">
-    Exclui a sobrescrita em memória para o servidor e retorna `true` se existia
-    uma entrada ou `false` caso contrário. Após a remoção, o parser usa o
-    prefixo global para esse servidor. Siga o padrão persist-first e remova do
-    banco de dados antes de chamar esse método.
+    Remove a sobrescrita em memória da guild e retorna `true` se existia uma
+    entrada, ou `false` caso contrário. Depois da remoção, o parser volta a
+    usar o prefixo global para aquela guild. Siga o padrão persist-first e
+    remova do banco antes de chamar esse método.
   </Dropdown>
   <Dropdown title="clear()">
-    Remove todas as sobrescritas de prefixo de servidor do store em memória de
-    uma vez. É útil principalmente durante a limpeza de testes ou resets
-    controlados. Em produção, coordene um reload completo com *loadFromProvider*
-    para restaurar o estado conhecido.
+    Remove de uma vez todas as sobrescritas de prefixo por guild do store em
+    memória. Isso é mais útil em teardown de testes ou resets controlados. Em
+    produção, coordene depois um reload completo com *loadFromProvider* para
+    restaurar um estado confiável.
   </Dropdown>
   <Dropdown title="loadFromProvider(provider)">
-    Aceita uma função provider assíncrona, a aguarda e substitui todas as
-    entradas de prefixo em memória pelo array retornado. É chamado
-    automaticamente no boot se você definir um *guildPrefixProvider* no config,
-    mas também pode ser chamado manualmente para recarregar do banco após uma
-    importação em lote.
+    Aceita uma função provider assíncrona, aguarda sua resolução e substitui
+    todas as entradas de prefixo por guild em memória pelo array retornado.
+    Esse método é chamado automaticamente no startup se você definir
+    *guildPrefixProvider* na config, mas também pode ser usado manualmente para
+    recarregar dados do banco após uma importação em lote ou migração.
   </Dropdown>
-  <Dropdown title="size (propriedade)">
-    Propriedade numérica que reflete a contagem total de entradas de prefixo por
-    servidor atualmente em memória. Use em health checks ou endpoints de
-    diagnóstico para confirmar se os dados de servidor foram hidratados. Um
-    valor de `0` após o boot geralmente significa que o provider não retornou
-    entradas ou não foi configurado.
+  <Dropdown title="size (property)">
+    É uma propriedade numérica que reflete a quantidade total de entradas de
+    prefixo por guild atualmente em memória. Use isso em health checks ou
+    endpoints de diagnóstico para confirmar se os dados das guilds foram
+    hidratados. Um valor `0` depois do startup normalmente indica que o
+    provider não retornou entradas ou não foi configurado.
   </Dropdown>
 </DropdownGroup>
 
 ## Exemplo de mutação de prefixo em runtime
 
-Um padrão comum é construir um comando administrativo que permite que donos de servidor alterem seu prefixo através de um comando por mensagem. O handler injeta o _PrefixDispatcher_ para acessar o manager _guildPrefixes_ e persiste a alteração no banco de dados. A atualização em runtime entra em vigor imediatamente para mensagens subsequentes.
+Um padrão comum é construir um comando administrativo que permita a pessoas donas de guild alterar o prefixo por meio de uma message command. O handler injeta _PrefixDispatcher_ para acessar o gerenciador _guildPrefixes_ e persiste a mudança em um banco. A atualização em runtime passa a valer imediatamente nas mensagens seguintes.
 
 <CodeTabs>
   <Tab label="Comando" language="typescript">
@@ -205,7 +238,7 @@ export class SetPrefixHandler {
   ): Promise<void> {
     const guildId = message.guildId;
     if (!guildId) {
-      await message.reply('Este comando só pode ser usado em um servidor.');
+      await message.reply('This command can only be used in a server.');
       return;
     }
 
@@ -214,7 +247,7 @@ export class SetPrefixHandler {
       setAt: new Date().toISOString(),
     });
 
-    await message.reply(`Prefixo atualizado para \`${newPrefix}\` neste servidor.`);
+    await message.reply(`Prefix updated to \`${newPrefix}\` for this server.`);
   }
 }
 ````
@@ -224,16 +257,16 @@ export class SetPrefixHandler {
 
 ## Sistema de cooldown
 
-O _PrefixCooldownManager_ aplica cooldowns por usuário e por comando. Quando um comando define um valor _cooldown_ no decorator _@PrefixCommand_ (ou usa o _defaultCooldown_ global do config), o manager rastreia o timestamp da última execução para cada par usuário-comando. Se um usuário tentar executar um comando antes do cooldown expirar, o framework bloqueia a execução e pode opcionalmente responder com o tempo restante.
+O _PrefixCooldownManager_ aplica cooldowns por pessoa usuária e por comando. Quando um comando define um valor de _cooldown_ no decorator _@PrefixCommand_, ou usa o _defaultCooldown_ global da config, o manager rastreia o último timestamp de execução para cada par usuário-comando. Se alguém tentar rodar um comando antes de o cooldown expirar, o framework bloqueia a execução e pode, opcionalmente, responder com o tempo restante.
 
-Cooldowns são armazenados em memória e resetam quando o bot reinicia. O método _check_ retorna os segundos restantes (zero se o cooldown expirou), o método _set_ registra uma nova entrada de cooldown e o método _clear_ remove todos os cooldowns rastreados. Para a maioria dos bots, o campo _cooldown_ no decorator e o _defaultCooldown_ global lidam com tudo automaticamente sem chamadas diretas à API.
+Cooldowns ficam armazenados em memória e são reiniciados quando o bot dá restart. O método _check_ retorna os segundos restantes, ou zero se o cooldown já tiver expirado, o método _set_ registra uma nova entrada de cooldown e o método _clear_ remove todos os cooldowns rastreados. Na maioria dos bots, o campo _cooldown_ no decorator e a config global _defaultCooldown_ resolvem tudo automaticamente, sem necessidade de chamadas diretas à API.
 
 <Callout tone="info">
-  O campo *cooldown* por comando no *@PrefixCommand* sobrescreve o
-  *defaultCooldown* global. Se um comando define cooldown: 5 e o padrão global é
-  3, aquele comando usa um cooldown de 5 segundos.
+  O campo *cooldown* definido por comando em *@PrefixCommand* sobrescreve o
+  *defaultCooldown* global. Se um comando definir cooldown: 5 e o padrão
+  global for 3, esse comando usará um cooldown de 5 segundos.
 </Callout>
 
 ## Próxima página
 
-[API de Prefixos via Services](/prefix-commands-service-api)
+[API de Prefixos via Serviços](/prefix-commands-service-api)

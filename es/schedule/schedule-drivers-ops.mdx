@@ -1,46 +1,55 @@
 ---
-title: Drivers y Operaciones
+title: Drivers y operaciones
 description: |
-  Comprende los drivers de schedule para bloqueo distribuido y el API de ScheduleService.
-  Cubre MemoryDriver, RedisScheduleDriver y métodos de control de jobs en runtime.
+  El módulo schedule soporta drivers conectables para entornos de proceso único y distribuidos.
+  Aprende a usar MemoryDriver, RedisScheduleDriver y la API en runtime de ScheduleService.
 order: 3
 category: Schedule
 ---
 
-## Drivers de bloqueo
+## Por qué importan los drivers
 
-Cuando ejecutas múltiples instancias de tu bot (por ejemplo, detrás de un balanceador de carga o en shards separados), cada instancia intentará ejecutar cada job planificado. Sin un mecanismo de bloqueo, el mismo job se ejecutaría múltiples veces simultáneamente. Los drivers de schedule resuelven esto adquiriendo un bloqueo temporal antes de cada ejecución de job, solo la instancia que adquiere el bloqueo ejecuta el job.
+En un bot de proceso único, cada job programado se ejecuta exactamente una vez porque solo existe una instancia del scheduler. Cuando escalas a múltiples shards o procesos, el mismo job cron puede dispararse simultáneamente en cada instancia y causar ejecuciones duplicadas. El sistema de drivers resuelve esto introduciendo un mecanismo de lock que garantiza que solo una instancia adquiera el derecho de ejecutar un job dado en cada disparo.
 
-El framework incluye dos drivers. El _MemoryDriver_ es el predeterminado y simplemente adquiere siempre el bloqueo, lo que significa que no hay protección contra ejecuciones duplicadas. Es adecuado para despliegues de instancia única donde la ejecución duplicada no es posible. El _RedisScheduleDriver_ usa Redis SET NX con TTL para bloqueo distribuido y scripts Lua para liberación atómica.
+Los drivers son conectables. Configuras el driver una sola vez en tu configuración de schedule y el framework se encarga del resto de forma transparente. Tus métodos de job no necesitan saber qué driver está activo. Esto significa que puedes desarrollar localmente con _MemoryDriver_ y cambiar a _RedisScheduleDriver_ en producción sin modificar código de servicios.
+
+El modelo de locking es optimista. Cuando un job se dispara, el driver intenta adquirir un lock usando el nombre del job como clave. Si adquiere el lock, el job se ejecuta. Si otro proceso ya mantiene el lock, el job se omite silenciosamente en esa instancia. El lock tiene un TTL configurable que se libera automáticamente después de la ventana de ejecución esperada.
+
+## Drivers disponibles
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Driver</TableCell>
-      <TableCell header>Caso de uso</TableCell>
-      <TableCell header>Requiere</TableCell>
+      <TableCell header>Paquete</TableCell>
+      <TableCell header>Mecanismo de lock</TableCell>
+      <TableCell header>Mejor para</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*MemoryDriver*</TableCell>
-      <TableCell>Instancia única, desarrollo</TableCell>
-      <TableCell>Nada</TableCell>
+      <TableCell>*@spraxium/schedule*</TableCell>
+      <TableCell>Siempre adquiere (no-op)</TableCell>
+      <TableCell>Bots de proceso único, desarrollo local</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*RedisScheduleDriver*</TableCell>
-      <TableCell>Multi-instancia, producción</TableCell>
-      <TableCell>Conexión a Redis</TableCell>
+      <TableCell>*@spraxium/schedule*</TableCell>
+      <TableCell>Redis SET NX + liberación con Lua</TableCell>
+      <TableCell>Producción con múltiples shards y procesos</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Configuración de drivers
+## Configurar drivers
 
-El driver se configura en el archivo de configuración del schedule. El _MemoryDriver_ no necesita parámetros, funciona inmediatamente. El _RedisScheduleDriver_ necesita las opciones de conexión a Redis que proporcionas desde tu capa de infraestructura. Ambos drivers implementan la misma interfaz, así que cambiar de uno a otro solo requiere modificar una línea de configuración.
+El _MemoryDriver_ por defecto no requiere configuración. Siempre adquiere el lock, así que cada job se ejecuta cada vez que se dispara. Este es el comportamiento correcto para bots de proceso único.
+
+Para entornos distribuidos, cambia a _RedisScheduleDriver_ pasando opciones de conexión de Redis y, opcionalmente, un lock TTL. El driver usa `SET key NX EX ttl` para adquirir locks de forma atómica y un script Lua para liberarlos de forma segura sin condiciones de carrera.
 
 <CodeTabs>
-  <Tab label="Memory (predeterminado)" language="typescript">
+  <Tab label="Memoria (predeterminado)" language="typescript">
 ```typescript filename="config/schedule.config.ts"
 import { defineSchedule } from '@spraxium/schedule';
 
@@ -49,7 +58,7 @@ export default defineSchedule({
 });
 ```
   </Tab>
-  <Tab label="Redis (producción)" language="typescript">
+  <Tab label="Redis" language="typescript">
 ```typescript filename="config/schedule.config.ts"
 import { defineSchedule, RedisScheduleDriver } from '@spraxium/schedule';
 
@@ -67,53 +76,55 @@ export default defineSchedule({
 
 ## API de ScheduleService
 
-El _ScheduleService_ es la fachada pública para el control de jobs en runtime. Puedes inyectarlo en cualquier servicio o handler para pausar, reanudar, destruir o ejecutar manualmente jobs planificados. Todos los métodos usan el nombre del job como identificador, que corresponde al campo _name_ en las opciones del decorator o al nombre del método si no se especificó un nombre.
+_ScheduleService_ es un provider inyectable que te da control total en runtime sobre los jobs registrados. Inyéctalo en cualquier servicio, handler de comando o controlador para pausar, reanudar, destruir o disparar jobs manualmente por nombre. El servicio se exporta desde _ScheduleModule_ global, así que está disponible en todos los módulos sin imports explícitos.
+
+Cada método recibe el _name_ del job, tal como se define en las opciones del decorador. Si no estableciste un nombre explícito, el framework usa un nombre generado a partir de la clase y el método. Se recomiendan fuertemente los nombres explícitos para cualquier job que planees gestionar en runtime.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
-      <TableCell header>Retorna</TableCell>
+      <TableCell header>Retorno</TableCell>
       <TableCell header>Descripción</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*pause(name)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Detiene un job en ejecución para que pueda ser reanudado después</TableCell>
+      <TableCell>Sin valor de retorno</TableCell>
+      <TableCell>Detiene un job en ejecución para reanudarlo después</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*resume(name)*</TableCell>
-      <TableCell>`void`</TableCell>
+      <TableCell>Sin valor de retorno</TableCell>
       <TableCell>Reanuda un job previamente pausado</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*destroy(name)*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Detiene y elimina permanentemente el job del registro</TableCell>
+      <TableCell>Sin valor de retorno</TableCell>
+      <TableCell>Elimina permanentemente un job y su timer</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*get(name)*</TableCell>
-      <TableCell>*JobStatus* o `null`</TableCell>
-      <TableCell>Retorna la definición y estado del job</TableCell>
+      <TableCell>*JobStatus* o null</TableCell>
+      <TableCell>Recupera un job registrado por nombre</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getAll()*</TableCell>
-      <TableCell>`JobStatus[]`</TableCell>
-      <TableCell>Retorna todos los jobs registrados</TableCell>
+      <TableCell>Lista de entradas *JobStatus*</TableCell>
+      <TableCell>Lista todos los jobs registrados con su estado</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*runNow(name)*</TableCell>
-      <TableCell>`Promise<void>`</TableCell>
-      <TableCell>Ejecuta el job inmediatamente, ignorando su schedule</TableCell>
+      <TableCell>Promise sin valor</TableCell>
+      <TableCell>Ejecuta un job inmediatamente fuera de su programación normal</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Comando de administración de ejemplo
+## Usar ScheduleService en un comando
 
-Un caso de uso común es exponer el control de jobs a través de un prefix command o slash command para que los administradores del bot puedan gestionar jobs planificados sin reiniciar el bot. El siguiente ejemplo muestra un handler de prefix command que pausa, reanuda o dispara un job por nombre.
+Un caso práctico para _ScheduleService_ es crear comandos de administración que permitan a owners de guilds o administradores del bot controlar tareas en segundo plano sin reiniciar el bot. El siguiente ejemplo muestra un handler de prefix command que pausa o reanuda un job por nombre. El mismo patrón funciona con slash commands o endpoints de dashboard.
 
 ```typescript filename="src/modules/admin/handlers/schedule-admin.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
@@ -123,28 +134,28 @@ import { ScheduleAdminCommand } from '../commands/schedule-admin.command';
 
 @PrefixCommandHandler(ScheduleAdminCommand)
 export class ScheduleAdminHandler {
-  constructor(private readonly schedule: ScheduleService) {}
+  constructor(private readonly scheduleService: ScheduleService) {}
 
   async handle(
     @Ctx() message: Message,
     @PrefixArg('action') action: string,
     @PrefixArg('jobName') jobName: string,
   ): Promise<void> {
-    switch (action) {
-      case 'pause':
-        this.schedule.pause(jobName);
-        await message.reply(`Job '${jobName}' paused.`);
-        break;
-      case 'resume':
-        this.schedule.resume(jobName);
-        await message.reply(`Job '${jobName}' resumed.`);
-        break;
-      case 'run':
-        await this.schedule.runNow(jobName);
-        await message.reply(`Job '${jobName}' executed.`);
-        break;
-      default:
-        await message.reply('Valid actions: pause, resume, run');
+    const job = this.scheduleService.get(jobName);
+    if (!job) {
+      await message.reply(`Job \`${jobName}\` not found.`);
+      return;
+    }
+
+    if (action === 'pause') {
+      this.scheduleService.pause(jobName);
+      await message.reply(`Job \`${jobName}\` paused.`);
+    } else if (action === 'resume') {
+      this.scheduleService.resume(jobName);
+      await message.reply(`Job \`${jobName}\` resumed.`);
+    } else if (action === 'run') {
+      await this.scheduleService.runNow(jobName);
+      await message.reply(`Job \`${jobName}\` triggered manually.`);
     }
   }
 }
@@ -152,4 +163,4 @@ export class ScheduleAdminHandler {
 
 ## Siguiente página
 
-Continúa con [Configuración y Patrones](/guide/schedule-config-pattern).
+Continúa con [Configuración y patrones](/guide/schedule-config-pattern).

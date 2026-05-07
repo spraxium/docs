@@ -1,33 +1,49 @@
 ---
-title: Visão Geral dos Slash Commands
+title: Visão geral dos Slash Commands
 description: |
-  Slash commands são o modelo de interação principal para bots Discord modernos.
-  Aprenda a arquitetura baseada em decorators, o padrão de separação command-handler e o ciclo de vida que o Spraxium usa para registrar e despachar slash commands.
+  Slash commands são o principal modelo de interação para bots modernos do Discord.
+  Aprenda a arquitetura orientada por decorators, o padrão de separação entre comando e handler e o ciclo de vida que o Spraxium usa para registrar e despachar slash commands.
 order: 1
 category: Slash Commands
+keywords:
+  - spraxium slash commands overview
+  - visão geral dos slash commands no spraxium
+  - slash commands slash commands overview guia
+  - slash commands overview bot discord
+  - slash commands overview typescript
+  - documentacao spraxium slash commands
+  - visão geral dos slash commands slash commands
+  - spraxium visão geral dos slash commands
+faq:
+  - question: "O que \"Visão geral dos Slash Commands\" cobre no Spraxium?"
+    answer: "Slash commands são o principal modelo de interação para bots modernos do Discord. Aprenda a arquitetura orientada por decorators, o padrão de separação entre comando e handler e o ciclo de vida que o Spraxium usa para registrar e despachar slash commands."
+  - question: "Quando devo usar \"Visão geral dos Slash Commands\"?"
+    answer: "Use esta pagina quando voce estiver implementando slash commands overview dentro da area de Slash Commands do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão geral dos Slash Commands\"?"
+    answer: "Continue nas paginas relacionadas de Slash Commands para conectar este conceito com implementacao pratica."
 ---
 
 ## O que são slash commands
 
-Slash commands são o modelo de interação nativo que o Discord introduziu para substituir a análise desestruturada de texto. Quando um usuário digita `/` em um canal de texto, o Discord apresenta um menu pesquisável de comandos que o bot registrou, completo com parâmetros tipados, descrições e validação inline. O usuário seleciona um comando, preenche as opções, e o Discord entrega uma _ChatInputCommandInteraction_ estruturada ao processo do bot. O framework nunca precisa analisar texto bruto de mensagens, adivinhar limites de argumentos ou lidar com erros de digitação em nomes de comandos, porque o próprio Discord valida o schema antes que a interação chegue ao bot.
+Slash commands são o modelo de interação nativo que o Discord introduziu para substituir o parsing de texto não estruturado. Quando um usuário digita `/` em um canal de texto, o Discord mostra um menu pesquisável com os comandos que o bot registrou, incluindo parâmetros tipados, descrições e validação inline. O usuário escolhe um comando, preenche as opções e o Discord entrega um _ChatInputCommandInteraction_ estruturado ao processo do bot. O framework nunca precisa analisar texto bruto de mensagem, adivinhar os limites dos argumentos nem lidar com erros de digitação nos nomes dos comandos, porque o próprio Discord impõe o schema antes que a interação chegue ao bot.
 
-O Spraxium implementa slash commands como um subsistema baseado em decorators e metadados com separação estrita entre _definição_ e _execução_. Uma classe de definição decorada com _@SlashCommand_ declara o schema do comando: nome, descrição, opções, permissões e hierarquia de subcomandos. Uma classe handler separada decorada com _@SlashCommandHandler_ implementa a lógica de negócio e recebe valores de parâmetros tipados através de injeção de dependência. Essa separação significa que o schema pode evoluir independentemente da lógica do handler, e uma única definição de comando pode ter múltiplos handlers quando subcomandos estão envolvidos.
+O Spraxium implementa slash commands como um subsistema orientado por decorators e baseado em metadados, com uma separação rígida entre _definition_ e _execution_. Uma classe de definição decorada com _@SlashCommand_ declara o schema do comando, seu nome, descrição, opções, permissões e hierarquia de subcomandos. Uma classe de handler separada, decorada com _@SlashCommandHandler_, implementa a regra de negócio e recebe valores tipados de parâmetros por injeção de dependência. Essa separação permite que o schema evolua de forma independente da lógica do handler, e uma única definição de comando pode ter vários handlers quando há subcomandos envolvidos.
 
-O subsistema de slash commands compartilha o mesmo container de injeção de dependência, pipeline de guards, exception handler e sistema de módulos de todo o restante do framework. Suas classes handler podem injetar services, aplicar _@UseGuards_ para verificações de permissão e se beneficiar de respostas de erro estruturadas sem nenhuma configuração especial além de registrar commands e handlers em um módulo.
+O subsistema de slash commands compartilha o mesmo container de injeção de dependência, pipeline de guards, exception handler e sistema de módulos que o restante do framework. Suas classes de handler podem injetar serviços, aplicar _@UseGuards_ para checagens de permissão e aproveitar respostas de erro estruturadas sem nenhuma configuração especial além de registrar comandos e handlers em um módulo.
 
-<Callout tone="info" title="DI, guards e exceções funcionam direto do início">
-  Handlers de slash commands são cidadãos completos do framework. Você pode
-  injetar qualquer serviço registrado pelo construtor, empilhar múltiplos guards
-  com *@UseGuards* e lançar exceções tipadas que o exception handler converte em
-  respostas Discord estruturadas. Nenhuma configuração adicional é necessária
-  além de declarar a classe handler dentro de um módulo.
+<Callout tone="info" title="DI, guards e exceções funcionam sem configuração extra">
+  Handlers de slash command são cidadãos de primeira classe no framework. Você
+  pode injetar qualquer serviço registrado pelo construtor, empilhar vários
+  guards com *@UseGuards* e lançar exceções tipadas que o exception handler
+  embutido converte em respostas estruturadas no Discord. Nenhuma ligação extra
+  é necessária além de declarar a classe do handler dentro de um módulo.
 </Callout>
 
-## Separação command-handler
+## Separação entre comando e handler
 
-A decisão arquitetural definidora do subsistema de slash commands é que o _schema_ e a _lógica_ do comando vivem em classes separadas. Este não é um padrão opcional; o framework o impõe através de metadados. O decorator _@SlashCommand_ escreve metadados de schema na classe, e o decorator _@SlashCommandHandler_ escreve metadados de execução em uma classe diferente que referencia a classe de comando. O runtime lê ambos os conjuntos de metadados durante o carregamento de módulos e os conecta no registry.
+A principal decisão arquitetural do subsistema de slash commands é que o _schema_ do comando e a _lógica_ do comando vivem em classes separadas. Isso não é um padrão opcional; o framework impõe esse modelo por meio de chaves de metadados. O decorator _@SlashCommand_ grava os metadados do schema na classe, e o decorator _@SlashCommandHandler_ grava metadados de execução em outra classe que referencia a classe do comando. Em tempo de execução, o runtime lê os dois conjuntos de metadados durante o carregamento do módulo e os conecta no registry.
 
-Essa separação produz três benefícios práticos. Primeiro, a classe de schema se torna uma declaração pura que pode ser importada por handlers de autocomplete, fixtures de teste e geradores de documentação sem trazer lógica de negócio ou dependências de services. Segundo, a classe handler tem acesso ao container de injeção de dependência completo, podendo declarar parâmetros de construtor para services, repositórios e outros providers que o container DI resolve automaticamente. Terceiro, quando um comando usa subcomandos, cada subcomando recebe sua própria classe handler, mantendo arquivos pequenos e focados.
+Essa separação traz três benefícios práticos. Primeiro, a classe de schema vira uma declaração pura que pode ser importada por handlers de autocomplete, fixtures de teste e geradores de documentação sem puxar lógica de negócio ou dependências de serviço. Segundo, a classe do handler tem acesso ao container completo de injeção de dependência, então ela pode declarar parâmetros no construtor para serviços, repositórios e outros providers que o container resolve automaticamente. Terceiro, quando um comando usa subcomandos, cada subcomando recebe sua própria classe de handler, mantendo os arquivos pequenos e focados.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="Comando" language="typescript">
@@ -74,9 +90,9 @@ export class PingHandler {
   </Tab>
 </CodeTabs>
 
-## Registro em módulos
+## Registro no módulo
 
-Commands e handlers são registrados através do decorator _@Module_, usando o array _commands_ para classes de definição e o array _handlers_ para classes de handler. O module loader lê esses arrays durante o bootstrap, instancia classes handler através do container DI e os conecta às suas definições de comando automaticamente.
+Comandos e handlers são registrados por meio do decorator _@Module_, usando o array _commands_ para as classes de definição e o array _handlers_ para as classes de handler. O carregador de módulos lê esses arrays durante o bootstrap, instancia as classes de handler pelo container de DI e as conecta automaticamente às suas definições de comando.
 
 ```typescript filename="modules/slash/slash.module.ts"
 import { Module } from '@spraxium/common';
@@ -93,13 +109,13 @@ import { BanHandler } from './handlers/ban.handler';
 export class SlashModule {}
 ```
 
-A ordem das entradas nos arrays não importa. O framework usa reflexão de metadados para vincular handlers às suas definições de comando após todos os registros serem processados. Se um handler referencia um comando que não está no array _commands_ de nenhum módulo carregado, o handler é silenciosamente ignorado durante o binding.
+A ordem das entradas nos arrays não importa. O framework usa reflexão de metadados para associar handlers às suas definições de comando depois que todos os registros foram processados. Se um handler referenciar um comando que não esteja no array _commands_ de nenhum módulo carregado, ele será ignorado silenciosamente durante o binding.
 
-## Registrando comandos manualmente
+## Forçando o registro manual dos comandos
 
-Durante o boot normal, o framework registra os slash commands automaticamente após o client conectar. Em modo de desenvolvimento ele pula a chamada REST quando os comandos não mudaram desde a última execução, evitando chamadas desnecessárias à API do Discord. Se você precisar forçar um novo registro sem reiniciar o bot completo, a aplicação expõe _forceRegisterSlashCommands_ exatamente para isso.
+Durante o fluxo normal de boot, o framework registra slash commands automaticamente depois que o client se conecta. Em modo de desenvolvimento, ele pula a chamada REST quando os comandos não mudaram desde a execução anterior, evitando chamadas desnecessárias à API do Discord. Se você precisar forçar um novo registro sem reiniciar o bot inteiro, a aplicação expõe _forceRegisterSlashCommands_ exatamente para isso.
 
-Esse método envia todos os payloads de comando atuais para a REST API do Discord de forma incondicional. É um no-op se a aplicação não terminou de bootar ou se nenhum slash command está registrado. Você pode chamá-lo de um script CLI, um handler de comando admin, ou qualquer serviço que tenha acesso à instância da aplicação.
+Esse método envia todos os payloads atuais de comando para a API REST do Discord sem nenhuma condição. Ele não faz nada se a aplicação ainda não terminou o boot ou se não houver slash commands registrados. Você pode chamá-lo a partir de um script de CLI, de um handler administrativo ou de qualquer serviço que tenha acesso à instância da aplicação.
 
 ```typescript filename="src/main.ts"
 import { SpraxiumFactory } from '@spraxium/core';
@@ -107,22 +123,22 @@ import { SpraxiumFactory } from '@spraxium/core';
 const app = await SpraxiumFactory.create();
 await app.listen();
 
-// Forçar re-registro de um comando admin ou script
+// Force re-registration from an admin command or script
 await app.forceRegisterSlashCommands();
 ```
 
 ## Estrutura de pastas recomendada
 
 <FolderStructure>
-  <Folder name="src" defaultOpen>
-    <Folder name="modules" defaultOpen>
-      <Folder name="slash" defaultOpen>
-        <Folder name="commands" defaultOpen>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="slash" open>
+        <Folder name="commands" open>
           <File name="ping.command.ts" />
           <File name="ban.command.ts" />
           <File name="config.command.ts" />
         </Folder>
-        <Folder name="handlers" defaultOpen>
+        <Folder name="handlers" open>
           <File name="ping.handler.ts" />
           <File name="ping-service.autocomplete.ts" />
           <File name="ban.handler.ts" />
@@ -136,17 +152,17 @@ await app.forceRegisterSlashCommands();
   </Folder>
 </FolderStructure>
 
-Coloque arquivos de definição de comandos em uma subpasta `commands/` e arquivos de handler em uma subpasta `handlers/` dentro do diretório do módulo. Nomeie arquivos de handler com o nome do comando ou subcomando que eles tratam com sufixo `.handler.ts`, e handlers de autocomplete com sufixo `.autocomplete.ts`. O arquivo do módulo registra ambos os arrays e serve como ponto único de importação para o módulo pai da aplicação.
+Coloque os arquivos de definição de comando em uma subpasta `commands/` e os arquivos de handler em uma subpasta `handlers/` dentro do diretório do módulo. Dê aos arquivos de handler o nome do comando ou subcomando que eles tratam, com o sufixo `.handler.ts`, e aos handlers de autocomplete o sufixo `.autocomplete.ts`. O arquivo do módulo registra os dois arrays e funciona como ponto único de importação para o módulo pai da aplicação.
 
 ## Referência rápida de decorators
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header="Decorator">Decorator</TableCell>
-      <TableCell header="Aplicado em">Aplicado em</TableCell>
-      <TableCell header="Propósito">Propósito</TableCell>
-      <TableCell header="Detalhado em">Detalhado em</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Aplicado em</TableCell>
+      <TableCell header>Finalidade</TableCell>
+      <TableCell header>Coberto em</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
@@ -162,7 +178,7 @@ Coloque arquivos de definição de comandos em uma subpasta `commands/` e arquiv
       <TableCell>*@SlashOption.String()*, *Integer()*, etc.</TableCell>
       <TableCell>Método</TableCell>
       <TableCell>
-        Adiciona uma opção tipada ao schema do comando ou subcomando.
+        Adiciona uma opção tipada ao schema do comando ou do subcomando.
       </TableCell>
       <TableCell>Definição e Opções</TableCell>
     </TableRow>
@@ -170,16 +186,14 @@ Coloque arquivos de definição de comandos em uma subpasta `commands/` e arquiv
       <TableCell>*@SlashSubcommand(meta)*</TableCell>
       <TableCell>Método</TableCell>
       <TableCell>
-        Transforma um método em subcomando dentro da classe de comando.
+        Transforma um método em um subcomando dentro da classe do comando.
       </TableCell>
       <TableCell>Subcomandos e Grupos</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@SlashSubcommandGroup(meta)*</TableCell>
       <TableCell>Classe</TableCell>
-      <TableCell>
-        Declara uma classe como container de grupo de subcomandos.
-      </TableCell>
+      <TableCell>Declara uma classe como contêiner de grupo de subcomandos.</TableCell>
       <TableCell>Subcomandos e Grupos</TableCell>
     </TableRow>
     <TableRow>
@@ -208,8 +222,8 @@ Coloque arquivos de definição de comandos em uma subpasta `commands/` e arquiv
       <TableCell>*@Ctx()*</TableCell>
       <TableCell>Parâmetro</TableCell>
       <TableCell>
-        Injeta a *ChatInputCommandInteraction* ou *AutocompleteInteraction*
-        bruta.
+        Injeta o *ChatInputCommandInteraction* ou *AutocompleteInteraction*
+        bruto.
       </TableCell>
       <TableCell>Handlers e Injeção</TableCell>
     </TableRow>
@@ -225,7 +239,7 @@ Coloque arquivos de definição de comandos em uma subpasta `commands/` e arquiv
       <TableCell>*@SlashFocused()*</TableCell>
       <TableCell>Parâmetro</TableCell>
       <TableCell>
-        Injeta o texto parcial que o usuário digitou na opção focada.
+        Injeta a string parcial que o usuário digitou na opção focada.
       </TableCell>
       <TableCell>Autocomplete</TableCell>
     </TableRow>

@@ -1,37 +1,53 @@
 ---
 title: Containers V2
 description: |
-  Construa mensagens ricamente compostas no Discord usando o sistema de containers V2.
-  Aprenda o padrão de schema baseado em classes, a API fluente, filhos dinâmicos, renderização condicional e o V2Service.
+  Monte mensagens ricas no Discord usando o sistema de containers V2.
+  Aprenda o padrão de schema com classes, a API fluente, filhos dinâmicos, renderização condicional e o uso de V2Service.
 order: 6
 category: Components
+keywords:
+  - spraxium components v2
+  - containers v2 no spraxium
+  - components components v2 guia
+  - components v2 bot discord
+  - components v2 typescript
+  - documentacao spraxium components
+  - containers v2 components
+  - spraxium containers v2
+faq:
+  - question: "O que \"Containers V2\" cobre no Spraxium?"
+    answer: "Monte mensagens ricas no Discord usando o sistema de containers V2. Aprenda o padrão de schema com classes, a API fluente, filhos dinâmicos, renderização condicional e o uso de V2Service."
+  - question: "Quando devo usar \"Containers V2\"?"
+    answer: "Use esta pagina quando voce estiver implementando components v2 dentro da area de Components do seu bot."
+  - question: "Qual o proximo passo depois de \"Containers V2\"?"
+    answer: "Continue nas paginas relacionadas de Components para conectar este conceito com implementacao pratica."
 ---
 
 ## O que são containers V2
 
-A API Components V2 do Discord substitui o modelo tradicional de layout de mensagens por um sistema de blocos composíveis. Em vez de uma mensagem ser uma combinação plana de conteúdo de texto, embeds e action rows, o V2 permite combinar blocos de texto, seções, galerias de mídia, separadores e action rows dentro de um único elemento container. O container se torna a unidade de layout principal da mensagem.
+A API Components V2 do Discord substitui o modelo tradicional de layout de mensagem por um sistema de blocos componíveis. Em vez de tratar a mensagem como uma combinação plana de conteúdo, embeds e linhas de componente, o V2 permite juntar blocos de texto, seções, galerias de mídia, separadores e action rows dentro de um único container. O container passa a ser a unidade principal de layout da mensagem.
 
-O sistema V2 do Spraxium envolve essa API com a mesma arquitetura decorator-handler usada em todo o pacote _@spraxium/components_. Você declara um schema de container como uma classe decorada, anota cada elemento estrutural com um decorator de propriedade e renderiza o container inteiro através do _V2Service_ passando dados de runtime. O resultado é um layout fortemente tipado e composível que separa a estrutura dos dados que fluem por ele no momento da renderização.
+O sistema V2 do Spraxium encapsula essa API usando a mesma arquitetura de decorator e handler presente no restante de _@spraxium/components_. Você declara o schema do container como uma classe decorada, anota cada elemento estrutural com um decorator de propriedade e renderiza tudo pelo _V2Service_, passando os dados de runtime. O resultado é um layout fortemente tipado e componível, em que a estrutura fica separada dos dados que fluem por ela.
 
-O pacote oferece dois estilos de criação para V2. O padrão de schema baseado em classes usa _@V2Container_ com decorators de propriedade e é ideal para layouts reutilizáveis e orientados a dados. A API fluente é um builder imperativo que encadeia chamadas em uma instância de _V2ContainerFluentBuilder_ e é ideal para mensagens de uso único ou montadas dinamicamente. Ambos os estilos produzem o mesmo formato de wire e podem ser combinados no mesmo bot.
+O pacote oferece dois estilos de autoria para V2. O padrão baseado em classe usa _@V2Container_ com decorators de propriedade e funciona melhor em layouts reaproveitáveis guiados por dados. A API fluente é um builder imperativo, encadeado em uma instância de _V2ContainerFluentBuilder_, e costuma ser melhor para mensagens pontuais ou montadas dinamicamente. Os dois estilos produzem o mesmo formato final e podem coexistir no mesmo bot.
 
 ## Quando usar containers V2
 
-Containers V2 são adequados sempre que a mensagem precisa de um layout estruturado que um embed simples não consegue expressar. Casos de uso comuns incluem leaderboards com listas de entradas de tamanho variável, painéis de dashboard de servidor com thumbnail de ícone e grade de estatísticas, perfis com avatar ao lado de múltiplos campos e galerias de imagens incorporadas em respostas de comandos. Qualquer mensagem que se beneficie de separação visual entre seções, ou que exigiria múltiplos embeds para ser aproximada, é uma boa candidata para um container V2.
+Containers V2 fazem sentido sempre que a mensagem precisa de um layout mais estruturado do que um embed simples consegue oferecer. Casos comuns incluem leaderboards com listas de tamanho variável, painéis de dashboard com thumbnail e grade de estatísticas, perfis com avatar ao lado de vários blocos de texto e galerias de imagem dentro da resposta do comando. Sempre que a mensagem se beneficia de uma separação visual mais clara entre seções, ou quando você percebe que precisaria empilhar vários embeds para chegar perto do resultado, provavelmente um container V2 é a escolha certa.
 
-<Callout type="warning">
-  Containers V2 exigem a flag MessageFlags.IsComponentsV2 ao enviar mensagens.
-  Definir essa flag significa que a mensagem não pode carregar embeds
-  tradicionais ou uma string de conteúdo simples junto com os containers,
-  projete mensagens V2 como layouts independentes, não como melhorias de
-  conteúdo já existente.
+<Callout tone="warning">
+  Containers V2 exigem a flag *MessageFlags.IsComponentsV2* no envio da
+  mensagem. Quando essa flag está presente, a mensagem não pode carregar ao
+  mesmo tempo embeds tradicionais nem um conteúdo de texto simples ao lado dos
+  containers. Em outras palavras, trate mensagens V2 como layouts completos e
+  autocontidos, não como um enfeite em cima de conteúdo já existente.
 </Callout>
 
 ## Configurando o V2Service
 
-O _V2Service_ é o serviço de renderização e construção para todo trabalho com V2. Ele fica disponível automaticamente via injeção assim que o _ComponentsModule_ é registrado no seu grafo de módulos. Nenhuma configuração adicional é necessária além da configuração padrão do plugin _defineComponents_.
+_V2Service_ é o serviço responsável por renderizar e construir tudo que envolve V2. Ele fica disponível para injeção automaticamente assim que _ComponentsModule_ entra no grafo de módulos. Fora a configuração padrão do plugin _defineComponents_, você não precisa de nenhum ajuste extra.
 
-Injete o _V2Service_ em qualquer handler ou serviço que precise renderizar containers V2.
+Injete _V2Service_ em qualquer handler ou serviço que precise renderizar containers V2.
 
 ```typescript filename="src/handlers/my.handler.ts"
 import { V2Service } from '@spraxium/components';
@@ -46,14 +62,14 @@ export class MyHandler {
 }
 ```
 
-## Schemas de container baseados em classes
+## Schemas de container baseados em classe
 
-O padrão baseado em classes declara um container como uma classe anotada. Aplique _@V2Container_ à classe para marcá-la como container e configurar a cor de destaque e opções de spoiler. Aplique decorators de propriedade a cada campo para registrar componentes filhos na ordem de declaração. No momento da renderização, o _V2Service.build_ lê os metadados, avalia todas as funções fábrica com seus dados de runtime e monta o container.
+No padrão baseado em classe, o container é declarado como uma classe anotada. Você aplica _@V2Container_ à classe para marcá-la como container e configurar opções como cor de destaque e spoiler. Em seguida, usa decorators de propriedade para registrar os filhos na ordem de declaração. Em runtime, _V2Service.build_ lê esses metadados, avalia as factory functions com os dados recebidos e monta o container final.
 
-Os nomes das propriedades na classe de schema não importam em runtime. Somente os metadados registrados pelos decorators são lidos. Declare o tipo da propriedade como `never` para sinalizar que o campo existe apenas como um slot de metadados.
+Os nomes das propriedades na classe não têm relevância em runtime. O que realmente importa é o metadado registrado pelos decorators. Por isso, é comum declarar o tipo da propriedade como `never`, sinalizando que aquele campo existe apenas como slot de metadado.
 
 <CodeTabs>
-  <Tab label="Schema">
+  <Tab label="Schema" language="typescript">
 ```typescript filename="src/schemas/user-profile.container.ts"
 import {
   V2Container,
@@ -83,12 +99,12 @@ export class UserProfileContainer {
     text: (data: UserProfileData) =>
       [
         `**ID:** \`${data.userId}\``,
-        `**Entrou:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
+        `**Joined:** <t:${Math.floor(data.joinedAt / 1000)}:R>`,
         `**Bio:** ${data.bio}`,
       ].join('\n'),
     thumbnail: {
       url: (data: UserProfileData) => data.avatarUrl,
-      description: 'Avatar do usu\u00e1rio',
+      description: 'User avatar',
     },
   })
   stats!: never;
@@ -96,13 +112,13 @@ export class UserProfileContainer {
   @V2Separator({ divider: false })
   spacer!: never;
 
-  @V2Text((data: UserProfileData) => desc().subtext(`Perfil de ${data.username}`))
+  @V2Text((data: UserProfileData) => desc().subtext(`Profile for ${data.username}`))
   footer!: never;
 }
 
 ````
   </Tab>
-  <Tab label="Handler">
+  <Tab label="Handler" language="typescript">
 ```typescript filename="src/handlers/profile.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { V2Service } from '@spraxium/components';
@@ -122,10 +138,10 @@ export class ProfileHandler {
       userId: user.id,
       joinedAt: user.createdTimestamp,
       avatarUrl: user.displayAvatarURL({ size: 128 }),
-      bio: 'Sem bio definida.',
+      bio: 'No bio set.',
     };
 
-    const payload = this.v2.buildReply(UserProfileContainer, data);
+    const payload = await this.v2.buildReply(UserProfileContainer, data);
 
     await interaction.reply({
       ...payload,
@@ -138,11 +154,11 @@ export class ProfileHandler {
   </Tab>
 </CodeTabs>
 
-## A API fluente
+## API fluente
 
-A API fluente é um builder encadeável vinculado ao _V2Service_. Chame _v2.container()_ para abrir um builder, encadeie as chamadas de componentes filhos e chame _.toReply()_ ao final para produzir o payload pronto para _interaction.reply()_. Cada método de encadeamento retorna o mesmo builder, então todas as operações podem ser inline.
+A API fluente é um builder encadeável preso ao _V2Service_. Chame _v2.container()_ para abrir o builder, encadeie as chamadas dos filhos e finalize com _.toReply()_ para produzir o payload pronto para _interaction.reply()_. Cada método devolve o próprio builder, então tudo pode ficar inline se isso fizer sentido para a mensagem.
 
-A API fluente não suporta decorators de propriedade nem condições _@V2When_, pois não há metadados em nível de classe para anotar. Use o padrão baseado em classes quando precisar de renderização condicional ou quando quiser reutilizar o mesmo layout em múltiplos handlers.
+A API fluente não oferece suporte a decorators de propriedade nem a condições com _@V2When_, porque não existe metadado de classe para anotar. Sempre que você precisar de renderização condicional ou quiser reaproveitar o mesmo layout em vários handlers, prefira o padrão baseado em classe.
 
 ```typescript filename="src/handlers/greet.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
@@ -159,19 +175,19 @@ export class GreetHandler {
 
     const payload = this.v2
       .container({ accentColor: 0x57f287 })
-      .text(desc().h2(`👋 Olá, ${user.username}!`))
+      .text(desc().h2(`👋 Hello, ${user.username}!`))
       .sep()
       .section(
         [
           `**ID:** \`${user.id}\``,
-          `**Idade da conta:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
+          `**Account age:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
         ].join("\n"),
         this.v2.thumbnail(user.displayAvatarURL({ size: 128 }), {
-          description: `Avatar de ${user.username}`,
+          description: `${user.username} avatar`,
         }),
       )
       .sep({ divider: false })
-      .text(desc().subtext('Desenvolvido com Spraxium V2'))
+      .text(desc().subtext('Powered by Spraxium V2'))
       .toReply();
 
     await interaction.reply({
@@ -182,9 +198,9 @@ export class GreetHandler {
 }
 ```
 
-## Referência da API do V2Service
+## Referência da API de V2Service
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
@@ -195,53 +211,63 @@ export class GreetHandler {
   <TableBody>
     <TableRow>
       <TableCell>*build(ContainerClass, data?)*</TableCell>
-      <TableCell>`ContainerBuilder`</TableCell>
-      <TableCell>Renderiza um schema baseado em classes em um ContainerBuilder do discord.js.</TableCell>
+      <TableCell>Promise&lt;ContainerBuilder&gt;</TableCell>
+      <TableCell>Renderiza de forma assíncrona um schema baseado em classe em um ContainerBuilder do discord.js.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*buildReply(ContainerClass, data?)*</TableCell>
-      <TableCell>`V2ReplyPayload`</TableCell>
-      <TableCell>Renderiza e empacota em um payload pronto para reply com a flag `IsComponentsV2` definida.</TableCell>
+      <TableCell>Promise&lt;V2ReplyPayload&gt;</TableCell>
+      <TableCell>Renderiza de forma assíncrona e já empacota o resultado em um payload pronto para reply com a flag IsComponentsV2.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildSync(ContainerClass, data?)*</TableCell>
+      <TableCell>ContainerBuilder</TableCell>
+      <TableCell>Caminho síncrono para schemas que não exigem resolução assíncrona de filhos.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildReplySync(ContainerClass, data?)*</TableCell>
+      <TableCell>V2ReplyPayload</TableCell>
+      <TableCell>Builder síncrono de payload de resposta, útil para containers V2 totalmente estáticos.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*container(opts?)*</TableCell>
-      <TableCell>`V2ContainerFluentBuilder`</TableCell>
-      <TableCell>Abre um builder fluente para construção imperativa de containers.</TableCell>
+      <TableCell>V2ContainerFluentBuilder</TableCell>
+      <TableCell>Abre um builder fluente para construção imperativa do container.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*text(content)*</TableCell>
-      <TableCell>`TextDisplayBuilder`</TableCell>
-      <TableCell>Cria um bloco de texto independente. Aceita uma string ou um DescriptionBuilder.</TableCell>
+      <TableCell>TextDisplayBuilder</TableCell>
+      <TableCell>Cria um bloco de texto independente. Aceita string ou DescriptionBuilder.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*separator(config?)*</TableCell>
-      <TableCell>`SeparatorBuilder`</TableCell>
-      <TableCell>Cria um separador. Passe `{ divider: false }` para espaçamento invisível.</TableCell>
+      <TableCell>SeparatorBuilder</TableCell>
+      <TableCell>Cria um separador. Use a opção divider como false quando quiser apenas espaçamento invisível.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*thumbnail(url, opts?)*</TableCell>
-      <TableCell>`ThumbnailBuilder`</TableCell>
-      <TableCell>Cria um thumbnail acessório pronto para ser passado a `section()`.</TableCell>
+      <TableCell>ThumbnailBuilder</TableCell>
+      <TableCell>Cria um thumbnail pronto para ser usado como acessório em uma section.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*section(text, accessory?)*</TableCell>
-      <TableCell>`SectionBuilder`</TableCell>
-      <TableCell>Cria uma seção com texto e um thumbnail ou botão acessório opcional.</TableCell>
+      <TableCell>SectionBuilder</TableCell>
+      <TableCell>Cria uma section com texto e, opcionalmente, um acessório de thumbnail ou botão.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*gallery(items)*</TableCell>
-      <TableCell>`MediaGalleryBuilder`</TableCell>
-      <TableCell>Cria uma galeria de mídia a partir de um array de itens `{ url, description?, spoiler? }`.</TableCell>
+      <TableCell>MediaGalleryBuilder</TableCell>
+      <TableCell>Cria uma galeria de mídia a partir de um array de itens com URL, descrição opcional e estado opcional de spoiler.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Decorators de propriedade
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Decorator</TableCell>
+      <TableCell header>Decorador</TableCell>
       <TableCell header>Tipo de filho</TableCell>
       <TableCell header>Descrição</TableCell>
     </TableRow>
@@ -250,51 +276,51 @@ export class GreetHandler {
     <TableRow>
       <TableCell>*@V2Text(content)*</TableCell>
       <TableCell>Bloco de texto</TableCell>
-      <TableCell>Renderiza um `TextDisplayBuilder` com a string ou saída do DescriptionBuilder fornecida. Aceita uma fábrica que recebe dados de runtime.</TableCell>
+      <TableCell>Renderiza um TextDisplayBuilder com a string informada ou com a saída de um DescriptionBuilder. Também aceita factory com dados de runtime.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2Section(config)*</TableCell>
-      <TableCell>Seção</TableCell>
-      <TableCell>Layout lado a lado com um bloco de texto e um thumbnail ou botão acessório. Tanto o texto quanto a URL do thumbnail aceitam fábricas.</TableCell>
+      <TableCell>Section</TableCell>
+      <TableCell>Layout lado a lado com um bloco de texto e um acessório que pode ser thumbnail ou botão. Texto e URL do thumbnail podem vir de factory.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2Separator(config?)*</TableCell>
       <TableCell>Separador</TableCell>
-      <TableCell>Linha horizontal. Passe `{ divider: false }` para um espaçador invisível. Passe `{ spacing: 1 | 2 }` de `SeparatorSpacingSize` para controlar o tamanho do espaço.</TableCell>
+      <TableCell>Linha horizontal. Passe divider como false para criar um espaçador invisível. Use spacing 1 ou 2 para controlar o tamanho do espaço.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2Row(config)*</TableCell>
       <TableCell>Action row</TableCell>
-      <TableCell>Incorpora uma action row de botões ou select menu dentro do container. Passe as classes dos componentes em um array `components`. Uma classe de select menu é detectada automaticamente.</TableCell>
+      <TableCell>Embute uma linha de botões ou um select menu dentro do container. Passe classes de componente no array components. Uma classe de select é detectada automaticamente.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2MediaGallery(items)*</TableCell>
       <TableCell>Galeria de mídia</TableCell>
-      <TableCell>Renderiza uma galeria de mídia. Os itens podem ser um array estático ou uma fábrica que retorna objetos `{ url, description?, spoiler? }`.</TableCell>
+      <TableCell>Renderiza uma galeria de mídia. Os itens podem vir de um array estático ou de uma factory que retorna objetos de mídia.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2File(config)*</TableCell>
       <TableCell>Anexo de arquivo</TableCell>
-      <TableCell>Anexa uma URL de arquivo dentro do container. A URL pode ser uma fábrica. Passe `{ spoiler: true }` para ocultar a prévia até o usuário clicar.</TableCell>
+      <TableCell>Anexa uma URL de arquivo dentro do container. A URL pode vir de factory. Use spoiler como true para esconder a prévia até o clique do usuário.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2Dynamic(factory)*</TableCell>
       <TableCell>Filhos dinâmicos</TableCell>
-      <TableCell>Chama uma fábrica com dados de runtime para produzir uma lista de tamanho variável de specs de filhos. Coberto em detalhes na próxima seção.</TableCell>
+      <TableCell>Chama uma factory com os dados de runtime para produzir uma lista variável de specs de filhos. A próxima seção cobre isso em detalhe.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@V2When(predicate)*</TableCell>
       <TableCell>Condição</TableCell>
-      <TableCell>Aplicado *após* um decorator de filho. O filho é omitido do container renderizado quando o predicado retorna `false`.</TableCell>
+      <TableCell>É aplicado *depois* do decorator do filho. Quando o predicado retorna false, o filho é omitido do container renderizado.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Filhos dinâmicos com @V2Dynamic
 
-_@V2Dynamic_ é a solução quando o número de componentes filhos depende de dados de runtime. Em vez de uma configuração estática, você fornece uma função fábrica que recebe o objeto de dados e retorna um array de specs de filhos criados com as funções auxiliares _v2text_, _v2sep_, _v2section_, _v2gallery_ e _v2row_. O motor percorre esse array e renderiza cada spec em sequência.
+_@V2Dynamic_ resolve os casos em que a quantidade de filhos depende dos dados de runtime. Em vez de fornecer uma configuração estática, você passa uma factory que recebe o objeto de dados e retorna um array de child specs criados com helpers como _v2text_, _v2sep_, _v2section_, _v2gallery_ e _v2row_. O motor percorre esse array e renderiza cada spec na ordem.
 
-Um padrão comum é gerar uma ou mais linhas de texto por entrada de dados e inserir separadores entre elas, parando um separador antes para que a última entrada não seja seguida por um divisor.
+Um padrão comum é gerar uma ou mais linhas de texto por item e inserir separadores entre elas, tomando cuidado para não deixar um separador sobrando depois do último item.
 
 ```typescript filename="src/schemas/leaderboard.container.ts"
 import {
@@ -330,7 +356,7 @@ export class LeaderboardContainer {
 
   @V2Dynamic((data: LeaderboardData) => {
     if (data.entries.length === 0) {
-      return [v2text(desc().subtext('Nenhuma entrada ainda.'))];
+      return [v2text(desc().subtext('No entries yet.'))];
     }
 
     return data.entries.flatMap((entry, index) => {
@@ -349,13 +375,13 @@ export class LeaderboardContainer {
   footer!: never;
 
   @V2Text((data: LeaderboardData) =>
-    desc().subtext(`${data.entries.length} jogadores classificados`),
+    desc().subtext(`${data.entries.length} players ranked`),
   )
   summary!: never;
 }
 ```
 
-O handler passa a lista de entradas como dados e chama _buildReply_ sem precisar saber quantas linhas serão geradas.
+O handler passa a lista de entradas como dado e chama _buildReply_ sem precisar saber quantas linhas serão geradas no final.
 
 ```typescript filename="src/handlers/leaderboard.handler.ts"
 @SlashCommandHandler(LeaderboardCommand)
@@ -365,8 +391,8 @@ export class LeaderboardHandler {
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const entries: Array<LeaderboardEntry> = await fetchTopPlayers(10);
 
-    const payload = this.v2.buildReply(LeaderboardContainer, {
-      title: 'Top Jogadores da Semana',
+    const payload = await this.v2.buildReply(LeaderboardContainer, {
+      title: 'Weekly Top Players',
       entries,
     });
 
@@ -377,9 +403,9 @@ export class LeaderboardHandler {
 
 ## Renderização condicional com @V2When
 
-_@V2When_ inclui condicionalmente um filho com base nos dados de runtime. É aplicado como um decorator adicional _abaixo_ do decorator do filho, o que significa que executa por último e adiciona um predicado de guarda à definição de filho existente. Se o predicado retornar `false` para os dados fornecidos, o filho é excluído do container, não renderizado como vazio.
+_@V2When_ inclui um filho de forma condicional com base nos dados de runtime. Ele é aplicado como um decorator adicional *abaixo* do decorator do filho, ou seja, roda por último e adiciona uma guarda à definição já existente. Quando o predicado retorna `false` para aquele conjunto de dados, o filho é removido do container por completo, não apenas renderizado vazio.
 
-_@V2When_ é empilhável: múltiplos filhos no mesmo container podem cada um ter condições independentes. A propriedade de ordem atribuída no momento do registro é preservada independentemente de quais filhos são filtrados.
+_@V2When_ é empilhável. Você pode ter vários filhos diferentes no mesmo container, cada um com a própria condição. A ordem registrada para os elementos continua preservada, independentemente de quais filhos acabem filtrados.
 
 ```typescript filename="src/schemas/member-card.container.ts"
 import {
@@ -406,12 +432,12 @@ export class MemberCardContainer {
   divider!: never;
 
   @V2When((data: MemberCardData) => data.isAdmin)
-  @V2Text('⚙️ **Administrador do Servidor**')
+  @V2Text('🛡️ **Server Administrator**')
   adminBadge!: never;
 
   @V2When((data: MemberCardData) => data.boostLevel > 0)
   @V2Text(
-    (data: MemberCardData) => `⭐ **Server Booster**, Nível ${data.boostLevel}`,
+    (data: MemberCardData) => `⭐ **Server Booster**, Level ${data.boostLevel}`,
   )
   boostBadge!: never;
 
@@ -420,14 +446,14 @@ export class MemberCardContainer {
 }
 ```
 
-Quando `isAdmin` é `false`, a linha do emblema de administrador não é renderizada. Os filhos restantes se fecham naturalmente sem nenhum espaço vazio.
+Quando `isAdmin` é `false`, a linha do selo de administrador simplesmente não é renderizada. Os demais filhos se reorganizam naturalmente, sem deixar espaço sobrando.
 
-## Incorporando action rows com @V2Row
+## Embutindo action rows com @V2Row
 
-_@V2Row_ coloca uma action row de botões ou select menu diretamente dentro de um container V2. Passe as classes dos seus componentes no array `components` da mesma forma que faria com _ButtonService_ ou _SelectService_. O serviço detecta automaticamente se a primeira classe é um select menu e roteia para o builder correto.
+_@V2Row_ coloca uma linha de botões ou um select menu diretamente dentro de um container V2. Passe as classes de componente no array `components`, exatamente como faria com _ButtonService_ ou _SelectService_. O serviço detecta sozinho se a primeira classe é um select menu e encaminha a construção para o builder correto.
 
 <CodeTabs>
-  <Tab label="Action row de botões">
+  <Tab label="Linha de botões" language="typescript">
 ```typescript filename="src/schemas/confirm-panel.container.ts"
 import {
   Button,
@@ -442,15 +468,15 @@ import {
 @Button({ customId: 'panel_confirm', label: 'Confirm', style: 'success', emoji: '✅' })
 export class ConfirmButton {}
 
-@Button({ customId: 'panel_cancel', label: 'Cancel', style: 'danger', emoji: '✖' })
+@Button({ customId: 'panel_cancel', label: 'Cancel', style: 'danger', emoji: '❌' })
 export class CancelButton {}
 
 @V2Container({ accentColor: 0xed4245 })
 export class ConfirmPanelContainer {
-  @V2Text((data: { action: string }) => desc().h2(`Confirmar: ${data.action}`))
+  @V2Text((data: { action: string }) => desc().h2(`Confirm: ${data.action}`))
   title!: never;
 
-  @V2Text('Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita. Tem certeza?')
+  @V2Text('This action cannot be undone. Are you sure?')
   body!: never;
 
   @V2Separator({ divider: false })
@@ -462,14 +488,14 @@ export class ConfirmPanelContainer {
 
 ````
   </Tab>
-  <Tab label="Botão acessório em seção">
+  <Tab label="Botão como acessório da section" language="typescript">
 ```typescript filename="src/schemas/resource-card.container.ts"
 import { LinkButton, V2Container, V2Section, V2Text, desc } from '@spraxium/components';
 
 @LinkButton({
-  label: 'Ver Docs',
+  label: 'View Docs',
   url: 'https://spraxium.dev/guide',
-  emoji: '📖',
+  emoji: '📘',
 })
 export class DocsLinkButton {}
 
@@ -494,11 +520,82 @@ export class ResourceCardContainer {
   </Tab>
 </CodeTabs>
 
-## O DescriptionBuilder
+## @V2DynamicRow
 
-A função auxiliar _desc()_ retorna um _DescriptionBuilder_ que encadeia helpers de Markdown com sabor do Discord. Está disponível nos padrões baseados em classes e fluente em qualquer lugar onde um valor de conteúdo de texto é aceito. O builder é um acumulador de string leve; chamar _.toString()_ retorna a string final, que o motor V2 chama automaticamente antes de passar o conteúdo para os builders do discord.js.
+_@V2DynamicRow_ quebra automaticamente uma lista de itens ou classes de botão em runtime em linhas de até cinco itens dentro do container. É o equivalente em V2 a chamar `ButtonService.build` várias vezes, mas guiado pelos dados, não por uma lista estática fixa.
 
-<Table variant="striped">
+Existem dois modos:
+
+**Modo dinâmico:** combine uma classe `@DynamicButton` com um accessor de dados que produza a lista de itens. O Spraxium chama o método estático `render(item)` do botão para cada item, armazena cada item como payload e agrupa os botões gerados em linhas de cinco. Esse é o caso principal: uma classe de botão, N itens, N botões tratados por interação.
+
+```typescript filename="src/modules/leaderboard/components/leaderboard.container.ts"
+import { V2Container, V2Separator, V2Text, V2DynamicRow, desc } from '@spraxium/components';
+import type { LeaderboardData } from '../leaderboard.data';
+import { PlayerButton } from './player-button.component';
+
+@V2Container({ accentColor: 0x5865f2 })
+export class LeaderboardContainer {
+  @V2Text((data: LeaderboardData) => desc().h2(`🏆 ${data.title}`))
+  title!: never;
+
+  @V2Separator()
+  divider!: never;
+
+  @V2DynamicRow({ dynamic: PlayerButton, items: (data: LeaderboardData) => data.players })
+  playerButtons!: never;
+}
+```
+
+**Modo components:** forneça uma factory que devolva um array de classes de botão estáticas. O Spraxium renderiza todas elas em linhas de cinco, sem payloads envolvidos. Use esse modo quando o conjunto de botões varia, mas cada botão ainda tem `customId` fixo.
+
+```typescript filename="src/modules/quick-actions/components/quick-actions.container.ts"
+import { V2Container, V2DynamicRow, V2Row, V2Text, desc } from '@spraxium/components';
+import type { QuickActionsData } from '../quick-actions.data';
+import {
+  ArchiveButton,
+  DeleteButton,
+  ExportButton,
+  MuteButton,
+  PinButton,
+  RefreshButton,
+  ShareButton,
+} from './quick-actions.components';
+import { ModeSelect } from './quick-actions.components';
+
+@V2Container({ accentColor: 0x57f287 })
+export class QuickActionsContainer {
+  @V2Text((data: QuickActionsData) => desc().h2(`⚡ Quick actions for ${data.resource}`))
+  title!: never;
+
+  @V2DynamicRow({
+    components: () => [
+      RefreshButton,
+      ExportButton,
+      ShareButton,
+      ArchiveButton,
+      DeleteButton,
+      PinButton,
+      MuteButton,
+    ],
+  })
+  actions!: never;
+
+  @V2Row({ components: [ModeSelect] })
+  mode!: never;
+}
+```
+
+<Callout tone="info">
+  _@V2DynamicRow_ com dynamic: só funciona com classes @DynamicButton, não
+  com botões estáticos. Para quebrar botões estáticos em blocos, use a forma de
+  factory em components:.
+</Callout>
+
+## DescriptionBuilder
+
+A função helper _desc()_ devolve um _DescriptionBuilder_ que encadeia helpers de Markdown no estilo do Discord. Ele pode ser usado tanto no padrão baseado em classe quanto na API fluente, em qualquer lugar em que um valor de texto seja aceito. O builder funciona como um acumulador simples de string. Ao chamar _.toString()_, você recebe o conteúdo final, embora o próprio motor de V2 já faça isso automaticamente antes de passar o texto para os builders do discord.js.
+
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
@@ -508,31 +605,27 @@ A função auxiliar _desc()_ retorna um _DescriptionBuilder_ que encadeia helper
   <TableBody>
     <TableRow>
       <TableCell>*.h2(text)*</TableCell>
-      <TableCell>
-        `## text`, renderiza como um heading dentro do container
-      </TableCell>
+      <TableCell>Gera um heading interno no formato de heading nível 2 do Markdown.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.subtext(text)*</TableCell>
-      <TableCell>
-        `-# text`, renderiza como subtexto pequeno abaixo do conteúdo regular
-      </TableCell>
+      <TableCell>Gera um subtexto menor no formato de subtexto curto do Markdown.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.bold(text)*</TableCell>
-      <TableCell>`**text**`</TableCell>
+      <TableCell>Produz texto em negrito no Markdown.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.italic(text)*</TableCell>
-      <TableCell>`*text*`</TableCell>
+      <TableCell>Produz texto em itálico no Markdown.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.code(text)*</TableCell>
-      <TableCell>`` `text` ``</TableCell>
+      <TableCell>Produz texto em código inline.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*.line(text?)*</TableCell>
-      <TableCell>Acrescenta texto seguido de uma quebra de linha</TableCell>
+      <TableCell>Acrescenta texto seguido por quebra de linha.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -541,7 +634,7 @@ A função auxiliar _desc()_ retorna um _DescriptionBuilder_ que encadeia helper
 
 O decorator _@V2Container_ aceita um objeto _V2ContainerMeta_.
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Opção</TableCell>
@@ -553,31 +646,31 @@ O decorator _@V2Container_ aceita um objeto _V2ContainerMeta_.
   <TableBody>
     <TableRow>
       <TableCell>*accentColor*</TableCell>
-      <TableCell>`number | string`</TableCell>
+      <TableCell>number | string</TableCell>
       <TableCell>Nenhum</TableCell>
       <TableCell>
-        Cor da faixa de destaque lateral. Aceita um número hex (`0x5865f2`) ou
-        string hex (`'#5865F2'`).
+        Cor da faixa lateral de destaque. Aceita um número hexadecimal como
+        0x5865f2 ou uma string hexadecimal como #5865F2.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*spoiler*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>false</TableCell>
       <TableCell>
-        Marca o container inteiro como spoiler que o usuário precisa clicar para
-        revelar.
+        Marca o container inteiro como spoiler, exigindo clique do usuário para
+        revelar o conteúdo.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Construindo o payload de reply
+## Montando o payload de resposta
 
-Tanto _buildReply_ quanto o método fluente _.toReply()_ retornam um objeto `{ components, flags }`. Fazer spread desse objeto em _interaction.reply()_ define `IsComponentsV2` automaticamente. Você pode combinar flags adicionais usando OR bitwise.
+Tanto _buildReply_ quanto o método fluente _.toReply()_ devolvem um objeto `{ components, flags }`. Quando você espalha esse payload em _interaction.reply()_, a flag `IsComponentsV2` já é configurada automaticamente. Se precisar de flags adicionais, basta combiná-las com OR bit a bit.
 
-```typescript filename="enviando um reply V2"
-const payload = this.v2.buildReply(MyContainer, data);
+```typescript filename="sending a V2 reply"
+const payload = await this.v2.buildReply(MyContainer, data);
 
 await interaction.reply({
   ...payload,
@@ -585,8 +678,223 @@ await interaction.reply({
 });
 ```
 
-Se você precisar atualizar uma mensagem V2 existente, use _interaction.editReply()_ ou passe o payload para _message.edit()_ diretamente. A flag é necessária tanto no envio inicial quanto nas edições subsequentes, pois o Discord identifica uma mensagem como V2 pela presença dessa flag.
+Se você precisar atualizar uma mensagem V2 já existente, use _interaction.editReply()_ ou passe o payload direto para _message.edit()_. A flag é necessária tanto no envio inicial quanto nas edições seguintes, porque o Discord identifica uma mensagem V2 justamente pela presença dessa flag.
 
-## Próximo estudo
+## Sistema dinâmico e guia de migração
+
+No modelo atual, o ecossistema V2 foi além da composição visual e ganhou um modelo completo para
+interações dinâmicas com botões e selects. A ideia central é que os dados de runtime passam a
+viajar com cada elemento interativo por referência de payload. Com isso, o handler recebe objetos
+tipados de domínio diretamente, sem depender de serialização manual em custom IDs.
+
+Esse modelo é especialmente útil em catálogos, painéis operacionais, filas de moderação e qualquer
+fluxo em que você renderiza listas variáveis de ações e precisa preservar contexto de negócio por
+item.
+
+### DynamicButton com payload tipado
+
+Use `@DynamicButton` para declarar a renderização por item e `@DynamicButtonHandler` para tratar a
+interação. Injete o payload original com `@ButtonPayload()` e, quando o fluxo for one-shot, injete
+`@PayloadRef()` para chamar `consume()`.
+
+```typescript filename="src/modules/shop/buttons/buy-button.component.ts"
+import {
+  ButtonPayload,
+  DynamicButton,
+  DynamicButtonHandler,
+  PayloadRef,
+  type PayloadHandle,
+} from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { ButtonInteraction } from 'discord.js';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+}
+
+@DynamicButton({ baseId: 'shop-buy', payloadTtl: 300 })
+export class BuyButton {
+  static render(product: Product) {
+    return {
+      label: `Buy ${product.name}`,
+      style: 'success' as const,
+      emoji: '🛒',
+    };
+  }
+}
+
+@DynamicButtonHandler(BuyButton)
+export class BuyButtonHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonPayload() product: Product,
+    @PayloadRef() payload: PayloadHandle,
+  ): Promise<void> {
+    await payload.consume();
+
+    await interaction.reply({
+      content: `Purchase confirmed: ${product.name} ($${product.price}).`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+### DynamicStringSelect com dados acoplados
+
+Com `@DynamicStringSelect` e `@DynamicSelectHandler`, o select pode ser montado com dados de runtime
+e o handler recebe tanto os valores selecionados (`@SelectedValues()`) quanto o payload original
+(`@SelectPayload()`). Esse padrão mantém apresentação e domínio sincronizados sem parsing extra.
+
+```typescript filename="src/modules/tickets/selects/category-select.component.ts"
+import {
+  DynamicStringSelect,
+  DynamicSelectHandler,
+  SelectPayload,
+  SelectedValues,
+} from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { StringSelectMenuInteraction } from 'discord.js';
+
+interface TicketCategory {
+  id: string;
+  name: string;
+}
+
+@DynamicStringSelect({ baseId: 'ticket-category', placeholder: 'Choose a category', payloadTtl: 300 })
+export class TicketCategorySelect {
+  static render(categories: TicketCategory[]) {
+    return {
+      options: categories.map((category) => ({
+        label: category.name,
+        value: category.id,
+      })),
+      minValues: 1,
+      maxValues: 1,
+    };
+  }
+}
+
+@DynamicSelectHandler(TicketCategorySelect)
+export class TicketCategorySelectHandler {
+  async handle(
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() values: string[],
+    @SelectPayload() categories: TicketCategory[],
+  ): Promise<void> {
+    const selected = categories.find((category) => category.id === values[0]);
+
+    await interaction.update({
+      content: `Ticket category selected: ${selected?.name ?? 'Unknown'}`,
+      components: [],
+    });
+  }
+}
+```
+
+### O que exatamente são payload e payload ref
+
+No sistema dinâmico atual, **payload** é o dado de domínio original usado para renderizar o
+componente interativo. Em vez de serializar tudo no `customId`, o Spraxium salva esse dado no
+store de contexto e coloca no `customId` apenas uma referência curta no formato `~p:<id>`.
+
+Em outras palavras:
+
+1. Você renderiza botões/selects dinâmicos com dados reais (produto, ticket, usuário, etc.).
+2. O framework salva cada payload com TTL e anexa `~p:<id>` no `customId` final.
+3. Na interação, o dispatcher resolve esse ID e injeta o objeto tipado no handler.
+
+Isso reduz parsing manual de string e evita `customId` inchado.
+
+### Diferença prática entre @ButtonPayload, @SelectPayload e @PayloadRef
+
+`@ButtonPayload()` e `@SelectPayload()` injetam **o objeto de dados** associado àquela interação.
+`@PayloadRef()` injeta um **handle de ciclo de vida** (`PayloadHandle`) com:
+
+- `id`: o identificador bruto do payload.
+- `consume()`: remove o payload do store para impedir reuso.
+
+Use `@PayloadRef()` quando a ação deve ser **one-shot** (compra, confirmação irreversível,
+consumo de cupom, etc.).
+
+```typescript filename="src/modules/shop/buttons/buy-button.handler.ts"
+import { ButtonPayload, DynamicButtonHandler, PayloadRef, type PayloadHandle } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { ButtonInteraction } from 'discord.js';
+import { BuyButton } from './buy-button.component';
+
+interface Product {
+  id: string;
+  name: string;
+}
+
+@DynamicButtonHandler(BuyButton)
+export class BuyButtonHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonPayload() product: Product,
+    @PayloadRef() ref: PayloadHandle,
+  ): Promise<void> {
+    await this.auditPurchaseAttempt(ref.id, product.id);
+
+    // One-shot: cliques futuros com o mesmo payload voltam como expirado.
+    await ref.consume();
+
+    await interaction.reply({
+      content: `Purchase confirmed: ${product.name}`,
+      flags: 'Ephemeral',
+    });
+  }
+
+  private async auditPurchaseAttempt(payloadId: string, productId: string): Promise<void> {
+    void payloadId;
+    void productId;
+  }
+}
+```
+
+### TTL, expiração e quando o handler deixa de rodar
+
+Cada payload dinâmico tem tempo de vida (TTL). Você pode definir isso em `payloadTtl` na classe
+dinâmica. Se não informar, o serviço usa TTL padrão de **600 segundos**.
+
+Quando o payload expira (ou quando você chama `consume()`), interações posteriores com o mesmo
+`customId` não chegam no handler. O usuário recebe erro de ação expirada, que pode ser
+personalizado nas mensagens de erro da configuração de components.
+
+### Payload (~p) versus contexto de fluxo (~ctx)
+
+As duas referências podem coexistir no mesmo `customId`, mas têm papéis diferentes:
+
+- `~p:<id>`: carrega o dado de domínio do componente dinâmico.
+- `~ctx:<id>`: carrega estado de fluxo (wizard, etapas, restrição por usuário).
+
+Regra prática: use payload para identificar **o item da ação** e contexto para identificar
+**o estado da conversa/interação**.
+
+### Quando usar build assíncrono ou síncrono
+
+No modelo atual, `build()` e `buildReply()` são assíncronos por padrão porque um schema V2 pode conter
+filhos que exigem resolução assíncrona, como:
+
+- `@V2DynamicRow` usando expansão por `dynamic:`.
+- `@V2Row` com selects dinâmicos que resolvem opções em tempo de execução.
+- Qualquer filho que dependa de factories assíncronas.
+
+Use `buildSync()` ou `buildReplySync()` somente quando seu container for totalmente síncrono. Se o
+schema tiver filhos que exigem async, o caminho sync lança erro de forma intencional para evitar
+layout inconsistente em runtime.
+
+### Checklist rápido de migração do modelo anterior para o modelo atual
+
+1. Adicione `await` em `this.v2.build(...)` e `this.v2.buildReply(...)`.
+2. Mantenha `buildReplySync()` apenas em containers estáticos sem dynamic rows/selects.
+3. Troque chunking manual de botões por `@V2DynamicRow` em listas de ação.
+4. Troque parsing manual de customId por `@ButtonPayload()` / `@SelectPayload()`.
+5. Em ações one-shot (compra, confirmação, consumo), injete `@PayloadRef()` e chame `consume()`.
+
+## Próxima página
 
 Continue com [Visão Geral dos Modais](/guide/modals-overview).

@@ -5,6 +5,21 @@ description: |
   Learn the command model, how commands connect to handlers, and how they register in modules.
 order: 1
 category: Prefix Commands
+keywords:
+  - spraxium prefix commands overview
+  - prefix commands overview in spraxium
+  - prefix commands prefix commands overview guide
+  - prefix commands overview discord bot
+  - prefix commands overview typescript
+  - spraxium prefix commands documentation
+  - prefix commands overview prefix commands
+faq:
+  - question: "What does \"Prefix Commands Overview\" cover in Spraxium?"
+    answer: "Prefix commands let users trigger bot actions through text messages with a configurable prefix. Learn the command model, how commands connect to handlers, and how they register in modules."
+  - question: "When should I use \"Prefix Commands Overview\"?"
+    answer: "Use this page when you are implementing prefix commands overview in the Prefix Commands area of your bot architecture."
+  - question: "What should I read after \"Prefix Commands Overview\"?"
+    answer: "Continue with related Prefix Commands pages to connect this concept with practical implementation details."
 ---
 
 ## What a prefix command is
@@ -14,6 +29,12 @@ A prefix command is a pair of classes that reacts to a text message starting wit
 The key difference between prefix commands and slash commands is what triggers them. Slash commands are triggered by Discord's built-in interaction system with autocomplete and validation. Prefix commands are triggered by raw text messages, which means the framework must handle parsing, argument coercion, and error reporting on its own. Some bots need both, and Spraxium lets you register prefix and slash commands in the same module without conflicts.
 
 Prefix commands in Spraxium are not a legacy afterthought. They are full classes managed by the dependency injection container, registered in modules, and wired to the Discord client automatically during bootstrap. This means your command handlers can receive injected services, participate in the guard pipeline, benefit from cooldown tracking, and use the same exception handling that slash commands use.
+
+## When prefix commands still make sense
+
+Prefix commands are still a strong fit for bots used by staff teams, internal tools, migration-heavy legacy communities, or workflows where fast typed shortcuts matter more than Discord's command picker UI. They are also useful when message-based habits already exist and moving everything to slash commands would add friction without much benefit.
+
+They are a weaker fit when you need strong discoverability for casual users, rich option validation in the Discord client, or autocomplete-heavy input. In those cases, slash commands are usually the better default.
 
 ## A basic command example
 
@@ -58,6 +79,18 @@ export class PingHandler {
 
 Notice that the command class is purely declarative: it describes what the command is called, what aliases it accepts, and what cooldown it enforces. The handler class holds the execution logic and receives dependencies through decorators. For commands with arguments, you add _@PrefixArg_ decorators to the command's _build_ method and matching _@PrefixArg_ parameter decorators on the handler's _handle_ method. The next page covers argument schemas in detail.
 
+## Runtime path
+
+At runtime, the flow is straightforward:
+
+1. The framework detects the configured prefix.
+2. It extracts the command name and tokenizes the remaining text.
+3. It resolves the command definition and parses arguments.
+4. It runs guards and cooldown checks.
+5. It invokes the registered handler.
+
+That pipeline is why command definition and command execution are split into two classes. One class describes the schema; the other runs the logic against parsed values.
+
 ## Registering commands in a module
 
 Prefix commands do not activate just by existing in your source code. You need to register the command class in the module's _commands_ array and the handler class in the _handlers_ array so the framework knows about them and can wire them during bootstrap. Without both registrations, your command will either be invisible to the parser or have no handler to dispatch to.
@@ -99,6 +132,8 @@ The module must be imported by your root module or another module in the import 
 
 This structure keeps command definitions and handlers in dedicated folders and the module file at the domain root. As your bot grows, you can add more command and handler files without changing the folder structure. The module file is the single place that declares which commands and handlers are active.
 
+Prefix commands also benefit from staying domain-oriented. A moderation module should own its moderation prefix commands, and an economy module should own its economy commands. That keeps aliases, guards, handlers, and supporting services close to the same business context.
+
 <Callout tone="info" title="Two classes per command">
   Each prefix command requires both a command class and a handler class
   registered in the same module. The command class declares structure and
@@ -106,6 +141,8 @@ This structure keeps command definitions and handlers in dedicated folders and t
   dependencies. If you forget to register either one, the command will not work
   at runtime.
 </Callout>
+
+If you plan to support both prefix and slash commands, keep the business logic in shared services and let each command surface act as a thin entry point. That avoids duplicating the real behavior just because two command styles exist.
 
 ## Next page
 

@@ -1,17 +1,33 @@
 ---
-title: Visão Geral da Configuração
+title: Visão geral da configuração
 description: |
   spraxium.config.ts é o arquivo único que governa todo o comportamento de runtime em um projeto Spraxium.
-  Aprenda como o defineConfig funciona, quando usar o padrão de callback e como o framework carrega sua configuração na inicialização.
+  Entenda como defineConfig funciona, quando usar a forma com callback e como o framework carrega sua configuração na inicialização.
 order: 1
 category: Configuration
+keywords:
+  - spraxium configuration layers
+  - visão geral da configuração no spraxium
+  - configuration configuration layers guia
+  - configuration layers bot discord
+  - configuration layers typescript
+  - documentacao spraxium configuration
+  - visão geral da configuração configuration
+  - spraxium visão geral da configuração
+faq:
+  - question: "O que \"Visão geral da configuração\" cobre no Spraxium?"
+    answer: "spraxium.config.ts é o arquivo único que governa todo o comportamento de runtime em um projeto Spraxium. Entenda como defineConfig funciona, quando usar a forma com callback e como o framework carrega sua configuração na inicialização."
+  - question: "Quando devo usar \"Visão geral da configuração\"?"
+    answer: "Use esta pagina quando voce estiver implementando configuration layers dentro da area de Configuration do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão geral da configuração\"?"
+    answer: "Continue nas paginas relacionadas de Configuration para conectar este conceito com implementacao pratica."
 ---
 
 ## O arquivo de configuração
 
-Todo projeto Spraxium tem um arquivo `spraxium.config.ts` na raiz. Esse arquivo é a fonte canônica para todo o comportamento de runtime: quais plugins estão ativos, como os comandos fazem matching, como os erros são apresentados e como o watcher de dev se comporta. O framework o lê uma vez na inicialização e armazena o resultado como um snapshot imutável antes de qualquer módulo começar a executar.
+Todo projeto Spraxium tem um arquivo `spraxium.config.ts` na raiz. Esse arquivo é a fonte única de verdade para todo o comportamento de runtime: quais plugins estão ativos, como os commands fazem match, como os erros são apresentados e como o watcher de desenvolvimento local se comporta. O framework lê esse arquivo uma vez na inicialização e armazena o resultado como um snapshot imutável antes que qualquer módulo comece a rodar.
 
-Você escreve o arquivo usando o helper _defineConfig_ exportado de `@spraxium/core`. Ele aceita um objeto simples ou um callback que recebe um argumento _ConfigEnv_. Ambas as formas produzem uma configuração válida. O padrão de callback é recomendado sempre que as opções precisam variar entre ambientes, pois centraliza o branching por modo em um único lugar.
+Você escreve esse arquivo usando o helper _defineConfig_ exportado por `@spraxium/core`. Ele aceita tanto um objeto simples quanto um callback que recebe um argumento _ConfigEnv_. As duas formas produzem uma config válida, mas a forma com callback é recomendada sempre que as opções precisarem variar entre ambientes, porque deixa todas as ramificações explícitas em um único lugar.
 
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
@@ -29,9 +45,9 @@ export default defineConfig((env) => ({
 }));
 ```
 
-## Callback vs objeto
+## Callback vs forma de objeto
 
-O padrão de callback recebe um objeto _ConfigEnv_ construído a partir de uma única leitura do `NODE_ENV` na inicialização. Ele expõe _isDev_, _isNeutral_ e _isProd_ para que você possa ramificar por ambiente sem verificar strings brutas. O padrão de objeto é adequado para projetos onde a configuração é idêntica em todos os ambientes.
+A forma com callback recebe um objeto _ConfigEnv_ construído a partir de uma única leitura de `NODE_ENV` na inicialização. Ele expõe _isDev_, _isNeutral_ e _isProd_ para que você possa ramificar por ambiente sem comparar strings cruas. A forma de objeto é adequada para projetos em que a configuração é idêntica em todos os ambientes.
 
 <CodeTabs>
   <Tab label="Callback" language="typescript">
@@ -47,7 +63,7 @@ export default defineConfig((env) => ({
 }));
 ```
   </Tab>
-  <Tab label="Objeto" language="typescript">
+  <Tab label="Object" language="typescript">
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
 
@@ -61,7 +77,7 @@ export default defineConfig({
   </Tab>
 </CodeTabs>
 
-As flags do objeto _ConfigEnv_ são resolvidas a partir do `NODE_ENV` da seguinte forma.
+As flags de _ConfigEnv_ são resolvidas a partir de `NODE_ENV` da seguinte forma.
 
 <Table>
   <TableHead>
@@ -72,61 +88,62 @@ As flags do objeto _ConfigEnv_ são resolvidas a partir do `NODE_ENV` da seguint
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`production`</TableCell>
-      <TableCell>`isProd = true`</TableCell>
+      <TableCell>*production*</TableCell>
+      <TableCell>*isProd = true*</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`neutral`, `staging`, `test`</TableCell>
-      <TableCell>`isNeutral = true`</TableCell>
+      <TableCell>*neutral*, *staging* ou *test*</TableCell>
+      <TableCell>*isNeutral = true*</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Qualquer outro valor</TableCell>
-      <TableCell>`isDev = true`</TableCell>
+      <TableCell>*isDev = true*</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Sequência de inicialização
 
-O framework conclui estas etapas antes de qualquer módulo da aplicação executar.
+O framework conclui estas etapas antes que qualquer módulo da aplicação comece a rodar.
 
 <Steps>
-  <Step title="Descoberta do arquivo de configuração">
-    O framework varre a raiz do projeto em busca de `spraxium.config.ts`, depois
-    `spraxium.config.js`, depois `spraxium.config.mjs`. No modo de produção,
-    artefatos compilados em `dist/` e `.spraxium/dist/` são verificados
-    primeiro. O primeiro arquivo que existir vence e a busca é encerrada
-    imediatamente.
+  <Step title="Descoberta do arquivo de config">
+    O framework examina a raiz do projeto em busca de `spraxium.config.ts`,
+    depois `spraxium.config.js` e então `spraxium.config.mjs`. Em modo de
+    produção, os artefatos compilados em `dist/` e `.spraxium/dist/` são
+    verificados primeiro. O primeiro arquivo encontrado em disco vence, e a
+    busca para imediatamente.
   </Step>
-  <Step title="Resolução de ambiente e avaliação">
-    O `NODE_ENV` é lido uma vez e mapeado para um objeto *ConfigEnv*. Se o
-    export é uma função, ela é chamada com esse objeto e o valor retornado é
-    usado. Se é um objeto simples, é usado diretamente. O resultado é armazenado
-    como singleton imutável pelo restante do processo.
+  <Step title="Resolução e avaliação do ambiente">
+    `NODE_ENV` é lido uma vez e mapeado para um objeto *ConfigEnv*. Se a sua
+    exportação for uma função, ela é chamada com esse objeto e seu valor de
+    retorno é usado. Se for um objeto simples, ele é usado diretamente. O
+    resultado é armazenado como um singleton imutável pelo restante da vida do
+    processo.
   </Step>
   <Step title="Inicialização de módulos e plugins">
-    O framework resolve módulos, providers e hooks de ciclo de vida. Cada plugin
-    lê sua própria fatia de configuração do singleton usando sua factory como
-    chave de lookup. Nenhuma leitura adicional do arquivo de configuração ocorre
-    após esse ponto.
+    O framework resolve módulos, providers e hooks de ciclo de vida. Cada
+    plugin lê sua própria fatia de configuração a partir do singleton usando
+    sua factory como chave de lookup. Depois desse ponto, não há novas leituras
+    do arquivo de configuração.
   </Step>
 </Steps>
 
-<Callout tone="info" title="Nenhum arquivo de configuração não é um erro">
-  Se nenhum arquivo de configuração for encontrado na inicialização, o framework
-  continua com todos os defaults aplicados e registra uma mensagem de debug.
-  Esse é o comportamento esperado durante a configuração inicial do projeto,
-  antes de o arquivo ser criado.
+<Callout tone="info" title="Não ter arquivo de config não é um erro">
+  Se nenhum arquivo de configuração for encontrado na inicialização, o
+  framework continua com todos os defaults aplicados e registra uma mensagem de
+  debug. Esse é o estado esperado durante o setup inicial do projeto, antes de
+  o arquivo de config ser criado.
 </Callout>
 
 ## Uma responsabilidade por bloco
 
-Cada chave de topo no objeto de configuração pertence a um subsistema. As opções de plugin ficam dentro das chamadas de factory correspondentes. A política de matching de comandos fica no bloco _prefix_. A apresentação de exceptions fica no bloco _exceptions_. Manter cada bloco focado significa que modificar uma área nunca cria efeitos colaterais em outra, e isolar um incidente em produção permanece rápido.
+Cada chave de topo no objeto de configuração pertence a um subsistema. As opções de plugin vivem dentro das respectivas factory calls. A política de match de command fica no bloco _prefix_. A renderização de exceções fica no bloco _exceptions_. Manter cada bloco focado significa que alterar uma área não cria efeitos colaterais em outra, e isolar um incidente durante uma indisponibilidade em produção continua sendo rápido.
 
 <FolderStructure title="Organização recomendada para projetos maiores">
   <Folder name="config" open>
-    <File name="http.config.ts" comment="Chamada da factory do plugin HTTP" />
-    <File name="i18n.config.ts" comment="Chamada da factory do plugin I18n" />
+    <File name="http.config.ts" comment="Factory call do plugin HTTP" />
+    <File name="i18n.config.ts" comment="Factory call do plugin de I18n" />
     <File name="logger.config.ts" comment="Opções do logger" />
   </Folder>
   <File
@@ -137,4 +154,4 @@ Cada chave de topo no objeto de configuração pertence a um subsistema. As opç
 
 ## Próxima página
 
-[Campos Core](/guide/config-core-fields)
+[Campos principais](/guide/config-core-fields)

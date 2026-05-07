@@ -1,23 +1,23 @@
 ---
-title: Descripción General del Presence
+title: Visión general de presencia
 description: |
   El PresenceManager controla el indicador de estado del bot y el texto de actividad en todos los shards.
-  Aprende a definir actividades, configurar placeholders y gestionar el estado online.
+  Aprende a definir actividades, configurar placeholders y gestionar el estado en línea.
 order: 1
 category: Presence
 ---
 
 ## Qué resuelve el sistema de presencia
 
-Los bots de Discord muestran un indicador de estado (online, ausente, no molestar, invisible) y una línea de actividad debajo del nombre (Jugando, Viendo, Escuchando, Transmitiendo, Compitiendo). Estos campos de presencia son lo primero que los usuarios ven cuando revisan el bot en la lista de miembros. El _PresenceManager_ proporciona una API estática para definir y actualizar estos campos desde cualquier lugar de tu aplicación, incluyendo soporte para overrides por shard e interpolación dinámica de placeholders.
+Los bots de Discord muestran un indicador de estado (online, idle, do not disturb, invisible) y una línea de actividad bajo su nombre (Playing, Watching, Listening, Streaming, Competing). Estos campos de presencia son lo primero que las personas ven al revisar el bot en la lista de miembros. _PresenceManager_ ofrece una API estática para definir y actualizar estos campos desde cualquier parte de tu aplicación, incluyendo soporte para sobrescrituras por shard e interpolación dinámica de placeholders.
 
-Sin un gestor de presencia, llamarías a `client.user.setPresence()` directamente, lo que significa que necesitas una referencia a la instancia del client, debes prevenir llamarlo antes de que el client esté listo, y no tienes soporte incorporado para rotación de actividades o texto específico por shard. El _PresenceManager_ maneja todas estas preocupaciones a través de una clase estática centralizada que el framework inicializa automáticamente cuando el bot se conecta.
+Sin un gestor de presencia, tendrías que llamar a `client.user.setPresence()` directamente, lo que implica necesitar una referencia a la instancia del cliente, protegerte contra llamadas antes de que el cliente esté listo y no tener soporte integrado para rotar actividades o mostrar texto específico por shard. _PresenceManager_ maneja todo esto mediante una clase estática centralizada que el framework inicializa automáticamente cuando el bot se conecta.
 
-El sistema de presencia se integra con el sistema de sharding. Cuando tu bot corre en múltiples shards, cada shard puede mostrar su propio texto de actividad con información específica como el número del shard o la cantidad de guilds en ese shard. Placeholders incorporados como `{{totalServers}}` y `{{shardNumber}}` se resuelven automáticamente a partir del estado en vivo del client en cada actualización de presencia.
+El sistema de presencia se integra con el sistema de sharding. Cuando tu bot se ejecuta en múltiples shards, cada shard puede mostrar su propio texto de actividad con información específica, como el número de shard o la cantidad de guilds en ese shard. Placeholders integrados como `{{totalServers}}` y `{{shardNumber}}` se resuelven automáticamente a partir del estado en vivo del cliente en cada actualización de presencia.
 
-## Definiendo una actividad estática
+## Definir una actividad estática
 
-El caso de uso más simple es definir una actividad fija que permanece hasta que la cambies. Llama a _PresenceManager.setActivity_ con un nombre y un tipo. El nombre es el texto que aparece en la lista de miembros, y el tipo determina el prefijo que Discord agrega (Jugando, Viendo, Escuchando, Transmitiendo o Compitiendo).
+El caso de uso más simple es definir una actividad fija que se mantenga hasta que la cambies. Llama a _PresenceManager.setActivity_ con un nombre y un tipo. El nombre es el texto que aparece en la lista de miembros, y el tipo determina el prefijo que añade Discord (Playing, Watching, Listening, Streaming o Competing).
 
 ```typescript filename="src/listeners/ready.listener.ts"
 import { Events, Listener, Once } from '@spraxium/common';
@@ -35,7 +35,7 @@ export class ReadyListener {
 }
 ```
 
-El método _setActivity_ solo cambia la actividad. No toca el indicador de estado. Si quieres cambiar ambos a la vez, usa _setPresence_ que acepta un _status_ y un array de _activities_. La primera actividad del array se convierte en la actual.
+El método _setActivity_ solo cambia la actividad. No toca el indicador de estado. Si quieres cambiar ambos a la vez, usa _setPresence_, que acepta un _status_ y un arreglo _activities_. La primera actividad del arreglo pasa a ser la activa.
 
 ```typescript filename="src/listeners/ready.listener.ts"
 PresenceManager.setPresence({
@@ -44,9 +44,9 @@ PresenceManager.setPresence({
 });
 ```
 
-## Cambiando solo el estado
+## Cambiar solo el estado
 
-El método _setStatus_ actualiza el indicador de color sin tocar el texto de actividad. Cuatro valores están disponibles: `'online'` (verde), `'idle'` (amarillo), `'dnd'` (rojo) e `'invisible'` (gris, aparece offline). Esto es útil para señalar ventanas de mantenimiento o estados degradados sin cambiar lo que dice la actividad.
+El método _setStatus_ actualiza el indicador de color sin tocar el texto de actividad. Hay cuatro valores disponibles: `'online'` (verde), `'idle'` (amarillo), `'dnd'` (rojo) e `'invisible'` (gris, aparece desconectado). Esto es útil para señalar ventanas de mantenimiento o estados degradados sin cambiar lo que dice la actividad.
 
 ```typescript filename="src/services/health.service.ts"
 import { PresenceManager } from '@spraxium/core';
@@ -56,7 +56,7 @@ PresenceManager.setStatus('idle');
 
 ## Interpolación de placeholders
 
-Los nombres de actividad soportan placeholders `{{key}}` que se resuelven a partir del estado en vivo del client cada vez que la presencia se actualiza. Cinco variables incorporadas están disponibles sin ninguna configuración extra. Se actualizan automáticamente, así que un contador como `{{totalServers}}` se mantiene preciso conforme se agregan o eliminan guilds.
+Los nombres de actividad admiten placeholders `{{key}}` que se resuelven desde el estado en vivo del cliente cada vez que se actualiza la presencia. Hay cinco variables integradas disponibles sin configuración adicional. Se refrescan automáticamente, así que un contador como `{{totalServers}}` se mantiene correcto cuando se agregan o eliminan guilds.
 
 <Table>
   <TableHead>
@@ -67,29 +67,29 @@ Los nombres de actividad soportan placeholders `{{key}}` que se resuelven a part
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`{{ shardId }}`</TableCell>
+      <TableCell>*{{ shardId }}*</TableCell>
       <TableCell>ID del shard actual (base 0)</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ shardNumber }}`</TableCell>
-      <TableCell>Número del shard actual (base 1, shardId + 1)</TableCell>
+      <TableCell>*{{ shardNumber }}*</TableCell>
+      <TableCell>Número de shard actual (base 1, shardId + 1)</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ totalShards }}`</TableCell>
+      <TableCell>*{{ totalShards }}*</TableCell>
       <TableCell>Número total de shards</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ totalServers }}`</TableCell>
-      <TableCell>Número de guilds en este shard</TableCell>
+      <TableCell>*{{ totalServers }}*</TableCell>
+      <TableCell>Cantidad de guilds en este shard</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ ping }}`</TableCell>
-      <TableCell>Latencia del heartbeat WebSocket en milisegundos</TableCell>
+      <TableCell>*{{ ping }}*</TableCell>
+      <TableCell>Latencia de heartbeat de WebSocket en milisegundos</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-Los placeholders funcionan en todos los lugares donde se usan actividades: en _setActivity_, _setPresence_, _startRotation_, configuración de boot y overrides de shard. Si una clave de placeholder no se resuelve, permanece como está en la salida (ej: `{{unknownKey}}`), lo que facilita detectar errores de escritura.
+Los placeholders funcionan en todos los lugares donde se usan actividades: en _setActivity_, _setPresence_, _startRotation_, la configuración de inicio y las sobrescrituras por shard. Si una clave de placeholder no se resuelve, permanece tal cual en la salida (por ejemplo, `{{unknownKey}}`), lo que facilita detectar errores tipográficos.
 
 ```typescript filename="src/listeners/ready.listener.ts"
 PresenceManager.setActivity({
@@ -98,9 +98,9 @@ PresenceManager.setActivity({
 });
 ```
 
-## Configuración de boot
+## Configuración al iniciar
 
-En lugar de llamar métodos del _PresenceManager_ en un listener, puedes declarar la presencia inicial como una constante tipada en la carpeta `config/` y pasarla a _initPresence_ en el application builder en `main.ts`. El framework la aplica automáticamente después de que el client se conecta, antes de que cualquier listener se dispare.
+En lugar de llamar a métodos de _PresenceManager_ en un listener, puedes declarar la presencia inicial como una constante tipada en la carpeta `config/` y pasarla a _initPresence_ en el builder de la aplicación en `main.ts`. El framework la aplica automáticamente después de que el cliente se conecta, antes de que se dispare cualquier listener.
 
 <CodeTabs>
   <Tab label="config/presence.config.ts">
@@ -134,16 +134,16 @@ main();
   </Tab>
 </CodeTabs>
 
-*initPresence* acepta un objeto *PresenceOptions*: un *status*, un array de *activities*, un *rotateInterval* para ciclo automático y un registro *perShard* para overrides específicos de shard en el boot.
+*initPresence* acepta un objeto *PresenceOptions*: un *status*, un arreglo *activities*, un *rotateInterval* para rotación automática y un registro *perShard* para sobrescrituras específicas por shard en el arranque.
 
-## Reseteando al estado de boot
+## Restablecer al estado de inicio
 
-El método *reset* restaura la presencia exacta que fue configurada en el boot. Detiene cualquier rotación activa, resetea el estado y la actividad, y reinicia la rotación si la configuración de boot especificó una. Los overrides por shard en runtime no se limpian con *reset*, así que llama a *clearShardPresence* para cada shard primero si quieres un reset completo.
+El método *reset* restaura exactamente la presencia configurada al inicio. Detiene cualquier rotación activa, restablece el estado y la actividad, y vuelve a iniciar la rotación si la configuración inicial especificaba una. Las sobrescrituras por shard en tiempo de ejecución no se limpian con *reset*, así que llama primero a *clearShardPresence* para cada shard si quieres un restablecimiento completo.
 
 ```typescript filename="src/commands/reset-presence.command.ts"
 PresenceManager.reset();
 ````
 
-## Siguiente página
+## Página siguiente
 
-Continúa con [Rotación y Shards](/presence-rotation-shards).
+Continúa con [Rotación y shards](/presence-rotation-shards).

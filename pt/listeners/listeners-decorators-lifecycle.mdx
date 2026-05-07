@@ -1,20 +1,36 @@
 ---
 title: Decorators e Ciclo de Vida
 description: |
-  Entenda como Listener, On, Once e Ctx funcionam juntos no pipeline de eventos.
-  Aprenda semantica de binding, injeção de parâmetros e suporte a injeção de dependencia pra listeners.
+  Entenda como os decorators Listener, On, Once e Ctx trabalham juntos no pipeline de eventos.
+  Aprenda semântica de binding, injeção de parâmetros e suporte a DI em listeners.
 order: 2
 category: Listeners
+keywords:
+  - spraxium listeners decorators lifecycle
+  - decorators e ciclo de vida no spraxium
+  - listeners listeners decorators lifecycle guia
+  - listeners decorators lifecycle bot discord
+  - listeners decorators lifecycle typescript
+  - documentacao spraxium listeners
+  - decorators e ciclo de vida listeners
+  - spraxium decorators e ciclo de vida
+faq:
+  - question: "O que \"Decorators e Ciclo de Vida\" cobre no Spraxium?"
+    answer: "Entenda como os decorators Listener, On, Once e Ctx trabalham juntos no pipeline de eventos. Aprenda semântica de binding, injeção de parâmetros e suporte a DI em listeners."
+  - question: "Quando devo usar \"Decorators e Ciclo de Vida\"?"
+    answer: "Use esta pagina quando voce estiver implementando listeners decorators lifecycle dentro da area de Listeners do seu bot."
+  - question: "Qual o proximo passo depois de \"Decorators e Ciclo de Vida\"?"
+    answer: "Continue nas paginas relacionadas de Listeners para conectar este conceito com implementacao pratica."
 ---
 
-## O decorator @Listener na classe
+## O decorator de classe @Listener
 
-O decorator _@Listener_ é o que transforma uma classe comum em um listener. Ele recebe um único argumento: o nome do evento Discord do enum _Events_ do Discord.js. Esse decorator faz duas coisas internamente. Ele armazena o nome do evento como metadata na classe, e marca a classe como injetável pra que o container de DI possa resolver suas dependencias de construtor durante o bootstrap.
+O decorator _@Listener_ é o que transforma uma classe comum em um listener. Ele recebe um único argumento: o nome do evento do Discord a partir do enum _Events_ do Discord.js. Internamente, esse decorator faz duas coisas. Primeiro, salva o nome do evento como metadado da classe. Depois, marca a classe como injetável para que o container de DI consiga resolver dependências do construtor durante o bootstrap.
 
-Cada classe listener é vinculada a exatamente um evento. Se você precisa reagir a _GuildMemberAdd_ e _GuildMemberRemove_, crie duas classes listener separadas. Isso mantem cada classe focada em um evento e evita confusao sobre quais métodos tratam quais eventos. Você pode definir múltiplas classes listener no mesmo arquivo se elas forem relacionadas, como um _MemberJoinListener_ e um _MemberLeaveListener_ que lidam com o mesmo conceito. So lembre que cada classe ainda precisa do seu próprio decorator _@Listener_ com o evento correto.
+Cada classe de listener fica vinculada a exatamente um evento. Se você precisar reagir a _GuildMemberAdd_ e _GuildMemberRemove_, crie duas classes separadas. Isso mantém cada classe focada em um único evento e evita confusão sobre qual método trata o quê. Você até pode declarar várias classes no mesmo arquivo quando elas forem muito relacionadas, como _MemberJoinListener_ e _MemberLeaveListener_, mas cada classe ainda precisa do seu próprio _@Listener_ com o evento correto.
 
 <CodeTabs>
-  <Tab label="Classe Única" language="typescript">
+  <Tab label="Classe única" language="typescript">
 ```typescript filename="member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import type { GuildMember } from 'discord.js';
@@ -25,14 +41,14 @@ export class MemberJoinListener {
   async onJoin(member: GuildMember): Promise<void> {
     const channel = await member.guild.channels.fetch('1234567890');
     if (channel?.isTextBased()) {
-      await channel.send(`Bem-vindo, ${member}!`);
+      await channel.send(`Welcome, ${member}!`);
     }
   }
 }
 
 ````
   </Tab>
-  <Tab label="Múltiplas Classes" language="typescript">
+  <Tab label="Múltiplas classes" language="typescript">
 ```typescript filename="member.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
 import { Logger } from '@spraxium/core';
@@ -44,7 +60,7 @@ export class MemberJoinListener {
 
   @On()
   async onJoin(member: GuildMember): Promise<void> {
-    this.logger.info(`${member.user.username} entrou em ${member.guild.name}`);
+    this.logger.info(`${member.user.username} joined ${member.guild.name}`);
   }
 }
 
@@ -54,8 +70,8 @@ export class MemberLeaveListener {
 
   @On()
   async onLeave(member: GuildMember | PartialGuildMember): Promise<void> {
-    const name = member.partial ? `Usuario ${member.id}` : member.user.username;
-    this.logger.info(`${name} saiu da guild ${member.guild.id}`);
+    const name = member.partial ? `User ${member.id}` : member.user.username;
+    this.logger.info(`${name} left guild ${member.guild.id}`);
   }
 }
 ````
@@ -65,9 +81,9 @@ export class MemberLeaveListener {
 
 ## @On versus @Once
 
-O decorator _@On_ cria um binding de evento persistente. Toda vez que o evento Discord dispara, o método decorado roda. É isso que você quer pra maioria dos eventos como _MessageCreate_, _InteractionCreate_, _GuildMemberAdd_ e qualquer outra coisa que pode acontecer repetidamente. O binding fica ativo durante toda a vida do processo do bot.
+O decorator _@On_ cria um binding persistente de evento. Toda vez que o evento do Discord dispara, o método decorado roda. É isso que você vai querer na maioria dos eventos, como _MessageCreate_, _InteractionCreate_ e _GuildMemberAdd_, ou qualquer outro que possa acontecer várias vezes. O binding continua ativo durante toda a vida do processo do bot.
 
-O decorator _@Once_ cria um binding de evento único. Ele dispara apenas na primeira vez que o evento ocorre após o bot iniciar, e então o binding é removido automaticamente. Tipicamente é usado pro evento _ClientReady_, que você só precisa tratar uma vez quando o bot termina de conectar. Você também pode usá-lo pra qualquer lógica de inicialização que deve rodar exatamente uma vez em resposta a um evento específico.
+O decorator _@Once_ cria um binding de uso único. Ele dispara só na primeira vez que o evento acontece depois que o bot sobe, e então o binding é removido automaticamente. O caso clássico é _ClientReady_, que geralmente só precisa ser tratado uma vez quando a conexão termina de subir. Também pode servir para qualquer lógica de inicialização que precise rodar exatamente uma vez em resposta a um evento específico.
 
 ```typescript filename="ready.listener.ts"
 import { Events, Listener, Once } from '@spraxium/common';
@@ -77,16 +93,16 @@ import type { Client } from 'discord.js';
 export class ReadyListener {
   @Once()
   onReady(client: Client<true>): void {
-    console.log(`Logado como ${client.user.tag}`);
+    console.log(`Logged in as ${client.user.tag}`);
   }
 }
 ```
 
-Um detalhe importante: _@Once_ e sobre semantica de binding de evento, não semantica de instancia de classe. Significa "vincule esse handler com client.once() em vez de client.on()". O client do Discord.js remove o listener automaticamente após a primeira invocação. Essa e uma distincao sutil mas importante porque significa que o comportamento é controlado pelo sistema de eventos do Discord.js, não pelo framework rastreando contagem de invocações.
+Um detalhe importante: _@Once_ fala de semântica de binding de evento, não de semântica da instância da classe. Em outras palavras, significa “registre este handler com `client.once()` em vez de `client.on()`”. O próprio cliente do Discord.js remove o listener depois da primeira invocação. Essa diferença é sutil, mas importante, porque o comportamento é controlado pelo sistema de eventos do Discord.js, e não por algum contador de chamadas do framework.
 
 ## O decorator de parâmetro @Ctx
 
-O decorator _@Ctx_ é um decorator de parâmetro que injeta os argumentos crus do evento Discord em um parâmetro do método. Na maioria das vezes você não precisa desse decorator porque o payload do evento ja esta disponível como parâmetros regulares do método. Porem, _@Ctx_ é útil quando você quer tornar a intencao de injeção explicita no seu código ou quando trabalha com eventos que fornecem múltiplos argumentos.
+_@Ctx_ é um decorator de parâmetro que injeta os argumentos brutos do evento do Discord dentro de um parâmetro do método. Na maior parte do tempo, você nem precisa dele, porque o payload já pode ser recebido como parâmetro normal do método. Ainda assim, _@Ctx_ é útil quando você quer deixar explícita a intenção de injeção no código ou quando o evento fornece vários argumentos e você quer destacar qual deles interessa.
 
 ```typescript filename="interaction.listener.ts"
 import { Ctx, Events, Listener, On } from '@spraxium/common';
@@ -97,14 +113,14 @@ export class InteractionListener {
   @On()
   async onInteraction(@Ctx() interaction: Interaction): Promise<void> {
     if (!interaction.isChatInputCommand()) return;
-    console.log(`Comando recebido: ${interaction.commandName}`);
+    console.log(`Received command: ${interaction.commandName}`);
   }
 }
 ```
 
-## Injeção de dependencia em listeners
+## Injeção de dependência em listeners
 
-Como _@Listener_ automaticamente marca a classe como injetável, seu listener pode receber dependencias de construtor assim como qualquer outra classe injetável no Spraxium. É assim que você conecta listeners a serviços, repositorios e outras partes da sua aplicacao sem criar acoplamento forte ou wiring manual.
+Como _@Listener_ marca a classe como injetável automaticamente, o listener pode receber dependências de construtor do mesmo jeito que qualquer outra classe injetável do Spraxium. É assim que você conecta listeners a serviços, repositórios e outras partes da aplicação sem acoplamento desnecessário nem wiring manual.
 
 ```typescript filename="message-create.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -121,21 +137,21 @@ export class MessageCreateListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    this.logger.debug(`Mensagem de ${message.author.id}`);
+    this.logger.debug(`Message from ${message.author.id}`);
     await this.leaderboard.trackMessage(message.author.id, message.guildId);
   }
 }
 ```
 
-O _LeaderboardService_ deve ser registrado como provider no mesmo módulo ou exportado de um módulo importado. O container de DI o resolve no momento da instanciação, antes de qualquer evento comecar a disparar. Se a dependencia não pode ser resolvida, o framework lança um erro claro durante o bootstrap explicando qual token não foi encontrado e sugerindo onde registrá-lo.
+_LeaderboardService_ precisa estar registrado como provider no mesmo módulo ou exportado por algum módulo importado. O container de DI resolve isso no momento da instanciação, antes de qualquer evento começar a disparar. Se a dependência não puder ser resolvida, o framework lança um erro claro durante o bootstrap dizendo qual token faltou e sugerindo onde fazer o registro.
 
-Mantenha métodos de listener finos. O listener recebe o evento, faz filtragem básica como ignorar mensagens de bot, e então delega o trabalho real pra um serviço injetado. Esse padrão torna sua lógica de negócio testável independentemente do sistema de eventos e previne que listeners cresçam em classes grandes cheias de lógica de dominio.
+Mantenha os métodos do listener enxutos. O listener recebe o evento, faz filtros básicos, como ignorar mensagens de bot, e delega o trabalho real para um serviço injetado. Esse padrão deixa a lógica de negócio testável sem depender do sistema de eventos e evita que listeners virem classes grandes, cheias de regra de domínio.
 
 <Callout tone="warning" title="Gateway intents importam">
-  Se seu listener esta registrado corretamente mas nunca dispara, a causa mais
-  comum e falta de gateway intents na configuração do bot. Por exemplo,
-  MessageCreate requer o intent GuildMessages ou DirectMessages, e
-  GuildMemberAdd requer o intent GuildMembers.
+  Se o listener está registrado corretamente, mas nunca dispara, a causa mais
+  comum é a falta de gateway intents na configuração do bot. Por exemplo,
+  MessageCreate exige GuildMessages ou DirectMessages, e GuildMemberAdd exige
+  GuildMembers.
 </Callout>
 
 ## Próxima página

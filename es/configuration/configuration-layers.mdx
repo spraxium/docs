@@ -1,17 +1,17 @@
 ---
-title: Resumen de Configuración
+title: Visión general de la configuración
 description: |
-  spraxium.config.ts es el único archivo que gobierna todo el comportamiento de runtime en un proyecto Spraxium.
-  Aprende cómo funciona defineConfig, cuándo usar el patrón callback y cómo el framework carga tu configuración al arrancar.
+  spraxium.config.ts es el único archivo que gobierna todo el comportamiento en tiempo de ejecución de un proyecto Spraxium.
+  Aprende cómo funciona defineConfig, cuándo usar la forma con callback y cómo el framework carga tu configuración al iniciar.
 order: 1
 category: Configuration
 ---
 
 ## El archivo de configuración
 
-Todo proyecto Spraxium tiene un archivo `spraxium.config.ts` en la raíz. Este archivo es la fuente canónica de todo el comportamiento de runtime: qué plugins están activos, cómo los comandos hacen matching, cómo se presentan los errores y cómo se comporta el watcher de dev. El framework lo lee una vez al arrancar y almacena el resultado como snapshot inmutable antes de que cualquier módulo comience a ejecutarse.
+Cada proyecto Spraxium tiene un archivo `spraxium.config.ts` en su raíz. Este archivo es la única fuente de verdad para todo el comportamiento en tiempo de ejecución: qué plugins están activos, cómo se comparan los comandos, cómo se presentan los errores y cómo se comporta el watcher de desarrollo local. El framework lo lee una sola vez al iniciar y guarda el resultado como una instantánea inmutable antes de que cualquier módulo comience a ejecutarse.
 
-Escribes el archivo usando el helper _defineConfig_ exportado desde `@spraxium/core`. Acepta un objeto plano o un callback que recibe un argumento _ConfigEnv_. Ambas formas producen una configuración válida. El patrón callback es recomendado siempre que las opciones deban diferir entre entornos, ya que centraliza toda ramificación por modo en un único lugar.
+Escribes el archivo usando el helper _defineConfig_ exportado desde `@spraxium/core`. Acepta un objeto plano o un callback que recibe un argumento _ConfigEnv_. Ambas formas producen una configuración válida, pero se recomienda la forma con callback cuando las opciones deben diferir entre entornos, porque hace explícitas todas las bifurcaciones en un único lugar.
 
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
@@ -29,9 +29,9 @@ export default defineConfig((env) => ({
 }));
 ```
 
-## Patrón callback vs objeto
+## Forma callback vs forma objeto
 
-El patrón callback recibe un objeto _ConfigEnv_ construido a partir de una única lectura de `NODE_ENV` al arrancar. Expone _isDev_, _isNeutral_ e _isProd_ para que puedas ramificar por entorno sin verificar strings crudas. El patrón de objeto plano es adecuado para proyectos donde la configuración es idéntica en todos los entornos.
+La forma con callback recibe un objeto _ConfigEnv_ construido a partir de una sola lectura de `NODE_ENV` al inicio. Expone _isDev_, _isNeutral_ e _isProd_ para que puedas bifurcar por entorno sin comprobar strings crudos. La forma de objeto es adecuada para proyectos donde la configuración es idéntica en todos los entornos.
 
 <CodeTabs>
   <Tab label="Callback" language="typescript">
@@ -61,72 +61,72 @@ export default defineConfig({
   </Tab>
 </CodeTabs>
 
-Los flags del objeto _ConfigEnv_ se resuelven desde `NODE_ENV` de la siguiente manera.
+Los flags de _ConfigEnv_ se resuelven desde `NODE_ENV` de la siguiente manera.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>NODE_ENV</TableCell>
-      <TableCell header>Flag activo</TableCell>
+      <TableCell header>Flag activa</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`production`</TableCell>
-      <TableCell>`isProd = true`</TableCell>
+      <TableCell>*production*</TableCell>
+      <TableCell>*isProd = true*</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`neutral`, `staging`, `test`</TableCell>
-      <TableCell>`isNeutral = true`</TableCell>
+      <TableCell>*neutral*, *staging* o *test*</TableCell>
+      <TableCell>*isNeutral = true*</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Cualquier otro valor</TableCell>
-      <TableCell>`isDev = true`</TableCell>
+      <TableCell>*isDev = true*</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Secuencia de arranque
+## Secuencia de inicio
 
-El framework completa estos pasos antes de que cualquier módulo de la aplicación se ejecute.
+El framework completa estos pasos antes de que se ejecute cualquier módulo de la aplicación.
 
 <Steps>
   <Step title="Descubrimiento del archivo de configuración">
-    El framework escanea la raíz del proyecto buscando `spraxium.config.ts`,
-    luego `spraxium.config.js`, luego `spraxium.config.mjs`. En modo producción,
-    los artefactos compilados en `dist/` y `.spraxium/dist/` se verifican
-    primero. El primer archivo que exista en disco gana y la búsqueda termina de
-    inmediato.
+    El framework escanea la raíz del proyecto en busca de `spraxium.config.ts`,
+    luego `spraxium.config.js` y después `spraxium.config.mjs`. En modo de
+    producción, primero se comprueban los artefactos compilados en `dist/` y
+    `.spraxium/dist/`. Gana el primer archivo que exista en disco, y la
+    búsqueda se detiene de inmediato.
   </Step>
-  <Step title="Resolución de entorno y evaluación">
-    `NODE_ENV` se lee una vez y se mapea a un objeto *ConfigEnv*. Si el export
-    es una función, se invoca con ese objeto y se usa el valor de retorno. Si es
-    un objeto plano, se usa directamente. El resultado se almacena como
-    singleton inmutable por el resto del proceso.
+  <Step title="Resolución del entorno y evaluación">
+    `NODE_ENV` se lee una sola vez y se mapea a un objeto *ConfigEnv*. Si tu
+    exportación es una función, se llama con este objeto y se usa su valor de
+    retorno. Si es un objeto plano, se usa directamente. El resultado se guarda
+    como un singleton inmutable durante el resto de la vida del proceso.
   </Step>
   <Step title="Inicialización de módulos y plugins">
-    El framework resuelve módulos, providers y hooks de ciclo de vida. Cada
-    plugin lee su propia porción de configuración del singleton usando su
-    factory como clave de búsqueda. No se realizan más lecturas del archivo de
+    El framework resuelve módulos, providers y hooks del ciclo de vida. Cada
+    plugin lee su propio fragmento de configuración del singleton usando su
+    factory como clave de búsqueda. No hay más lecturas del archivo de
     configuración después de este punto.
   </Step>
 </Steps>
 
 <Callout tone="info" title="No tener archivo de configuración no es un error">
-  Si no se encuentra ningún archivo de configuración al arrancar, el framework
-  continúa con todos los valores por defecto aplicados y registra un mensaje de
-  debug. Este es el comportamiento esperado durante la configuración inicial del
-  proyecto, antes de que se cree el archivo.
+  Si no se encuentra ningún archivo de configuración al iniciar, el framework
+  continúa con todos los valores predeterminados aplicados y registra un mensaje
+  de debug. Este es el estado esperado durante la configuración inicial del
+  proyecto, antes de crear el archivo de configuración.
 </Callout>
 
 ## Una responsabilidad por bloque
 
-Cada clave de nivel superior en el objeto de configuración pertenece a un subsistema. Las opciones de plugin viven dentro de las llamadas de factory correspondientes. La política de matching de comandos vive en el bloque _prefix_. La presentación de exceptions vive en el bloque _exceptions_. Mantener cada bloque enfocado garantiza que modificar un área nunca genera efectos secundarios en otra.
+Cada clave de nivel superior del objeto de configuración pertenece a un subsistema. Las opciones de plugin viven dentro de sus respectivas llamadas de factory. La política de matching de comandos vive en el bloque _prefix_. El renderizado de excepciones vive en el bloque _exceptions_. Mantener cada bloque enfocado significa que modificar una zona nunca crea efectos secundarios en otra, y que acotar un incidente durante una caída en producción siga siendo rápido.
 
-<FolderStructure title="Organización recomendada para proyectos grandes">
+<FolderStructure title="Organización recomendada para proyectos más grandes">
   <Folder name="config" open>
-    <File name="http.config.ts" comment="Llamada de factory del plugin HTTP" />
-    <File name="i18n.config.ts" comment="Llamada de factory del plugin I18n" />
+    <File name="http.config.ts" comment="Llamada a la factory del plugin HTTP" />
+    <File name="i18n.config.ts" comment="Llamada a la factory del plugin i18n" />
     <File name="logger.config.ts" comment="Opciones del logger" />
   </Folder>
   <File
@@ -137,4 +137,4 @@ Cada clave de nivel superior en el objeto de configuración pertenece a un subsi
 
 ## Siguiente página
 
-[Campos Core](/guide/config-core-fields)
+[Campos principales](/guide/config-core-fields)

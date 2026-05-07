@@ -1,20 +1,36 @@
 ---
 title: Handlers e Injeção de Parâmetros
 description: |
-  Implemente a lógica de slash commands em classes handler com injeção de dependência completa.
-  Aprenda como @SlashCommandHandler, @Ctx e @SlashOpt conectam dados da interação em parâmetros de método automaticamente.
+  Implemente a lógica de slash commands em classes de handler com injeção de dependência completa.
+  Aprenda como @SlashCommandHandler, @Ctx, @SlashOption e os nove decorators tipados de opção conectam automaticamente os dados da interação aos parâmetros do método.
 order: 3
 category: Slash Commands
+keywords:
+  - spraxium slash commands handlers injection
+  - handlers e injeção de parâmetros no spraxium
+  - slash commands slash commands handlers injection guia
+  - slash commands handlers injection bot discord
+  - slash commands handlers injection typescript
+  - documentacao spraxium slash commands
+  - handlers e injeção de parâmetros slash commands
+  - spraxium handlers e injeção de parâmetros
+faq:
+  - question: "O que \"Handlers e Injeção de Parâmetros\" cobre no Spraxium?"
+    answer: "Implemente a lógica de slash commands em classes de handler com injeção de dependência completa. Aprenda como @SlashCommandHandler, @Ctx, @SlashOption e os nove decorators tipados de opção conectam automaticamente os dados da interação aos parâmetros do método."
+  - question: "Quando devo usar \"Handlers e Injeção de Parâmetros\"?"
+    answer: "Use esta pagina quando voce estiver implementando slash commands handlers injection dentro da area de Slash Commands do seu bot."
+  - question: "Qual o proximo passo depois de \"Handlers e Injeção de Parâmetros\"?"
+    answer: "Continue nas paginas relacionadas de Slash Commands para conectar este conceito com implementacao pratica."
 ---
 
-## A classe handler
+## A classe do handler
 
-Uma classe handler é uma classe standalone decorada com _@SlashCommandHandler_ que contém a lógica de execução para um slash command. O decorator recebe a classe de definição do comando como primeiro argumento, criando um vínculo de metadados entre o schema e a lógica. A classe handler é instanciada pelo container DI durante o carregamento de módulos, então parâmetros de construtor são resolvidos automaticamente dos providers do módulo.
+Uma classe de handler é uma classe independente decorada com _@SlashCommandHandler_ que contém a lógica de execução de um slash command. O decorator recebe a classe de definição do comando como primeiro argumento, criando um vínculo de metadados entre o schema e a lógica. A classe do handler é instanciada pelo container de DI durante o carregamento do módulo, então os parâmetros do construtor são resolvidos automaticamente a partir dos providers do módulo.
 
-O handler deve expor um método _handle_. Quando uma interação chega correspondendo ao nome do comando (e opcionalmente ao subcomando e grupo), o _SlashInvoker_ chama esse método após o pipeline de guards passar. A lista de parâmetros do _handle_ é construída dinamicamente a partir de metadados: _@Ctx()_ injeta a interação bruta, _@SlashOpt(name)_ injeta um valor de opção resolvido, e qualquer parâmetro sem decorator recebe `undefined`.
+O handler precisa expor um método _handle_. Quando chega uma interação que corresponde ao nome do comando, e opcionalmente ao subcomando e ao grupo, o _SlashInvoker_ chama esse método depois que o pipeline de guards passa. A lista de parâmetros de _handle_ é montada dinamicamente a partir de metadados: _@Ctx()_ injeta a interação bruta, decorators de opção injetam valores de opção já resolvidos e qualquer parâmetro sem decorator recebe `undefined`.
 
 ```typescript filename="handlers/ping.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import { Ctx, SlashCommandHandler, SlashStringOption } from '@spraxium/common';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { PingCommand } from '../commands/ping.command';
 
@@ -22,7 +38,7 @@ import { PingCommand } from '../commands/ping.command';
 export class PingHandler {
   async handle(
     @Ctx() interaction: ChatInputCommandInteraction,
-    @SlashOpt('service') service: string | null,
+    @SlashStringOption('service') service: string | null,
   ): Promise<void> {
     const ws = interaction.client.ws.ping;
     if (service) {
@@ -34,52 +50,52 @@ export class PingHandler {
 }
 ```
 
-O Spraxium exporta o tipo `SlashContext` de `@spraxium/common`, que é um alias direto de `ChatInputCommandInteraction`. Importar de `@spraxium/common` reduz o acoplamento direto com discord.js nos arquivos de handler. Os dois tipos são intercambiáveis; use o que melhor se encaixa na organização de imports do seu time.
+O Spraxium exporta um tipo `SlashContext` em `@spraxium/common` que é um alias direto de `ChatInputCommandInteraction`. Importar de `@spraxium/common` reduz o acoplamento direto com discord.js nos arquivos de handler. Os dois tipos são intercambiáveis; use o caminho que fizer mais sentido para a organização de imports da sua equipe.
 
 ## O decorator @SlashCommandHandler
 
-O decorator _@SlashCommandHandler_ aceita um argumento obrigatório e um opcional. O primeiro argumento é a classe decorada com _@SlashCommand_ à qual este handler pertence. O segundo argumento é um objeto de opções com propriedades _sub_ e _group_ para roteamento a subcomandos específicos.
+O decorator _@SlashCommandHandler_ aceita um argumento obrigatório e um opcional. O primeiro argumento é a classe decorada com _@SlashCommand_ à qual esse handler pertence. O segundo é um objeto de opções com propriedades _sub_ e _group_ para roteamento de subcomandos específicos.
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header="Argumento">Argumento</TableCell>
-      <TableCell header="Tipo">Tipo</TableCell>
-      <TableCell header="Obrigatório">Obrigatório</TableCell>
-      <TableCell header="Descrição">Descrição</TableCell>
+      <TableCell header>Argumento</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Obrigatório</TableCell>
+      <TableCell header>Descrição</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*command*</TableCell>
-      <TableCell>Construtor da classe</TableCell>
+      <TableCell>Construtor de classe</TableCell>
       <TableCell>Sim</TableCell>
       <TableCell>
-        A classe decorada com *@SlashCommand* para a qual este handler executa.
+        A classe decorada com *@SlashCommand* que esse handler executa.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.sub*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>Não</TableCell>
       <TableCell>
-        O nome do subcomando que este handler responde. Omita para handlers de
-        comando raiz.
+        O nome do subcomando ao qual esse handler responde. Omita em handlers
+        de comando raiz.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.group*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>Não</TableCell>
       <TableCell>
-        O nome do grupo de subcomandos que este handler responde. Deve ser usado
-        com *sub*.
+        O nome do grupo de subcomandos ao qual esse handler responde. Deve ser
+        usado junto com *sub*.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-A resolução de roteamento segue uma regra de correspondência estrita. Quando o binder recebe uma interação, ele extrai o nome do comando, subcomando opcional e grupo de subcomandos opcional do objeto de interação Discord. O registry então encontra o handler onde todos os três valores correspondem exatamente. Isso significa que um handler raiz (sem _sub_ ou _group_) nunca receberá interações de subcomando, e um handler de subcomando nunca receberá interações raiz.
+A resolução de roteamento segue uma regra estrita de correspondência. Quando o binder recebe uma interação, ele extrai o nome do comando, o subcomando opcional e o grupo de subcomandos opcional do objeto de interação do Discord. Depois, o registry encontra o handler em que os três valores batem exatamente. Isso significa que um handler raiz, sem _sub_ nem _group_, nunca recebe interações de subcomando, e um handler de subcomando nunca recebe interações de raiz.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="Handler raiz" language="typescript">
@@ -95,8 +111,7 @@ export class InfoHandler {
     await interaction.reply(`Bot latency: ${ws}ms`);
   }
 }
-
-````
+```
   </Tab>
   <Tab label="Handler de subcomando" language="typescript">
 ```typescript filename="handlers/config-view.handler.ts"
@@ -110,12 +125,11 @@ export class ConfigViewHandler {
     await interaction.reply('Current configuration: ...');
   }
 }
-````
-
+```
   </Tab>
   <Tab label="Handler de grupo + subcomando" language="typescript">
 ```typescript filename="handlers/config-automod.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import { Ctx, SlashCommandHandler, SlashBooleanOption, SlashStringOption } from '@spraxium/common';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { ConfigCommand } from '../commands/config.command';
 
@@ -123,91 +137,158 @@ import { ConfigCommand } from '../commands/config.command';
 export class ConfigAutomodHandler {
   async handle(
     @Ctx() interaction: ChatInputCommandInteraction,
-    @SlashOpt('enabled') enabled: boolean,
-    @SlashOpt('filter') filter: string | null,
+    @SlashBooleanOption('enabled') enabled: boolean | null,
+    @SlashStringOption('filter') filter: string | null,
   ): Promise<void> {
     await interaction.reply(`Automod ${enabled ? 'enabled' : 'disabled'}`);
   }
 }
-
-````
+```
   </Tab>
 </CodeTabs>
 
-## Injeção de parâmetros com @Ctx e @SlashOpt
+## Injeção de parâmetros: @Ctx e decorators de opção
 
-Os parâmetros do método *handle* são preenchidos pelo *SlashInvoker* em runtime. Dois decorators de parâmetro controlam o que cada posição recebe: *@Ctx()* injeta a interação Discord bruta, e *@SlashOpt(name)* injeta o valor resolvido para a opção nomeada. Posições de parâmetros são independentes, então você pode colocar *@Ctx* em qualquer índice e misturar com parâmetros *@SlashOpt* em qualquer ordem.
+Os parâmetros do método _handle_ são preenchidos pelo _SlashInvoker_ em tempo de execução. _@Ctx()_ injeta a interação bruta do Discord. Decorators de opção injetam o valor resolvido de cada opção nomeada da interação. As posições dos parâmetros são totalmente independentes, então você pode colocar _@Ctx_ em qualquer índice e misturá-lo com decorators de opção em qualquer ordem.
 
-*@SlashOpt* resolve o valor da opção chamando o getter apropriado do discord.js baseado no tipo de opção declarado na definição do comando. Para uma opção *STRING*, ele chama `interaction.options.getString(name)`. Para uma opção *USER*, ele chama `interaction.options.getUser(name)`. O mapeamento cobre todos os nove tipos de opção.
+### @SlashOption (genérico)
 
-<Table variant="striped">
+_@SlashOption('name')_ resolve o valor da opção consultando o tipo da opção na classe de definição do comando em tempo de execução e então chama o getter correto do discord.js. Use isso quando você quiser uma injeção rápida sem precisar especificar o tipo no próprio decorator, porque o tipo é inferido a partir dos metadados do comando.
+
+```typescript filename="handlers/echo.handler.ts"
+import { Ctx, SlashCommandHandler, SlashOption } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { EchoCommand } from '../commands/echo.command';
+
+@SlashCommandHandler(EchoCommand)
+export class EchoHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashOption('message') message: string,
+  ): Promise<void> {
+    await interaction.reply(message);
+  }
+}
+```
+
+### Decorators de parâmetro tipados
+
+Nove decorators tipados de parâmetro embutem o tipo da opção diretamente nos metadados, deixando o código do handler autoexplicativo. A consulta à classe de definição do comando é ignorada, e o dispatcher já conhece o tipo da opção do Discord pelo próprio decorator. Prefira esses decorators em vez de _@SlashOption_ quando o tipo da opção já for conhecido no momento da escrita.
+
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header="Tipo de opção">Tipo de opção</TableCell>
-      <TableCell header="Getter do discord.js">Getter do discord.js</TableCell>
-      <TableCell header="Tipo de retorno">Tipo de retorno</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Tipo do Discord</TableCell>
+      <TableCell header>Valor em runtime</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
+      <TableCell>*@SlashStringOption(name)*</TableCell>
       <TableCell>STRING</TableCell>
-      <TableCell>`interaction.options.getString(name)`</TableCell>
-      <TableCell>`string | null`</TableCell>
+      <TableCell>string ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashIntegerOption(name)*</TableCell>
       <TableCell>INTEGER</TableCell>
-      <TableCell>`interaction.options.getInteger(name)`</TableCell>
-      <TableCell>`number | null`</TableCell>
+      <TableCell>number ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashNumberOption(name)*</TableCell>
       <TableCell>NUMBER</TableCell>
-      <TableCell>`interaction.options.getNumber(name)`</TableCell>
-      <TableCell>`number | null`</TableCell>
+      <TableCell>number ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashBooleanOption(name)*</TableCell>
       <TableCell>BOOLEAN</TableCell>
-      <TableCell>`interaction.options.getBoolean(name)`</TableCell>
-      <TableCell>`boolean | null`</TableCell>
+      <TableCell>boolean ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashUserOption(name)*</TableCell>
       <TableCell>USER</TableCell>
-      <TableCell>`interaction.options.getUser(name)`</TableCell>
-      <TableCell>`User | null`</TableCell>
+      <TableCell>User ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashChannelOption(name)*</TableCell>
       <TableCell>CHANNEL</TableCell>
-      <TableCell>`interaction.options.getChannel(name)`</TableCell>
-      <TableCell>`Channel | null`</TableCell>
+      <TableCell>GuildBasedChannel ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashRoleOption(name)*</TableCell>
       <TableCell>ROLE</TableCell>
-      <TableCell>`interaction.options.getRole(name)`</TableCell>
-      <TableCell>`Role | null`</TableCell>
+      <TableCell>Role ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashMentionableOption(name)*</TableCell>
       <TableCell>MENTIONABLE</TableCell>
-      <TableCell>`interaction.options.getMentionable(name)`</TableCell>
-      <TableCell>`User | Role | null`</TableCell>
+      <TableCell>User ou Role ou null</TableCell>
     </TableRow>
     <TableRow>
+      <TableCell>*@SlashAttachmentOption(name)*</TableCell>
       <TableCell>ATTACHMENT</TableCell>
-      <TableCell>`interaction.options.getAttachment(name)`</TableCell>
-      <TableCell>`Attachment | null`</TableCell>
+      <TableCell>Attachment ou null</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-<Callout tone="warning" title="Nomes do @SlashOpt devem corresponder à definição da opção exatamente">
-  A string passada a *@SlashOpt('name')* deve ser idêntica ao nome da opção declarado no decorator *@SlashOption* na definição do comando. Se os nomes não corresponderem, o framework não consegue localizar os metadados da opção e o parâmetro recebe null em tempo de execução.
-  Verifique os nomes das opções ao renomear comandos ou importe a classe de comando como referência de tipo para detectar incompatíveis durante o code review.
+```typescript filename="handlers/ban.handler.ts"
+import {
+  Ctx,
+  SlashCommandHandler,
+  SlashIntegerOption,
+  SlashStringOption,
+  SlashUserOption,
+} from '@spraxium/common';
+import type { ChatInputCommandInteraction, User } from 'discord.js';
+import { BanCommand } from '../commands/ban.command';
+
+@SlashCommandHandler(BanCommand)
+export class BanHandler {
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashUserOption('target') target: User | null,
+    @SlashStringOption('reason') reason: string | null,
+    @SlashIntegerOption('days') days: number | null,
+  ): Promise<void> {
+    if (!target) {
+      await interaction.reply({ content: 'No target provided.', flags: 'Ephemeral' });
+      return;
+    }
+    await interaction.reply(`Banned **${target.tag}**, reason: ${reason ?? 'none'}`);
+  }
+}
+```
+
+<Callout tone="warning" title="Nomes de decorator precisam bater exatamente com os nomes das opções">
+  A string passada para qualquer decorator de opção precisa ser idêntica ao nome
+  da opção declarada na definição do comando. Um desencontro faz o invoker
+  falhar na busca e injetar null. Revise os nomes das opções ao renomeá-las,
+  ou importe a classe do comando como referência de tipo para perceber esses
+  desvios durante a revisão de código.
 </Callout>
+
+### @SlashOpt (deprecated)
+
+`@SlashOpt` está marcado como `@deprecated` e será removido em uma futura major version. Ele continua funcionando do mesmo jeito, então o código existente não quebra. Migre para `@SlashOption` ou para o decorator tipado apropriado no seu tempo.
+
+```typescript
+// Before (deprecated)
+@SlashOpt('message') message: string | null
+
+// After generic
+@SlashOption('message') message: string
+
+// After typed (preferred)
+@SlashStringOption('message') message: string | null
+```
 
 ## Injeção de dependência em handlers
 
-Classes handler são instanciadas pelo *SpraxiumContainer*, então participam completamente do sistema DI do framework. Você pode declarar parâmetros de construtor para qualquer provider registrado na árvore de módulos. O container DI resolve dependências recursivamente, então um handler pode depender de services que por sua vez dependem de outros services.
+Classes de handler são instanciadas pelo _SpraxiumContainer_, então participam integralmente do sistema de DI do framework. Você pode declarar parâmetros de construtor para qualquer provider registrado na árvore de módulos. O container resolve dependências de forma recursiva, então um handler pode depender de serviços que, por sua vez, dependem de outros serviços.
 
 ```typescript filename="handlers/locale.handler.ts"
-import { Ctx, SlashCommandHandler, SlashOpt } from '@spraxium/common';
+import { Ctx, SlashCommandHandler, SlashStringOption } from '@spraxium/common';
 import { I18nService } from '@spraxium/i18n';
 import type { ChatInputCommandInteraction } from 'discord.js';
 import { LocaleCommand } from '../commands/locale.command';
@@ -218,29 +299,24 @@ export class LocaleHandler {
 
   async handle(
     @Ctx() interaction: ChatInputCommandInteraction,
-    @SlashOpt('language') language: string,
+    @SlashStringOption('language') language: string | null,
   ): Promise<void> {
-    const userId = interaction.user.id;
-    if (!this.i18n.has(language)) {
-      const msg = await this.i18n.tUser(userId, 'commands.locale.invalid', {
-        locale: language,
-        available: this.i18n.locales().join(', '),
-      });
+    if (!language || !this.i18n.has(language)) {
+      const msg = await this.i18n.tUser(
+        interaction.user.id,
+        'commands.locale.invalid',
+        { available: this.i18n.locales().join(', ') },
+      );
       await interaction.reply({ content: msg, flags: 'Ephemeral' });
       return;
     }
 
-    await this.i18n.setUserLocale(userId, language);
+    await this.i18n.setUserLocale(interaction.user.id, language);
     const msg = this.i18n.t('commands.locale.set', language, { locale: language });
-    await interaction.reply({
-      content: msg,
-      flags: 'Ephemeral',
-    });
+    await interaction.reply({ content: msg, flags: 'Ephemeral' });
   }
 }
-````
-
-O _I18nService_ é injetado pelo container porque está registrado como provider na árvore de módulos. O handler não precisa importar o service do container manualmente; o framework lê o metadado `design:paramtypes` emitido pelo TypeScript e resolve os parâmetros do construtor automaticamente.
+```
 
 ## Padrões de handler
 
@@ -260,29 +336,27 @@ export class SecretHandler {
     });
   }
 }
-
-````
+```
   </Tab>
-  <Tab label="Resposta diferida" language="typescript">
-```typescript filename="handlers/slow-task.handler.ts"
-import { Ctx, SlashCommandHandler } from '@spraxium/common';
+  <Tab label="Com @Defer" language="typescript">
+```typescript filename="handlers/report.handler.ts"
+import { Ctx, Defer, SlashCommandHandler } from '@spraxium/common';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { SlowTaskCommand } from '../commands/slow-task.command';
+import { ReportCommand } from '../commands/report.command';
 
-@SlashCommandHandler(SlowTaskCommand)
-export class SlowTaskHandler {
+@SlashCommandHandler(ReportCommand)
+@Defer({ ephemeral: true })
+export class ReportHandler {
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    await interaction.deferReply();
-    const result = await this.performExpensiveWork();
-    await interaction.editReply(`Task completed: ${result}`);
+    const data = await this.buildReport(); // always slow
+    await interaction.reply({ content: data }); // framework routes to editReply
   }
 
-  private async performExpensiveWork(): Promise<string> {
-    return 'done';
+  private async buildReport(): Promise<string> {
+    return 'report content';
   }
 }
-````
-
+```
   </Tab>
   <Tab label="Resposta com embed" language="typescript">
 ```typescript filename="handlers/info.handler.ts"
@@ -304,7 +378,6 @@ export class InfoHandler {
     await interaction.reply({ embeds: [embed] });
   }
 }
-
 ```
   </Tab>
 </CodeTabs>
@@ -312,24 +385,35 @@ export class InfoHandler {
 ## Checklist de design para handlers
 
 <Steps>
-  <Step title="Corresponda nomes do @SlashOpt com opções do comando exatamente">
-    A string passada a *@SlashOpt('name')* deve ser idêntica ao nome da opção no decorator *@SlashOption* na definição do comando. Uma incompatibilidade faz o invoker falhar na busca de metadados e injetar `null` em vez do valor real. Use a mesma constante ou importe a classe de comando para verificar se os nomes correspondem durante code review.
+  <Step title="Use decorators tipados de opção">
+    Prefira *@SlashStringOption*, *@SlashUserOption* e similares em vez do
+    genérico *@SlashOption* quando o tipo da opção já for conhecido. Decorators
+    tipados deixam o handler autoexplicativo e evitam a busca em runtime na
+    classe de definição do comando.
   </Step>
-  <Step title="Trate null para parâmetros opcionais">
-    Quando uma opção de comando tem `required: false`, o parâmetro do handler será `null` quando o usuário omitir a opção. Sempre tiipe parâmetros opcionais como `Type | null` e verifique `null` antes de usar o valor. Opções obrigatórias têm garantia do Discord de ter um valor, então podem ser tipadas sem `null`.
+  <Step title="Trate null em parâmetros opcionais">
+    Quando uma opção do comando tiver `required: false`, o parâmetro do handler
+    será `null` se o usuário omitir a opção. Sempre tipifique parâmetros
+    opcionais como `Type | null` e verifique `null` antes de usar o valor.
   </Step>
-  <Step title="Responda dentro de três segundos">
-    O Discord exige uma resposta dentro de três segundos ao receber a interação. Se seu handler precisa de mais tempo, chame `interaction.deferReply()` imediatamente e então use `interaction.editReply()` quando o trabalho estiver concluído. Respostas diferidas mostram um indicador "Bot is thinking..." ao usuário.
+  <Step title="Responda em até três segundos, ou use @Defer / @AutoDefer">
+    O Discord exige uma resposta em até três segundos. Em handlers lentos, use
+    *@Defer*, que sempre faz defer, ou *@AutoDefer*, que só faz defer se o
+    limite for ultrapassado, em vez de chamar `deferReply()` manualmente. Veja
+    [Respostas diferidas](/guide/slash-commands-defer).
   </Step>
-  <Step title="Mantenha classes handler focadas">
-    Cada handler deve implementar exatamente uma operação lógica. Quando um comando tem subcomandos, use classes handler separadas para cada subcomando em vez de fazer branching dentro de um único handler. Isso mantém arquivos pequenos, testáveis e fáceis de navegar na árvore de arquivos.
+  <Step title="Mantenha classes de handler focadas">
+    Cada handler implementa exatamente uma operação lógica. Quando um comando
+    tiver subcomandos, use classes de handler separadas para cada subcomando em
+    vez de ramificar tudo dentro de um único handler.
   </Step>
-  <Step title="Use injeção de construtor para lógica compartilhada">
-    Quando múltiplos handlers compartilham lógica como validação, formatação ou acesso a banco de dados, extraia essa lógica em uma classe service e injete-a pelo construtor. O container DI cuida do ciclo de vida, e os handlers permanecem enxutos.
+  <Step title="Use injeção pelo construtor para lógica compartilhada">
+    Quando vários handlers compartilham lógica, como validação, formatação ou
+    acesso ao banco, extraia isso para uma classe de serviço e injete-a pelo
+    construtor. O container de DI cuida do ciclo de vida.
   </Step>
 </Steps>
 
 ## Próxima página
 
 [Subcomandos e Grupos](/guide/slash-commands-subcommands-groups)
-```

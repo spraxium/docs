@@ -5,14 +5,32 @@ description: |
   Learn how to send logs to Discord channels, use webhooks, customize embed templates, and add command logging.
 order: 2
 category: Logger
+keywords:
+  - spraxium logger transports
+  - transports and configuration in spraxium
+  - logger logger transports guide
+  - logger transports discord bot
+  - logger transports typescript
+  - spraxium logger documentation
+  - transports and configuration logger
+  - spraxium transports and configuration
+faq:
+  - question: "What does \"Transports and Configuration\" cover in Spraxium?"
+    answer: "Configure the logger with custom levels, Discord transports, and token masking. Learn how to send logs to Discord channels, use webhooks, customize embed templates, and add command logging."
+  - question: "When should I use \"Transports and Configuration\"?"
+    answer: "Use this page when you are implementing logger transports in the Logger area of your bot architecture."
+  - question: "What should I read after \"Transports and Configuration\"?"
+    answer: "Continue with related Logger pages to connect this concept with practical implementation details."
 ---
 
 ## Configuring the logger
 
-Logger configuration lives in a dedicated `config/logger.config.ts` file exported as a named `const` and passed to _defineConfig_ inside `spraxium.config.ts`. Keeping it separate lets each concern live in its own module and makes the config independently importable. The framework applies the configuration automatically during application bootstrap before any provider starts logging.
+Keep logger configuration in a dedicated _config/logger.config.ts_ file and reference it from _spraxium.config.ts_. That keeps the root config readable and makes it obvious where log levels, masking, timestamps, and Discord forwarding are defined.
+
+The framework applies this configuration during bootstrap, before your providers begin emitting logs. In practice, that means the first line your bot writes already uses the configured timestamp format, custom levels, and transports.
 
 ```typescript filename="config/logger.config.ts"
-import type { SpraxiumLoggerConfig } from '@spraxium/core';
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   levels: [
@@ -32,12 +50,12 @@ export const loggerConfig: SpraxiumLoggerConfig = {
 import { defineConfig } from '@spraxium/core';
 import { loggerConfig } from './config/logger.config';
 
-export default defineConfig((env) => ({
+export default defineConfig((_env) => ({
   logger: loggerConfig,
 }));
 ```
 
-The _levels_ array registers custom log levels with their console colors. These levels become available through _Logger.extend_ and are recognized by both transports. The _maskTokens_ flag controls the _TokenMasker_, which is enabled by default. Setting it to `false` disables token redaction, which you should only do in local development when you need to see the full output.
+The _levels_ array registers custom log levels with their console colors. Those levels become available through _Logger.extend_ and are understood by both built-in transports. The _maskTokens_ flag controls the _TokenMasker_, which is enabled by default. Only turn it off in tightly controlled local debugging sessions.
 
 <Table>
   <TableHead>
@@ -51,37 +69,125 @@ The _levels_ array registers custom log levels with their console colors. These 
   <TableBody>
     <TableRow>
       <TableCell>*levels*</TableCell>
-      <TableCell>`CustomLogLevel[]`</TableCell>
-      <TableCell>`[]`</TableCell>
+      <TableCell>CustomLogLevel[]</TableCell>
+      <TableCell>[]</TableCell>
       <TableCell>Custom log level names and their console colors.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*maskTokens*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`true`</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>true</TableCell>
       <TableCell>Redact Discord token patterns in all log messages.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*discord*</TableCell>
-      <TableCell>`DiscordTransportConfig`</TableCell>
-      <TableCell>`undefined`</TableCell>
+      <TableCell>DiscordTransportConfig</TableCell>
+      <TableCell>undefined</TableCell>
       <TableCell>
         Configuration for sending logs to Discord. Omit to disable.
       </TableCell>
     </TableRow>
+    <TableRow>
+      <TableCell>*commandLogging*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>false</TableCell>
+      <TableCell>When enabled, registers a listener that logs every slash command execution at the command level. See [Command logging](#command-logging) below.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timestampFormat*</TableCell>
+      <TableCell>default | iso | time-only | custom formatter</TableCell>
+      <TableCell>default</TableCell>
+      <TableCell>Controls how the timestamp prefix is rendered in console output. See [Timestamp format](#timestamp-format) below.</TableCell>
+    </TableRow>
   </TableBody>
 </Table>
 
+<Callout tone="warning" title="Do not disable masking in shared environments">
+  If logs can end up in CI output, shared terminals, or Discord channels, keep
+  token masking enabled. It is much cheaper to reveal a value intentionally in a
+  temporary local test than to clean up a leaked bot token.
+</Callout>
+
+## Timestamp format
+
+The _timestampFormat_ option controls the prefix shown before every console log line. Pick one of the built-in presets if you want consistency with the rest of the framework, or provide a custom formatter when your bot feeds logs into an existing local standard.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Value</TableCell>
+      <TableCell header>Example output</TableCell>
+      <TableCell header>Best fit</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*default*</TableCell>
+      <TableCell>12/04/2026 - 14:32:05</TableCell>
+      <TableCell>Good default for most bots and local development.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*iso*</TableCell>
+      <TableCell>2026-04-12T14:32:05.000Z</TableCell>
+      <TableCell>Better for log shipping, parsing, and machine-readable pipelines.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*time-only*</TableCell>
+      <TableCell>14:32:05</TableCell>
+      <TableCell>Useful in short-running local sessions where the date adds noise.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*custom formatter*</TableCell>
+      <TableCell>Any string you return</TableCell>
+      <TableCell>Use when you need a locale-specific or existing house format.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  // Use ISO 8601 timestamps for structured log pipelines
+  timestampFormat: 'iso',
+
+  // Or provide a custom format
+  // timestampFormat: (d) => d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+};
+```
+
 ## The Discord transport
 
-The Discord transport sends log entries as embeds to a text channel or webhook. It only forwards messages whose level matches the _levels_ array in its configuration. This lets you send errors and warnings to Discord while keeping info and debug messages in the console only.
+The Discord transport forwards selected log entries as embeds to Discord. It only sends levels listed in its own _levels_ array, so you can keep high-volume operational logs in the terminal while forwarding warnings, errors, or command audits to a shared channel.
 
-Two delivery modes are available. In _channel_ mode, the transport uses the bot's own client to find the channel by ID and send embeds. In _webhook_ mode, it sends HTTP POST requests to a webhook URL, which works even before the bot client is ready and does not require the bot to be in the target server.
+Two delivery modes are available. In _channel_ mode, the transport uses the bot client itself to look up the channel and send embeds. In _webhook_ mode, it sends HTTP requests to a webhook URL, which is useful when the target destination is operationally separate from the bot runtime.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Mode</TableCell>
+      <TableCell header>Best when</TableCell>
+      <TableCell header>Tradeoff</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*channel*</TableCell>
+      <TableCell>The bot is already in the server and you want one less external secret to manage.</TableCell>
+      <TableCell>Delivery depends on the client lifecycle and channel permissions.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*webhook*</TableCell>
+      <TableCell>You want isolated delivery credentials or need to log to a destination outside the bot's guild footprint.</TableCell>
+      <TableCell>You now manage a webhook URL as an extra secret.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 <CodeTabs>
   <Tab label="Channel mode" language="typescript">
 ```typescript filename="config/logger.config.ts"
-import type { SpraxiumLoggerConfig } from '@spraxium/core';
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
@@ -94,7 +200,7 @@ export const loggerConfig: SpraxiumLoggerConfig = {
   </Tab>
   <Tab label="Webhook mode" language="typescript">
 ```typescript filename="config/logger.config.ts"
-import type { SpraxiumLoggerConfig } from '@spraxium/core';
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
@@ -107,16 +213,16 @@ export const loggerConfig: SpraxiumLoggerConfig = {
   </Tab>
 </CodeTabs>
 
-In channel mode, the transport queues messages that arrive before the client is ready. Once the client emits the _ready_ event, the queue flushes automatically. The queue has a maximum size of 100 entries to prevent memory issues during long startup sequences. Messages that arrive after the queue is full are silently dropped.
+In channel mode, the transport queues messages that arrive before the client is ready. Once the client emits _ready_, the queue flushes automatically. The queue has a maximum size of 100 entries to avoid memory growth during long startup sequences.
 
-The transport also deduplicates entries. If the same level, context, and message are sent within one second, the second send is suppressed. This prevents accidental double-logging from event handler edge cases without requiring any coordination from your code.
+The transport also deduplicates entries. If the same level, context, and message are sent within one second, the second send is suppressed. This protects operational channels from accidental duplicate bursts caused by retry paths or overlapping event handlers.
 
 ## Custom embed templates
 
-By default, Discord embeds use a simple format with the level as the title, the message as the description, a color matching the level, and an ISO timestamp. You can override this with a custom _embed_ template that uses `{{key}}` placeholders.
+By default, Discord embeds use the level as the title, the message as the description, a matching color, and an ISO timestamp. Override this with a custom _embed_ template when you want a more operational layout, for example including shard, guild, or metadata fields in predictable positions.
 
 ````typescript filename="config/logger.config.ts"
-import type { SpraxiumLoggerConfig } from '@spraxium/core';
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   discord: {
@@ -138,7 +244,7 @@ export const loggerConfig: SpraxiumLoggerConfig = {
 };
 ````
 
-The available placeholder variables are resolved from the log entry at send time. The _shard_ variable shows the shard ID when running in sharded mode, or "N/A" in single-process mode. Any metadata keys passed through the _log_ method are also available as placeholders.
+The available placeholder variables are resolved from the log entry at send time. The _shard_ variable shows the shard ID when the bot is sharded, or "N/A" in a single process. Metadata passed through _log_ is also exposed as placeholders, which is what makes command and audit logs especially useful in Discord.
 
 <Table>
   <TableHead>
@@ -149,31 +255,31 @@ The available placeholder variables are resolved from the log entry at send time
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`{{ level }}`</TableCell>
+      <TableCell>*level*</TableCell>
       <TableCell>Uppercase level name (INFO, ERROR, etc.)</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ message }}`</TableCell>
+      <TableCell>*message*</TableCell>
       <TableCell>The log message text</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ context }}`</TableCell>
+      <TableCell>*context*</TableCell>
       <TableCell>Logger context name, empty if not set</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ shard }}`</TableCell>
+      <TableCell>*shard*</TableCell>
       <TableCell>Shard ID or "N/A"</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ timestamp }}`</TableCell>
+      <TableCell>*timestamp*</TableCell>
       <TableCell>ISO 8601 timestamp</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ date }}`</TableCell>
+      <TableCell>*date*</TableCell>
       <TableCell>Formatted as DD/MM/YYYY</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`{{ time }}`</TableCell>
+      <TableCell>*time*</TableCell>
       <TableCell>Formatted as HH:MM:SS (24h)</TableCell>
     </TableRow>
   </TableBody>
@@ -181,12 +287,12 @@ The available placeholder variables are resolved from the log entry at send time
 
 ## Command logging
 
-The _CommandLogger_ service automatically logs every slash command execution. It binds to the client's _interactionCreate_ event and captures the command name, user tag, user ID, guild name, guild ID, and channel ID. Each execution emits a log entry at the `command` level with structured metadata that you can reference in embed templates.
+The _CommandLogger_ service automatically logs every slash command execution. It binds to the client's _interactionCreate_ event and captures the command name, user tag, user ID, guild name, guild ID, and channel ID. Each execution emits a log entry at the _command_ level with structured metadata that you can reuse in embed templates.
 
-The standard way to enable command logging is through `spraxium.config.ts`. Set `commandLogging: true` inside the `logger` block and the framework calls _CommandLogger.bind_ automatically during client wiring. This approach integrates with the full framework lifecycle and requires no extra imports.
+The standard way to enable command logging is through _spraxium.config.ts_. Set _commandLogging_ to _true_ inside the logger block and the framework calls _CommandLogger.bind_ automatically during client wiring. This is the preferred setup for most bots because it stays inside the normal framework lifecycle.
 
 ```typescript filename="config/logger.config.ts"
-import type { SpraxiumLoggerConfig } from '@spraxium/core';
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
 
 export const loggerConfig: SpraxiumLoggerConfig = {
   maskTokens: true,
@@ -205,10 +311,10 @@ export const loggerConfig: SpraxiumLoggerConfig = {
 };
 ```
 
-If you are using the logger outside the framework or need to bind command logging manually, call _CommandLogger.bind_ directly with the Discord client after it is ready. The metadata keys available in embed templates are `{{command}}`, `{{user}}`, `{{userId}}`, `{{guild}}`, `{{guildId}}`, and `{{channel}}`.
+If you are using the logger outside the framework or need to bind command logging manually, call _CommandLogger.bind_ directly with the Discord client after it is ready. The command, user, guild, and channel metadata then become available to your embed template.
 
 ```typescript filename="src/main.ts"
-import { CommandLogger } from '@spraxium/core';
+import { CommandLogger } from '@spraxium/logger';
 
 // Call after the client is ready
 CommandLogger.bind(client);
@@ -216,11 +322,13 @@ CommandLogger.bind(client);
 
 ## Custom transports
 
-You can create transports for any destination by implementing the _LogTransport_ interface. A transport needs a _name_ string and a _log_ method that receives a _LogEntry_ object. The method can return void or a Promise. If it throws or rejects, the error is silently caught to prevent a transport failure from crashing the application.
+Create a custom transport when console output and Discord delivery are not enough, for example when writing to files, external observability stacks, or internal event buses. A transport implements _LogTransport_, exposes a _name_, and provides a _log_ method that receives a _LogEntry_.
+
+Transport failures are isolated from the rest of the app. If a transport throws or rejects, the logger swallows that failure so logging never becomes a single point of failure for your bot runtime.
 
 ```typescript filename="src/transports/file.transport.ts"
 import { appendFileSync } from 'node:fs';
-import type { LogEntry, LogTransport } from '@spraxium/core';
+import type { LogEntry, LogTransport } from '@spraxium/logger';
 
 export class FileTransport implements LogTransport {
   readonly name = 'file';
@@ -237,10 +345,14 @@ export class FileTransport implements LogTransport {
 Register the transport with _Logger.addTransport_. If a transport with the same name already exists, it is replaced. You can remove a transport by name with _Logger.removeTransport_. The _ConsoleTransport_ is always registered by default and uses the name `"console"`.
 
 ```typescript filename="src/main.ts"
-import { Logger } from '@spraxium/core';
+import { Logger } from '@spraxium/logger';
 import { FileTransport } from './transports/file.transport';
 
 Logger.addTransport(new FileTransport('./logs/bot.log'));
 ```
 
 If your transport needs the Discord client (for example to look up channel names or resolve guild data), implement the _ClientAwareTransport_ interface instead. It adds a _setClient_ method that the framework calls automatically when the client is ready. The built-in _DiscordTransport_ uses this interface internally.
+
+## Next page
+
+Continue with [Internationalization Overview](/i18n-overview).

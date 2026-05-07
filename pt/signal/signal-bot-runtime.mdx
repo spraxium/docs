@@ -1,21 +1,37 @@
 ---
-title: Signal no Lado do Bot
+title: Signal no lado do bot
 description: |
-  Implemente o receptor Signal no runtime do seu bot com fronteiras de confiança claras e handlers de eventos tipados.
-  Aprenda configuração de plugin, conexão de módulo, decorators de listener, roteamento de eventos e o ciclo de vida completo do boot ao shutdown.
+  Implemente o receptor do Signal no runtime do seu bot com fronteiras de confiança claras e handlers tipados.
+  Aprenda a configurar o plugin, conectar módulos, usar decorators de listener, rotear eventos e entender o ciclo completo do boot ao shutdown.
 order: 2
 category: "@spraxium/signal"
+keywords:
+  - spraxium signal bot runtime
+  - signal no lado do bot no spraxium
+  - "@spraxium/signal signal bot runtime guia"
+  - signal bot runtime bot discord
+  - signal bot runtime typescript
+  - documentacao spraxium @spraxium/signal
+  - signal no lado do bot @spraxium/signal
+  - spraxium signal no lado do bot
+faq:
+  - question: "O que \"Signal no lado do bot\" cobre no Spraxium?"
+    answer: "Implemente o receptor do Signal no runtime do seu bot com fronteiras de confiança claras e handlers tipados. Aprenda a configurar o plugin, conectar módulos, usar decorators de listener, rotear eventos e entender o ciclo completo do boot ao shutdown."
+  - question: "Quando devo usar \"Signal no lado do bot\"?"
+    answer: "Use esta pagina quando voce estiver implementando signal bot runtime dentro da area de @spraxium/signal do seu bot."
+  - question: "Qual o proximo passo depois de \"Signal no lado do bot\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/signal para conectar este conceito com implementacao pratica."
 ---
 
-## Responsabilidades do lado do bot
+## Responsabilidades no lado do bot
 
-No lado receptor, o _Signal_ e responsavel por proteger o runtime do bot antes de qualquer mutação de domínio acontecer. O _SignalRegistry_ descobre classes de listener durante o boot, o _SignalValidator_ aplica dez regras de transporte, o _NonceCache_ previne ataques de replay e o _SignalProcessor_ orquestra todo o pipeline. Seus handlers só executam depois que todas essas camadas aprovarem o envelope recebido.
+No lado do receptor, o _Signal_ é responsável por proteger o runtime do seu bot antes que qualquer mutação de domínio aconteça. O _SignalRegistry_ descobre classes de listener durante o boot, o _SignalValidator_ aplica dez regras de transporte, o _NonceCache_ evita ataques de replay e o _SignalProcessor_ orquestra todo o pipeline. Seus handlers só são executados depois que todas essas camadas aprovam o envelope recebido.
 
-Essa separação e o principal benefício arquitetural. Seus handlers de domínio permanecem focados na intenção de negócio, aplicando mudanças de cargo, atualizando configurações, postando anúncios, enquanto a camada de protocolo cuida de confiança, formato e roteamento. Nenhum handler precisa verificar se o webhook e autorizado ou se a assinatura e válida, porque essas checagens já aconteceram upstream.
+Essa separação é o principal benefício arquitetural. Seus handlers de domínio continuam focados na intenção de negócio, aplicando mudanças de cargo, atualizando configurações ou publicando anúncios, enquanto a camada de protocolo assume as preocupações com confiança, formato e roteamento. Nenhum handler precisa verificar se o webhook é autorizado ou se a assinatura é válida, porque essas checagens já aconteceram antes.
 
 ## Configuração do plugin
 
-O módulo Signal bot-side lê sua configuração a partir de uma entrada de plugin produzida pela factory _defineSignal_. Essa factory e exportada de `@spraxium/signal` e produz uma entrada tipada _SpraxiumPlugin_ que deve ser adicionada ao array _plugins_ em `spraxium.config.ts`. A configuração define as fronteiras de confiança e controles operacionais do pipeline receptor.
+O módulo Signal no lado do bot lê sua configuração a partir de uma entrada de plugin produzida pela factory _defineSignal_. Essa factory é exportada por `@spraxium/signal` e produz uma entrada tipada de _SpraxiumPlugin_ que deve ser adicionada ao array _plugins_ em `spraxium.config.ts`. A configuração define as fronteiras de confiança e os controles operacionais do pipeline receptor.
 
 <Table>
   <TableHead>
@@ -23,53 +39,48 @@ O módulo Signal bot-side lê sua configuração a partir de uma entrada de plug
       <TableCell header>Opção</TableCell>
       <TableCell header>Tipo</TableCell>
       <TableCell header>Obrigatório</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*channelId*</TableCell>
-      <TableCell>`string | string[]`</TableCell>
+      <TableCell>String ou lista de strings</TableCell>
       <TableCell>Sim</TableCell>
       <TableCell>
-        Os IDs dos canais privados onde envelopes Signal são aceitos. Mensagens
-        de outros canais são ignoradas.
+        IDs dos canais privados onde envelopes do Signal são aceitos. Mensagens de outros canais são ignoradas.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*allowedWebhookIds*</TableCell>
-      <TableCell>`string[]`</TableCell>
+      <TableCell>Lista de strings</TableCell>
       <TableCell>Sim</TableCell>
       <TableCell>
-        IDs de webhook autorizados a publicar envelopes. Webhooks não aprovados
-        são rejeitados mesmo que postem no canal correto.
+        IDs de webhook autorizados a publicar envelopes. Webhooks não aprovados são rejeitados mesmo que postem no canal correto.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*hmacSecret*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>Sim</TableCell>
       <TableCell>
-        Segredo compartilhado para verificação de assinatura HMAC-SHA256. Deve
-        corresponder exatamente ao segredo do emissor.
+        Segredo compartilhado para verificação de assinatura HMAC-SHA256. Deve coincidir exatamente com o segredo do emissor.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*deleteAfterProcessing*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>*boolean*</TableCell>
       <TableCell>Não</TableCell>
       <TableCell>
-        Se deve excluir mensagens de webhook do canal após processamento. Reduz
-        ruido mas remove trilha de auditoria.
+        Define se as mensagens de webhook devem ser excluídas do canal após o processamento. Reduz ruído, mas remove a trilha de auditoria.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*debug*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>*boolean*</TableCell>
       <TableCell>Não</TableCell>
       <TableCell>
-        Ativa logging diagnóstico detalhado para cada etapa de validação e
-        decisão de processamento.
+        Ativa logs detalhados de diagnóstico para cada etapa de validação e cada decisão de processamento.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -77,7 +88,7 @@ O módulo Signal bot-side lê sua configuração a partir de uma entrada de plug
 
 ### Padrão de configuração separada
 
-A abordagem recomendada e extrair a config do Signal para um arquivo dedicado dentro de `config/` e importar a constante em `spraxium.config.ts`. Isso mantém a politica operacional explicita e permite que times de segurança auditem fronteiras do Signal sem analisar configurações não relacionadas.
+A abordagem recomendada é extrair a configuração do Signal para um arquivo dedicado dentro de `config/` e importar a constante em `spraxium.config.ts`. Isso deixa a política operacional explícita e permite que equipes de segurança auditem os limites do Signal sem precisar percorrer configurações não relacionadas.
 
 <CodeTabs>
   <Tab label="config/signal.config.ts" language="typescript">
@@ -107,9 +118,9 @@ export default defineConfig(() => ({
 
 ## O decorator @SignalListener
 
-O decorator _@SignalListener()_ marca uma classe como container de handlers de evento Signal. Ele serve o mesmo papel que _@Listener()_ serve para eventos Discord e _@PrefixCommand()_ serve para comandos de prefixo. Durante o boot, o _SignalRegistry_ varre instâncias de providers e identifica classes decoradas com _@SignalListener()_, depois inspeciona cada método em busca de metadata _@OnSignal()_.
+O decorator _@SignalListener()_ marca uma classe como contêiner de handlers de evento do Signal. Ele cumpre o mesmo papel que _@Listener()_ cumpre para eventos do Discord e que _@PrefixCommand()_ cumpre para comandos prefixados. Durante o boot, o _SignalRegistry_ percorre instâncias de providers, identifica classes decoradas com _@SignalListener()_ e então inspeciona cada método em busca de metadados de _@OnSignal()_.
 
-Internamente, _@SignalListener()_ aplica _@Injectable()_ automaticamente, então a classe participa da injeção de dependência sem precisar de um decorator separado. A classe deve ser listada no array _providers_ de um módulo que importa _SignalModule_.
+Internamente, _@SignalListener()_ aplica _@Injectable()_ automaticamente, então a classe participa da injeção de dependência sem precisar de um decorator separado. A classe precisa estar listada no array _providers_ de um módulo que importe _SignalModule_.
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
 import { SignalListener, OnSignal } from '@spraxium/signal';
@@ -122,40 +133,38 @@ export class GuildConfigSignal {
     payload: unknown,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // Logica de dominio ancorada em envelope.guildId
+    // Domain logic anchored to envelope.guildId
   }
 }
 ```
 
 ## O decorator @OnSignal
 
-O decorator _@OnSignal()_ registra um método como handler para um evento Signal específico. O primeiro argumento e o nome do evento, que deve corresponder exatamente ao nome usado pelo emissor. O segundo argumento opcional e um objeto de opções que pode incluir um schema Zod para validação de payload.
+O decorator _@OnSignal()_ registra um método como handler de um evento específico do Signal. O primeiro argumento é o nome do evento, que precisa coincidir exatamente com o nome usado pelo emissor. O segundo argumento é opcional e aceita um objeto de opções que pode incluir um schema Zod para validação do payload.
 
-Quando o pipeline Signal recebe um envelope com nome de evento correspondente, o método decorado e invocado com dois argumentos: o payload (opcionalmente validado por Zod) e o _SignalEnvelope_ completo. O envelope da acesso a _guildId_, _nonce_, _sentAt_ e outros metadados para escopo e auditoria.
+Quando o pipeline do Signal recebe um envelope com um nome de evento compatível, o método decorado é invocado com dois argumentos: o payload, opcionalmente validado com Zod, e o _SignalEnvelope_ completo. O envelope dá acesso a _guildId_, _nonce_, _sentAt_ e outros metadados úteis para escopo e auditoria.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Argumento</TableCell>
       <TableCell header>Tipo</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*event*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>
-        O nome do evento ao qual este handler responde. Deve corresponder
-        exatamente ao nome do emissor.
+        Nome do evento ao qual este handler responde. Precisa coincidir exatamente com o nome usado pelo emissor.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*options.schema*</TableCell>
-      <TableCell>`ZodType`</TableCell>
+      <TableCell>*ZodType*</TableCell>
       <TableCell>
-        Schema Zod opcional para validação de payload. Se fornecido, payloads
-        inválidos são rejeitados antes do handler executar.
+        Schema Zod opcional para validar o payload. Quando presente, payloads inválidos são rejeitados antes da execução do handler.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -178,32 +187,29 @@ export class GuildConfigSignal {
     payload: z.infer<typeof ConfigUpdateSchema>,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // payload esta validado e tipado, envelope fornece contexto de guild
+    // payload is validated and typed, envelope provides guild context
   }
 }
 ```
 
-## Nome do evento como contrato estavel
+## Nome de evento como contrato estável
 
-O primeiro argumento em _@OnSignal('config.update')_ e a identidade do evento usada pelo roteamento do Signal. Ele e a chave que mapeia envelopes recebidos para o listener correto, um contrato produtor-consumidor entre o código emissor e os listeners do bot, e uma referência operacional para logs, dashboards e análise de incidentes.
+O primeiro argumento em _@OnSignal('config.update')_ é a identidade do evento usada pelo roteamento do Signal. Ele é a chave que mapeia envelopes recebidos para o listener correto, é um contrato entre o código emissor e os listeners do bot, e também serve como referência operacional em logs, dashboards e análise de incidentes.
 
-Trate nomes de evento como APIs de domínio estaveis. Se a semântica do payload precisa mudar de forma não retrocompativel, prefira introduzir um novo nome de evento como `config.update.v2` em vez de reutilizar silenciosamente o mesmo. Renomear um evento sem coordenar produtores e listeners faz com que mensagens sejam ignoradas silenciosamente ou despachadas para o handler errado.
+Trate nomes de evento como APIs estáveis de domínio. Se a semântica do payload precisar mudar de forma incompatível com a versão anterior, prefira introduzir um novo nome de evento, como `config.update.v2`, em vez de reaproveitar o mesmo nome silenciosamente. Renomear um evento sem coordenar produtores e listeners faz com que mensagens sejam ignoradas em silêncio ou despachadas para o handler errado.
 
-<Callout
-  tone="warning"
-  title="Renomear nomes de evento e uma quebra de contrato"
->
+<Callout tone="warning" title="Renomear eventos é uma quebra de compatibilidade">
   Se você renomear um evento sem atualizar tanto o emissor quanto o listener do
-  bot, mensagens serão ignoradas silenciosamente porque o router não consegue
-  encontrar um handler correspondente para o nome antigo.
+  bot, as mensagens serão ignoradas em silêncio porque o router não conseguirá
+  encontrar um handler compatível para o nome antigo.
 </Callout>
 
-## Conexão de módulo e listener
+## Conexão de módulo e listeners
 
-A estrutura de módulo para Signal segue o padrão Spraxium. Crie um módulo de funcionalidade que importa _SignalModule_ e registra suas classes de listener no array _providers_. O _SignalModule_ e um módulo global que fornece os serviços core (_SignalValidator_, _SignalRouter_, _SignalProcessor_, _SignalRegistry_, _NonceCache_), então você só precisa importa-lo uma vez em qualquer módulo que contenha listeners.
+A estrutura de módulo do Signal segue o padrão usual do Spraxium. Crie um módulo de feature que importe _SignalModule_ e registre suas classes de listener no array _providers_. O _SignalModule_ é um módulo global que fornece os serviços centrais, _SignalValidator_, _SignalRouter_, _SignalProcessor_, _SignalRegistry_ e _NonceCache_, então você só precisa importá-lo uma vez em qualquer módulo que contenha listeners.
 
 <CodeTabs>
-  <Tab label="Módulo" language="typescript">
+  <Tab label="Module" language="typescript">
 ```typescript filename="src/modules/signal/signal.module.ts"
 import { Module } from '@spraxium/common';
 import { SignalModule } from '@spraxium/signal';
@@ -237,7 +243,7 @@ export class BillingSignal {
     payload: z.infer<typeof BillingSchema>,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // Aplica mudancas de cargo baseadas no status de billing
+    // Apply role changes based on billing status
   }
 }
 ````
@@ -245,47 +251,49 @@ export class BillingSignal {
   </Tab>
 </CodeTabs>
 
-## Fluxo de ciclo de vida bot-side
+## Fluxo de ciclo de vida no lado do bot
 
 <Steps>
   <Step title="Descoberta e registro de listeners">
-    Durante o boot, o *SignalRegistry* registra uma função scanner com
-    *ModuleLoader.instanceScanners*. Conforme o module loader instância cada
-    provider, o scanner verifica se a classe da instância esta decorada com
-    *@SignalListener()*. Para classes correspondentes, ele extrai todos os
-    métodos decorados com *@OnSignal()* e os registra no *SignalRouter*.
+    Durante o boot, o *SignalRegistry* registra uma função de varredura em
+    *ModuleLoader.instanceScanners*. À medida que o carregador de módulos
+    instancia cada provider, o scanner verifica se a classe da instância está
+    decorada com *@SignalListener()*. Para as classes compatíveis, ele extrai
+    todos os métodos decorados com *@OnSignal()* e os registra no
+    *SignalRouter*.
   </Step>
   <Step title="Inscrição no messageCreate do Discord">
-    Após a descoberta, o método *SignalRegistry.onBoot()* lê a config do Signal
-    do *ConfigStore* e inscreve um handler no evento *messageCreate* do cliente
-    Discord. Esse handler filtra mensagens recebidas e passa apenas tráfego de
-    webhook de canais configurados para o *SignalProcessor*.
+    Depois da descoberta, o método *SignalRegistry.onBoot()* lê a configuração
+    do Signal em *ConfigStore* e inscreve um handler no evento *messageCreate*
+    do cliente do Discord. Esse handler filtra mensagens recebidas e encaminha
+    apenas o tráfego de webhook vindo dos canais configurados para o
+    *SignalProcessor*.
   </Step>
-  <Step title="Pipeline de validação de envelope">
+  <Step title="Pipeline de validação do envelope">
     Para cada mensagem de webhook recebida, o *SignalProcessor* chama
-    *SignalValidator.validate()* que executa as dez regras sequenciais. Tipo de
-    origem, identidade do webhook, fronteira de canal, parsing JSON, versão do
-    protocolo, registro de evento, guild ID, nonce, desvio de relógio e
-    assinatura HMAC são todos verificados em ordem.
+    *SignalValidator.validate()*, que executa as dez regras em sequência. Tipo
+    de origem, identidade do webhook, limite de canal, parsing de JSON, versão
+    do protocolo, registro do evento, guild ID, nonce, diferença de relógio e
+    assinatura HMAC são verificados nessa ordem.
   </Step>
-  <Step title="Deduplicação por nonce e despacho de handler">
-    Após a validação, o processador verifica o *NonceCache* para prevenir
-    processamento de replay. Se o nonce e novo, ele resolve o handler pelo
-    *SignalRouter*, opcionalmente valida o payload com o schema Zod do handler,
-    exclui a mensagem se configurado, e invoca o handler com o payload e
-    envelope.
+  <Step title="Deduplicação por nonce e despacho do handler">
+    Depois da validação, o processor consulta o *NonceCache* para impedir
+    replays. Se o nonce for novo, ele resolve o handler por meio do
+    *SignalRouter*, valida o payload com o schema Zod do handler quando houver,
+    exclui a mensagem se isso estiver configurado e invoca o handler com o
+    payload e o envelope.
   </Step>
   <Step title="Shutdown gracioso">
-    Quando o bot encerra, *SignalRegistry.onShutdown()* remove o listener
-    *messageCreate* do cliente Discord e desregistra o scanner do
-    *ModuleLoader.instanceScanners*. Essa limpeza previne memory leaks e
-    listeners fantasma durante hot reloads.
+    Quando o bot é encerrado, *SignalRegistry.onShutdown()* remove o listener
+    de *messageCreate* do cliente do Discord e cancela o registro do scanner em
+    *ModuleLoader.instanceScanners*. Essa limpeza evita vazamentos de memória e
+    listeners fantasmas durante hot reloads.
   </Step>
 </Steps>
 
-## Injeção de dependência em listeners
+## Injeção de dependência nos listeners
 
-Como _@SignalListener()_ aplica _@Injectable()_ automaticamente, suas classes de listener participam do sistema padrão de injeção de dependência. Você pode injetar serviços, repositórios e outros providers pelo construtor, da mesma forma que qualquer outra classe injetavel no Spraxium.
+Como _@SignalListener()_ aplica _@Injectable()_ automaticamente, suas classes de listener participam do sistema padrão de injeção de dependência. Você pode injetar services, repositórios e outros providers via parâmetros do construtor, exatamente como faria com qualquer outra classe injetável no Spraxium.
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
 import { SignalListener, OnSignal } from '@spraxium/signal';
@@ -308,10 +316,10 @@ export class GuildConfigSignal {
 
 ## Diagnósticos de debug
 
-Quando _debug_ esta definido como `true` na config do Signal, o framework emite mensagens diagnosticas detalhadas para cada etapa do pipeline de validação e processamento. Cada mensagem inclui um prefixo _[SignalValidator]_ ou _[SignalProcessor]_ e reporta a regra exata que passou ou falhou, o status do nonce, o resultado da resolução do handler e o resultado da validação Zod.
+Quando _debug_ é definido como `true` na configuração do Signal, o framework emite mensagens detalhadas de diagnóstico para cada etapa do pipeline de validação e processamento. Cada mensagem inclui o prefixo _[SignalValidator]_ ou _[SignalProcessor]_ e informa exatamente qual regra passou ou falhou, o status do nonce, o resultado da resolução do handler e o desfecho da validação com Zod.
 
-Essa saida diagnostica e inestimavel durante a integração inicial e investigação de incidentes. Porem, deve ser desativada em produção estavel porque aumenta significativamente o volume de logs em canais com tráfego Signal frequente. Um padrão prático e ativar debug apenas em ambientes neutros/staging ou temporariamente durante análise de incidentes.
+Essa saída de diagnóstico é muito valiosa durante a integração inicial e na investigação de incidentes. Ainda assim, deve ficar desabilitada em produção estável, porque aumenta bastante o volume de logs em canais com tráfego frequente de Signal. Um padrão prático é ativar debug apenas em ambientes neutros, de staging, ou temporariamente durante a análise de um incidente.
 
 ## Próxima página
 
-Continue com [Validação Zod nos Listeners do Bot](/signal-bot-zod-validation).
+Continue com [Validação com Zod em listeners do bot](/signal-bot-zod-validation).

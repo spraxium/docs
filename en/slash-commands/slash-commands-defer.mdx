@@ -1,0 +1,146 @@
+---
+title: Deferred Replies
+description: |
+  Use @Defer and @AutoDefer to handle slow handlers without leaving Discord interactions unanswered.
+  Learn when each decorator applies, the ephemeral option, the AutoDefer threshold, and how deferred replies interact with the guard pipeline.
+order: 7
+category: Slash Commands
+keywords:
+  - spraxium slash commands defer
+  - deferred replies in spraxium
+  - slash commands slash commands defer guide
+  - slash commands defer discord bot
+  - slash commands defer typescript
+  - spraxium slash commands documentation
+  - deferred replies slash commands
+  - spraxium deferred replies
+faq:
+  - question: "What does \"Deferred Replies\" cover in Spraxium?"
+    answer: "Use @Defer and @AutoDefer to handle slow handlers without leaving Discord interactions unanswered. Learn when each decorator applies, the ephemeral option, the AutoDefer threshold, and how deferred replies interact with the guard pipeline."
+  - question: "When should I use \"Deferred Replies\"?"
+    answer: "Use this page when you are implementing slash commands defer in the Slash Commands area of your bot architecture."
+  - question: "What should I read after \"Deferred Replies\"?"
+    answer: "Continue with related Slash Commands pages to connect this concept with practical implementation details."
+---
+
+## Why deferred replies matter
+
+Discord requires a response to any interaction within three seconds. If the bot does not call `reply()`, `deferReply()`, or another response method in time, Discord marks the interaction as failed and the user sees an error. For handlers that call external APIs, run database queries, or do expensive computation, that deadline is easy to miss.
+
+The naive fix is to call `interaction.deferReply()` at the start of every handler, then `interaction.editReply()` with the final content. This works, but it is repetitive and it means _every_ handler shows "Thinking..." to the user, even fast ones that respond in under 50ms, where the flicker looks like a bug rather than a feature.
+
+Spraxium provides two class decorators, _@Defer_ and _@AutoDefer_, that handle both scenarios cleanly, with no manual `deferReply()` / `editReply()` dance required in the handler body.
+
+## @Defer
+
+_@Defer_ defers the interaction immediately and unconditionally before the handler runs. The user sees the "Thinking..." state from the moment they invoke the command. When the handler calls `interaction.reply()`, the framework transparently routes it to `interaction.editReply()` because the interaction is already deferred.
+
+Use _@Defer_ when your handler is always going to take more than a few hundred milliseconds, for example a command that fetches data from an external API on every invocation. There is no threshold logic: the defer happens before the handler method is called.
+
+```typescript filename="src/modules/stats/handlers/stats-command.handler.ts"
+import { SlashCommandHandler, Ctx, Defer } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { StatsCommand } from '../commands/stats.command';
+
+@SlashCommandHandler(StatsCommand)
+@Defer()
+export class StatsCommandHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const data = await this.api.fetchStats(); // always slow
+    await interaction.reply({ embeds: [buildEmbed(data)] }); // routes to editReply
+  }
+}
+```
+
+The _ephemeral_ option makes the deferred state and the eventual reply visible only to the invoking user. It is equivalent to passing `{ ephemeral: true }` to a manual `deferReply()`.
+
+```typescript
+@Defer({ ephemeral: true })
+```
+
+## @AutoDefer
+
+_@AutoDefer_ takes a different approach: it starts a background timer when the interaction arrives. If the handler responds within the _threshold_ window (default: 2000 ms), the timer is cancelled and Discord never sees a defer at all, so the user gets the reply directly with no "Thinking..." state. If the handler takes longer than the threshold, the framework defers automatically before Discord's deadline expires.
+
+The handler always calls `interaction.reply()` regardless of whether a defer happened. If the interaction was deferred behind the scenes, the framework patches `interaction.reply()` on the instance to route the call to `interaction.editReply()` transparently.
+
+```typescript filename="src/modules/leaderboard/handlers/leaderboard-command.handler.ts"
+import { SlashCommandHandler, Ctx, AutoDefer } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { LeaderboardCommand } from '../commands/leaderboard.command';
+
+@SlashCommandHandler(LeaderboardCommand)
+@AutoDefer({ ephemeral: true, threshold: 1500 })
+export class LeaderboardCommandHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const data = await this.db.fetchLeaderboard(); // may resolve in 200ms or 2000ms
+    await interaction.reply({ embeds: [buildLeaderboard(data)] }); // always safe
+  }
+}
+```
+
+<Callout tone="warning">
+  Discord's hard limit is 3000 ms. Set _threshold_ well below that; 2000 ms is
+  the default and a safe choice for most cases. Setting it too close to 3000 ms
+  risks a race between the framework's defer call and Discord's timeout.
+</Callout>
+
+## Options reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*ephemeral*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>Both</TableCell>
+      <TableCell>Whether the deferred reply and the final reply are visible only to the invoking user. Defaults to *false*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*threshold*</TableCell>
+      <TableCell>*number* (ms)</TableCell>
+      <TableCell>*@AutoDefer*</TableCell>
+      <TableCell>Milliseconds to wait before deferring automatically. If the handler replies within this window, no defer is sent. Defaults to 2000.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Interaction with the guard pipeline
+
+Both decorators defer the interaction _after_ the guard pipeline completes, not before. This is intentional: if a guard denies the interaction, it calls `interaction.reply()` with an error message directly. If the interaction had already been deferred, that reply would need to be an `editReply()`, which means the guard itself would need to know about the defer state. By deferring after guards pass, the framework keeps guards simple; they always call `interaction.reply()` and never need to handle the deferred case themselves.
+
+The practical consequence is that unauthorized users see an immediate error reply from the guard, not the "Thinking..." state. That is the right behavior: telling a user "you don't have permission" should be instant, not something they wait two seconds for.
+
+## Choosing between @Defer and @AutoDefer
+
+The right choice depends on how predictable the handler's response time is.
+
+Use _@Defer_ when the handler is reliable and consistently slow, such as a heavy database query, an external API call with no caching, or an operation that involves multiple async steps. Since the handler is always going to need a defer, optimizing for the fast-path case makes no difference.
+
+Use _@AutoDefer_ when the handler's response time varies. A command that returns cached data in 20ms most of the time but occasionally hits the database at 1500ms is a good candidate. With _@AutoDefer_, fast responses feel instant to the user and slow ones degrade gracefully without erroring.
+
+## Context menu commands
+
+_@Defer_ and _@AutoDefer_ work on context menu command handlers as well. Apply them to the handler class the same way.
+
+```typescript filename="src/modules/user/handlers/user-info.handler.ts"
+@ContextMenuCommandHandler(UserInfoCommand)
+@AutoDefer({ ephemeral: true })
+export class UserInfoHandler {
+  async handle(@Ctx() interaction: UserContextMenuCommandInteraction): Promise<void> {
+    const data = await this.db.fetchProfile(interaction.targetUser.id);
+    await interaction.reply({ embeds: [buildProfileEmbed(data)] });
+  }
+}
+```
+
+## Next page
+
+Continue with [Context Menu Commands](/guide/context-menu-overview).

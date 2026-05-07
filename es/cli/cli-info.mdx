@@ -1,57 +1,95 @@
 ---
-title: CLI Info
+title: Información del CLI
 description: |
-  Guía del comando de diagnóstico spraxium info.
-  Aprende cuándo usar salida legible o JSON en troubleshooting.
+  Guía detallada del comando de diagnóstico spraxium info.
+  Aprende cuándo usar salida legible para humanos o JSON en flujos de troubleshooting.
 order: 6
 category: CLI
 ---
 
-## Cuándo usar
+## Cuándo usarlo
 
-Usa `spraxium info` para recolectar contexto técnico antes de abrir un issue o investigar bugs.
+Usa _spraxium info_ siempre que necesites una instantánea de diagnóstico rápida de la máquina y el proyecto actuales. Es especialmente útil antes de abrir issues, después de upgrades, cuando CI se comporta diferente al desarrollo local o cuando necesitas confirmar exactamente qué paquetes de Spraxium está ejecutando un proyecto.
 
 ```bash filename="terminal"
 spraxium info
 spraxium info --json
 ```
 
-## Qué incluye el reporte
+Si solo necesitas una revisión rápida para humanos, la salida por defecto en terminal es suficiente. Si la salida se va a incluir en un ticket, script o artefacto de CI, prefiere el modo JSON para poder copiar y parsear el informe completo sin perder detalle.
 
-El comando compila un reporte con la versión de la CLI, el nombre del proyecto detectado, la versión de Node, el sistema operativo y la ruta del runtime. También captura el package manager preferido y las versiones detectadas de npm, pnpm, yarn y bun. Por último, escanea el proyecto y el workspace en busca de todos los paquetes `@spraxium/*` instalados y lista cada versión.
+## Qué incluye el informe
+
+El comando construye un informe con la versión del CLI, nombre del proyecto detectado, versión de Node, sistema operativo y ruta del runtime. También captura el package manager preferido y las versiones detectadas de npm, pnpm, yarn y bun. Por último, escanea el proyecto y el workspace para detectar todos los paquetes instalados `@spraxium/*` y lista cada versión.
+
+Esa combinación importa porque la mayoría de preguntas de troubleshooting empiezan por una de estas incógnitas:
+
+1. ¿Qué versión de CLI se está ejecutando realmente?
+2. ¿La máquina está usando el runtime de Node esperado?
+3. ¿El proyecto está en el package manager que el equipo espera?
+4. ¿Los paquetes del framework están alineados o uno va atrasado respecto a los demás?
+
+_spraxium info_ responde esas preguntas en una sola pasada en lugar de obligarte a reunir los datos manualmente.
+
+## Cómo leer el informe
+
+<Steps>
+  <Step title="Revisa primero el runtime">
+    Empieza por la versión de Node, el SO y la ruta del runtime. Si una máquina
+    falla y otra funciona, este suele ser el lugar más rápido para detectar un
+    desajuste de entorno.
+  </Step>
+  <Step title="Revisa después el package manager">
+    Confirma si el proyecto usa pnpm, npm, yarn o bun. Los problemas de
+    resolución de dependencias y deriva de lockfiles suelen empezar aquí.
+  </Step>
+  <Step title="Revisa la alineación de paquetes Spraxium">
+    Compara las versiones detectadas de *@spraxium/*. Las versiones mezcladas
+    son una fuente común de comportamiento confuso del framework tras upgrades
+    parciales.
+  </Step>
+</Steps>
 
 ## Modos de salida
 
 <DropdownGroup>
-<Dropdown title="Legible por humano (spraxium info)">
-  Imprime un resumen formateado directamente en el terminal. Úsalo para una inspección visual rápida antes de abrir un issue o durante una sesión de debugging donde necesitas una vista general del entorno.
+<Dropdown title="Legible para humanos (spraxium info)">
+  Imprime un resumen formateado directamente en la terminal. Úsalo para una inspección visual rápida antes de abrir un issue o durante una sesión de depuración en la que necesites una visión general del entorno.
 </Dropdown>
 
 <Dropdown title="JSON (spraxium info --json)">
-  Muestra el reporte completo como `JSON.stringify(report, null, 2)`. Úsalo en scripts de automatización, pipelines de CI que persisten el reporte como artefacto de build, o cuando necesitas analizar campos específicos de forma programática.
+  Devuelve el informe completo como `JSON.stringify(report, null, 2)`. Úsalo en scripts de automatización, pipelines de CI que guarden el informe como artefacto de build, o cuando necesites parsear campos específicos de forma programática.
 </Dropdown>
 </DropdownGroup>
 
-## Dónde y para quién usar
+<Callout tone="info" title="Prefiere JSON al compartir diagnósticos">
+  La salida por defecto es más fácil de leer en terminal. La salida JSON es
+  mejor cuando el informe se va a pegar en un issue, guardar en CI o comparar
+  entre máquinas.
+</Callout>
 
-- Soporte interno: pedir contexto mínimo para reproducir problemas.
-- Bug reports públicos: adjuntar diagnóstico en issues.
-- Debug de CI: persistir reporte como artefacto.
+## Dónde y quién debería usarlo
 
-## Template rápido para issue
+- Soporte interno: solicitar contexto mínimo a quien reporta.
+- Reportes públicos de bugs: adjuntar diagnósticos en plantillas de issue.
+- Depuración en CI: persistir el informe como artefacto de build.
+
+Los equipos avanzados también se benefician después de upgrades de dependencias. Si un workspace empieza a comportarse distinto tras actualizar paquetes, _spraxium info_ es la forma más rápida de confirmar si las versiones resueltas coinciden con lo que esperabas instalar.
+
+## Plantilla rápida para issues
 
 ```text
-Resumen del problema:
-Pasos para reproducir:
-Resultado esperado:
-Resultado actual:
-Salida de `spraxium info --json`:
+Problem summary:
+Reproduction steps:
+Expected result:
+Actual result:
+Output from `spraxium info --json`:
 ```
 
-## Próxima categoría
+## Hábito práctico
 
-Después de esta categoría, sigue con [Configuration: Core Fields](/guide/config-core-fields).
+Si tu equipo da soporte a múltiples bots o entornos, convierte _spraxium info --json_ en parte de la plantilla predeterminada de reporte de bugs. Ese pequeño hábito evita mucho ida y vuelta antes de poder empezar la depuración real.
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Configuration: Core Fields](/guide/config-core-fields).
+Continúa con [Configuración: Campos principales](/guide/config-core-fields).

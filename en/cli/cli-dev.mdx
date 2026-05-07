@@ -5,6 +5,22 @@ description: |
   Understand hot reload, type-check, bundling, and production startup in one place.
 order: 4
 category: CLI
+keywords:
+  - spraxium cli dev
+  - development lifecycle in spraxium
+  - cli cli dev guide
+  - cli dev discord bot
+  - cli dev typescript
+  - spraxium cli documentation
+  - development lifecycle cli
+  - spraxium development lifecycle
+faq:
+  - question: "What does \"Development Lifecycle\" cover in Spraxium?"
+    answer: "How spraxium dev, build, and start work together to drive your development flow. Understand hot reload, type-check, bundling, and production startup in one place."
+  - question: "When should I use \"Development Lifecycle\"?"
+    answer: "Use this page when you are implementing cli dev in the CLI area of your bot architecture."
+  - question: "What should I read after \"Development Lifecycle\"?"
+    answer: "Continue with related CLI pages to connect this concept with practical implementation details."
 ---
 
 ## Overview
@@ -60,7 +76,7 @@ export default {
 
 ### Crash recovery
 
-If the bot process crashes, the dev server does not exit. It applies an exponential backoff delay before relaunching, calculated as `Math.min(1000 × 2^crashCount, maxBackoff)`. This prevents a tight relaunch loop when the crash is reproducible. Fix the error, save the file, and the watcher triggers a normal restart.
+If the bot process crashes, the dev server does not exit. It applies an exponential backoff delay before relaunching, calculated as `Math.min(1000 * 2 ** crashCount, maxBackoff)`. This prevents a tight relaunch loop when the crash is reproducible. Fix the error, save the file, and the watcher triggers a normal restart.
 
 ---
 
@@ -128,6 +144,54 @@ The CLI checks the following paths in order and runs the first one it finds:
 ## Typical workflow
 
 A complete iteration from development to production follows this order: run _spraxium dev_ during active work, then switch to _spraxium build_ when preparing a release, and finally run _spraxium start_ to verify or deploy the compiled artifact. In CI, skip the dev step entirely and run build then start in sequence as your validation pipeline.
+
+## Process lock
+
+Spraxium writes a per-project lock file at `.spraxium/spraxium.lock` on startup and removes it on clean shutdown. If a second instance detects the lock, it exits with a conflict warning instead of silently duplicating listeners and command registrations.
+
+### Flags
+
+Both _spraxium dev_ and _spraxium start_ support two lock-related flags:
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Flag</TableCell>
+      <TableCell header>Env var</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*--force-unlock*</TableCell>
+      <TableCell>*SPRAXIUM_FORCE_UNLOCK=1*</TableCell>
+      <TableCell>Kills the existing bot process (and its dev-watcher launcher to prevent auto-respawn) then takes over. Terminal is released immediately after the kill.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*--no-lock*</TableCell>
+      <TableCell>*SPRAXIUM_NO_LOCK=1*</TableCell>
+      <TableCell>Skips the lock check entirely. Use this only in setups that intentionally run concurrent instances (e.g. a testing environment running alongside production).</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```bash filename="terminal"
+# Kill the running instance and take over
+spraxium dev --force-unlock
+
+# Skip the lock check (concurrent instances allowed)
+spraxium dev --no-lock
+```
+
+Stale locks from crashed processes are detected automatically via `process.kill(pid, 0)` and cleaned before startup, so you only see conflict warnings for genuinely running instances.
+
+## Upgrade notifier
+
+At startup, Spraxium scans `node_modules/@spraxium/*` to find every framework package installed in the project, queries the npm registry for the latest versions, and prints a notice if any packages are behind. The check runs in the background and never delays startup.
+
+Results are cached at `~/.spraxium/upgrade-check.json` with a 24-hour TTL shared across all projects on the machine. If a package was recently installed that is not yet in the cache, only that package is fetched, while the rest use the cached data.
+
+Set `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` (or the environment variable of the same name) to disable the check entirely. This is useful in CI environments where the notice is noise rather than signal.
 
 ## Next page
 

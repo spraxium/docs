@@ -5,6 +5,21 @@ description: |
   Learn the listener model, how they connect to events, and how they register in modules.
 order: 1
 category: Listeners
+keywords:
+  - spraxium listeners overview
+  - listeners overview in spraxium
+  - listeners listeners overview guide
+  - listeners overview discord bot
+  - listeners overview typescript
+  - spraxium listeners documentation
+  - listeners overview listeners
+faq:
+  - question: "What does \"Listeners Overview\" cover in Spraxium?"
+    answer: "Listeners react to Discord events like messages, member joins, and client readiness. Learn the listener model, how they connect to events, and how they register in modules."
+  - question: "When should I use \"Listeners Overview\"?"
+    answer: "Use this page when you are implementing listeners overview in the Listeners area of your bot architecture."
+  - question: "What should I read after \"Listeners Overview\"?"
+    answer: "Continue with related Listeners pages to connect this concept with practical implementation details."
 ---
 
 ## What a listener is
@@ -14,6 +29,12 @@ A listener is a class that reacts to Discord events. When something happens on D
 The key difference between listeners and commands is what triggers them. Commands are triggered by a user typing a slash command or a prefix command. Listeners are triggered by Discord events that happen in the background, like messages being sent, members joining or leaving, reactions being added, or the client becoming ready. Some of these events involve user interactions that can receive replies, and some are background events that happen silently.
 
 Listeners in Spraxium are not raw callbacks. They are full classes managed by the dependency injection container, registered in modules, and wired to the Discord client automatically during bootstrap. This means your listener classes can receive injected services, participate in the guard pipeline for supported events, and benefit from the same exception handling that commands use.
+
+## When a listener is the right tool
+
+Use a listener when the action begins from a Discord event rather than an explicit command. Good examples include welcome flows on member join, analytics on message creation, cache updates on role changes, or startup tasks tied to the client's ready event.
+
+If the action should happen because a user requested it directly, prefer a slash command, prefix command, button, select, or modal handler instead. That keeps event-driven behavior and user-invoked behavior clearly separated.
 
 ## A basic listener example
 
@@ -98,12 +119,21 @@ The bootstrap process handles listeners in a specific sequence that matters for 
 
 This structure keeps all listener classes in a dedicated folder and the module file at the events root. As your bot grows, you can add more listener files without changing the folder structure. Each listener handles one event, and the module file is the single place that declares which listeners are active.
 
+## Common mistakes to avoid
+
+1. Putting heavy business logic directly in the listener instead of delegating to a service.
+2. Forgetting the required gateway intents, then assuming the listener binding is broken.
+3. Registering the listener class but not importing the owning module into the active module graph.
+4. Passing entire Discord.js objects deep into services when only a few IDs are needed.
+
 <Callout tone="info" title="One class per event">
   Each listener class is bound to exactly one Discord event through the Listener
   decorator. If you need to listen to multiple events, create separate listener
   classes for each one. This keeps each class focused and easy to find when
   debugging.
 </Callout>
+
+That separation pays off quickly in bigger bots. Event plumbing stays easy to inspect, and domain logic stays reusable from other entry points such as commands, HTTP routes, or scheduled jobs.
 
 ## Next page
 

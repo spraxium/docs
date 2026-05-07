@@ -1,19 +1,35 @@
 ---
 title: Arquitetura de Pastas HTTP
 description: |
-  Organize arquivos HTTP com fronteiras de transporte claras e crescimento sustentável.
-  Mantenha AppModule como dono único de metadata enquanto separa controllers, services, DTOs e middleware.
+  Organize arquivos HTTP com fronteiras de transporte claras e caminhos de crescimento fáceis de manter.
+  Mantenha AppModule como dono único dos metadados enquanto separa controllers, services, DTOs e middleware.
 order: 3
 category: "@spraxium/http"
+keywords:
+  - spraxium http folder architecture
+  - arquitetura de pastas http no spraxium
+  - "@spraxium/http http folder architecture guia"
+  - http folder architecture bot discord
+  - http folder architecture typescript
+  - documentacao spraxium @spraxium/http
+  - arquitetura de pastas http @spraxium/http
+  - spraxium arquitetura de pastas http
+faq:
+  - question: "O que \"Arquitetura de Pastas HTTP\" cobre no Spraxium?"
+    answer: "Organize arquivos HTTP com fronteiras de transporte claras e caminhos de crescimento fáceis de manter. Mantenha AppModule como dono único dos metadados enquanto separa controllers, services, DTOs e middleware."
+  - question: "Quando devo usar \"Arquitetura de Pastas HTTP\"?"
+    answer: "Use esta pagina quando voce estiver implementando http folder architecture dentro da area de @spraxium/http do seu bot."
+  - question: "Qual o proximo passo depois de \"Arquitetura de Pastas HTTP\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/http para conectar este conceito com implementacao pratica."
 ---
 
-## Por que estruturar cedo
+## Por que a estrutura importa desde cedo
 
-Um layout de pastas limpo mantém o código de transporte compreensível conforme o número de endpoints cresce. Sem fronteiras claras, arquivos de controller acumulam lógica de negócio, definições de DTO acabam espalhadas em diretórios não relacionados e o posicionamento de middleware se torna imprevisível. Estabelecer estrutura cedo evita que esses problemas se acumulem conforme o projeto escala, porque a hierarquia de pastas por si só comunica onde cada responsabilidade pertence.
+Uma organização limpa de pastas mantém o código de transporte compreensível à medida que o número de endpoints cresce. Sem fronteiras claras, arquivos de controller acumulam regra de negócio, definições de DTO acabam espalhadas por diretórios sem relação e o lugar do middleware vira algo imprevisível. Definir a estrutura cedo impede que esses problemas se acumulem conforme o projeto escala, porque a própria hierarquia de pastas comunica onde cada responsabilidade deve ficar.
 
-O objetivo é direto: uma raiz de ownership no AppModule, posicionamento previsível de arquivo para cada concern de transporte e separação clara entre mapeamento de request (controllers) e lógica de negócio (services). Quando um novo integrante abre o projeto, a árvore de pastas deve responder "onde isso vai?" sem precisar de uma conversa.
+O objetivo é direto: uma única raiz de controle no AppModule, posicionamento previsível de arquivos para cada responsabilidade de transporte e separação clara entre mapeamento de requisição, nos controllers, e regra de negócio, nos services. Quando alguém novo abrir o projeto, a árvore de pastas deve responder "onde isso entra?" sem exigir conversa nenhuma.
 
-Isso importa mais em módulos HTTP do que em código típico de comandos Discord porque endpoints HTTP são um contrato público. Clientes dependem de estabilidade de caminhos, shapes de resposta e formatos de erro. Código de transporte desorganizado dificulta auditar o que está exposto e facilita introduzir breaking changes acidentalmente.
+Isso importa ainda mais em módulos HTTP do que em código típico de comandos do Discord porque endpoints HTTP são um contrato público. Clientes dependem da estabilidade dos caminhos, dos formatos de resposta e dos formatos de erro. Código de transporte desorganizado dificulta auditar o que está exposto e facilita introduzir breaking changes sem perceber.
 
 ## Estrutura recomendada
 
@@ -29,6 +45,9 @@ Isso importa mais em módulos HTTP do que em código típico de comandos Discord
       <Folder name="services" open>
         <File name="guild-http.service.ts" />
         <File name="moderation-http.service.ts" />
+      </Folder>
+      <Folder name="guards" open>
+        <File name="admin.guard.ts" />
       </Folder>
       <Folder name="dto" open>
         <File name="update-guild-config.dto.ts" />
@@ -50,35 +69,51 @@ Isso importa mais em módulos HTTP do que em código típico de comandos Discord
 
 ## Papel de cada pasta
 
-Entender o que cada diretório controla previne vazamentos de responsabilidade entre fronteiras. Controllers cuidam do mapeamento request/response, services controlam regras de negócio, DTOs definem contratos de validação, middleware provê comportamento cross-cutting e errors modelam cenários de falha específicos do domínio.
+Entender o que cada diretório controla evita vazamento de responsabilidades entre fronteiras. Controllers lidam com mapeamento de requisição e resposta, services controlam as regras de negócio, DTOs definem contratos de validação, middleware entrega comportamento transversal e errors modelam cenários de falha específicos do domínio.
 
 <DropdownGroup>
-<Dropdown title="controllers/: Mapeamento de request e resposta">
-  Classes decoradas com *@HttpController*. Cada classe agrupa rotas relacionadas sob um prefixo. Controllers devem ser enxutos: extraia qualquer lógica além de leitura de parâmetros e construção de resposta para um service.
+<Dropdown title="controllers/">
+  Contém classes decoradas com *@HttpController*. Cada arquivo agrupa rotas
+  relacionadas sob um prefixo e delega toda lógica não trivial aos services.
+  Controllers devem ser finos: o trabalho deles é ler parâmetros da requisição,
+  chamar services e devolver dados de resposta, não controlar regra de negócio
+  nem lógica de domínio.
 </Dropdown>
 
-<Dropdown title="services/: Regras de negócio e lógica do domínio">
-  Classes decoradas com *@Injectable*. Contêm regras de negócio, chamadas ao
-  *BotBridge* e transformações de dados. Services são resolvidos pelo
-  *RouteRegistry* antes dos controllers. Declare-os em *HttpClientModule(
-  {services})* e injete via construtor.
+<Dropdown title="services/">
+  Contém classes que guardam regras de negócio, chamadas a *BotBridge* e
+  transformações de dados. Services são declarados em
+  *@HttpClientModule({services})* e injetados em controllers e outros services
+  como parâmetros de construtor. *RouteRegistry* os resolve usando ordenação
+  topológica antes de instanciar qualquer controller, então dependências
+  circulares geram um erro explícito de inicialização com a lista das classes
+  envolvidas.
 </Dropdown>
 
-<Dropdown title="dto/: Contratos de validação de input">
-  Classes com decorators do *class-validator*. Consumidas por
-  *@HttpBody(DtoClass)* nos métodos de controller. Um DTO por shape de mutação.
-  DTOs não devem conter lógica de negócio, apenas regras estruturais e de
-  constraint.
+<Dropdown title="dto/">
+  Contém classes com decorators de *class-validator* que definem o contrato de
+  validação dos payloads de mutação. Cada arquivo DTO cobre um formato de
+  requisição específico e é referenciado como argumento de *@HttpBody(DtoClass)*.
+  DTOs devem conter apenas declarações estruturais e de constraints, não regra
+  de negócio nem chamadas de service.
 </Dropdown>
 
-<Dropdown title="middleware/: Comportamento transversal por rota">
-  Classes implementando *HttpMiddleware*. Usadas como middleware global ou
-  resolvidas via *middlewareProviders*. Mantenha middleware stateless quando
-  possível. Estado como contadores de rate-limit deve ser isolado por instância.
+<Dropdown title="middleware/">
+  Contém classes que implementam a interface *HttpMiddleware* para
+  responsabilidades em nível de rota. Middleware colocado aqui é registrado em
+  *@HttpClientModule({middleware})* como instância global ou em
+  *middlewareProviders* para uso por rota com *@HttpUseMiddleware*. Sempre que
+  possível, mantenha o middleware sem estado para que as instâncias possam ser
+  compartilhadas com segurança entre várias rotas.
 </Dropdown>
 
-<Dropdown title="errors/: Subclasses de erro específicas do domínio">
-  Subclasses customizadas de *HttpError* para cenários de falha específicos do domínio. Nomeie erros pela condição do domínio (ex: *GuildLockedError*), não pelo status HTTP. O status é herdado da classe pai.
+<Dropdown title="errors/">
+  Contém subclasses customizadas de *HttpError* nomeadas pela condição de
+  domínio, e não pelo status code HTTP. Nomear erros pelo cenário de domínio,
+  como *GuildLockedError* em vez de *ForbiddenError*, torna esses erros mais
+  fáceis de localizar em logs, testar em assertions e filtrar em dashboards de
+  monitoramento. Cada classe herda seu status code da classe pai e só precisa
+  passar uma mensagem descritiva para `super`.
 </Dropdown>
 </DropdownGroup>
 
@@ -158,21 +193,21 @@ maintenanceMode?: boolean;
   </Tab>
 </CodeTabs>
 
-## Por que controllers devem ser enxutos
+## Por que controllers devem continuar finos
 
-Controllers são a fronteira entre transporte HTTP e lógica de aplicação. O trabalho deles é ler parâmetros da request, delegar trabalho para services e formatar a resposta. Quando controllers acumulam regras de negócio, ficam difíceis de testar porque você precisa de um contexto HTTP completo para exercitar comportamento de domínio. Também ficam difíceis de reutilizar porque a mesma lógica não pode ser chamada de um ponto de entrada diferente como um handler de Signal ou uma tarefa agendada.
+Controllers são a fronteira entre o transporte HTTP e a lógica da aplicação. O trabalho deles é ler parâmetros da requisição, delegar o trabalho aos services e modelar a resposta. Quando controllers acumulam regras de negócio, ficam difíceis de testar porque você passa a depender de um contexto HTTP completo para exercitar comportamento de domínio. Eles também ficam difíceis de reaproveitar, porque a mesma lógica não pode ser chamada facilmente a partir de outro ponto de entrada, como um handler de Signal ou uma tarefa agendada.
 
-O padrão é consistente: o controller chama o service, o service chama o *BotBridge* ou outras dependências, e erros propagam para cima através da hierarquia *HttpError* até o handler centralizado *onError* normalizá-los. Essa camada mantém cada arquivo focado e cada teste isolado.
+O padrão é consistente: o controller chama o service, o service chama *BotBridge* ou outras dependências, e os erros sobem pela hierarquia de *HttpError* até que o handler centralizado *onError* os normalize. Esse encadeamento mantém cada arquivo focado e cada teste isolado.
 
-Services são resolvidos pelo *RouteRegistry* usando ordenação topológica, o que significa que podem depender uns dos outros desde que não haja referências circulares. Se uma dependência circular for detectada, o startup falha imediatamente com uma mensagem de erro clara listando as classes envolvidas.
+Services são resolvidos por *RouteRegistry* usando ordenação topológica, o que significa que eles podem depender uns dos outros desde que não haja referências circulares. Se uma dependência circular for detectada, a inicialização falha imediatamente com uma mensagem clara listando as classes envolvidas.
 
-## Escalando para bounded contexts
+## Escalando para contextos delimitados
 
-Quando a superfície da API cresce além de alguns controllers, pastas planas ficam ruidosas. Nesse ponto, divida `src/http` em subdiretórios específicos por domínio. Cada subdiretório ganha seus próprios controllers, services, DTOs e errors enquanto continua registrando tudo através da mesma metadata do *@HttpClientModule* no AppModule.
+Quando a superfície da API cresce além de alguns controllers, pastas planas começam a fazer barulho demais. Nesse ponto, divida `src/http` em subdiretórios por domínio. Cada subdiretório ganha seus próprios controllers, services, DTOs e errors, mas tudo continua sendo registrado pelos mesmos metadados de *@HttpClientModule* no AppModule.
 
 <FolderStructure title="Arquitetura HTTP escalada com fronteiras de domínio">
   <Folder name="src" open>
-    <File name="app.module.ts" comment="Dono único de metadata para todos os domínios HTTP" />
+    <File name="app.module.ts" comment="Dono único dos metadados para todos os domínios HTTP" />
     <Folder name="http" open>
       <Folder name="guilds" open>
         <File name="guild-http.controller.ts" />
@@ -199,24 +234,41 @@ Quando a superfície da API cresce além de alguns controllers, pastas planas fi
 ## Passos práticos de evolução
 
 <Steps>
-  <Step title="Começar com uma pasta de transporte">
-    Inicie com `src/http` contendo controllers, services e pastas de DTO mesmo para uma API pequena. Isso dá ao time um mapa mental estável antes do projeto escalar. Evite colocar arquivos HTTP diretamente em `src/` porque vão se misturar com código de comandos Discord.
+  <Step title="Comece com uma pasta única de transporte">
+    Comece com `src/http` contendo pastas de controllers, services e DTOs mesmo
+    para uma API pequena. Isso dá ao time um mapa mental estável antes de o
+    projeto crescer. Evite colocar arquivos HTTP diretamente em `src/`, porque
+    eles vão se misturar com o código de comandos do Discord.
   </Step>
-  <Step title="Promover lógica compartilhada para services">
-    Mantenha controllers enxutos movendo regras de negócio não triviais para classes de service. Handlers de rota devem coordenar entrada e saída, não controlar comportamento de domínio. Services também recebem *BotBridge* via injeção, mantendo interação com Discord atrás de uma abstração limpa.
+  <Step title="Promova a lógica compartilhada para services">
+    Mantenha os controllers finos movendo regras de negócio não triviais para
+    classes de service. Handlers de rota devem coordenar requisição e resposta,
+    não controlar comportamento de domínio. Services também recebem *BotBridge*
+    por injeção, o que mantém a interação com o Discord atrás de uma abstração
+    limpa.
   </Step>
-  <Step title="Criar classes de erro customizadas cedo">
-    Defina subclasses de *HttpError* específicas do domínio em uma pasta `errors/` em vez de lançar erros genéricos com mensagens de string. Erros nomeados são mais fáceis de encontrar em logs, testar em assertions e filtrar em dashboards de monitoramento.
+  <Step title="Crie classes de erro customizadas cedo">
+    Defina subclasses de *HttpError* específicas do domínio em uma pasta
+    `errors/`, em vez de lançar erros genéricos com mensagens em string. Erros
+    nomeados são mais fáceis de achar em logs, testar em assertions e filtrar em
+    dashboards de monitoramento.
   </Step>
-  <Step title="Separar por bounded context quando necessário">
-    Conforme o volume de endpoints crescer, divida `src/http` em pastas de domínio como `guilds/`, `moderation/` e `members/`. Mantenha `app.module.ts` como raiz única de composição para todos os contexts. Cada pasta de domínio controla seus controllers, services e DTOs.
+  <Step title="Divida por contexto delimitado quando necessário">
+    Conforme o volume de endpoints cresce, divida `src/http` em pastas de
+    domínio como `guilds/`, `moderation/` e `members/`. Mantenha
+    `app.module.ts` como a composição raiz única para todos os contextos. Cada
+    pasta de domínio controla seus controllers, services e DTOs.
   </Step>
-  <Step title="Proteger fronteiras de ownership">
-    Continue usando uma entrada *defineHttp* e uma fonte AppModule para metadata mesmo após refactors. Múltiplas raízes de metadata tornam ciclo de vida e política de segurança difíceis de raciocinar. Todos os controllers de todos os domínios são listados no mesmo array `controllers` do *HttpClientModule*.
+  <Step title="Proteja as fronteiras de controle">
+    Continue usando uma entrada de *defineHttp* e uma fonte de metadados no
+    AppModule mesmo depois de refactors. Múltiplas raízes de metadados tornam o
+    ciclo de vida e a política de segurança difíceis de raciocinar. Todos os
+    controllers de todos os domínios devem aparecer no mesmo array `controllers`
+    de *HttpClientModule*.
   </Step>
 </Steps>
 
-## Próxima página
+## Next page
 
-Continue com [Pipeline de Rotas e Decorators](/guide/http-routing-runtime-pipeline).
+Continue com [Pipeline de Roteamento e Decorators](/guide/http-routing-runtime-pipeline).
 ```

@@ -1,10 +1,26 @@
 ---
 title: Decorators and Jobs
 description: |
-  Four decorators define schedule jobs with cron expressions, intervals, timeouts, and post-connection delays.
+  Five decorators define schedule jobs: cron, interval, timeout, post-connection delays, and one-shot absolute dates.
   Learn each decorator's options, enum helpers, and how to combine multiple jobs in one service.
 order: 2
 category: Schedule
+keywords:
+  - spraxium schedule decorators jobs
+  - decorators and jobs in spraxium
+  - schedule schedule decorators jobs guide
+  - schedule decorators jobs discord bot
+  - schedule decorators jobs typescript
+  - spraxium schedule documentation
+  - decorators and jobs schedule
+  - spraxium decorators and jobs
+faq:
+  - question: "What does \"Decorators and Jobs\" cover in Spraxium?"
+    answer: "Five decorators define schedule jobs: cron, interval, timeout, post-connection delays, and one-shot absolute dates. Learn each decorator's options, enum helpers, and how to combine multiple jobs in one service."
+  - question: "When should I use \"Decorators and Jobs\"?"
+    answer: "Use this page when you are implementing schedule decorators jobs in the Schedule area of your bot architecture."
+  - question: "What should I read after \"Decorators and Jobs\"?"
+    answer: "Continue with related Schedule pages to connect this concept with practical implementation details."
 ---
 
 ## @Cron and @Interval
@@ -98,9 +114,55 @@ export class WelcomeService {
   </Tab>
 </CodeTabs>
 
+## @RunOnce
+
+_@RunOnce_ schedules a method to run exactly once at an absolute point in the future. Unlike the repeating and relative-delay decorators, you pass a `Date` instance rather than a duration or cron expression. After the job fires, the framework unregisters it automatically and it will not appear in _ScheduleService.getAll()_ afterwards.
+
+If the provided date is already in the past when the bot starts, the job is registered but will never fire. The framework emits a warning to the log so the misconfiguration is visible, but it does not throw or prevent startup.
+
+<CodeTabs>
+  <Tab label="Fixed date" language="typescript">
+```typescript filename="src/modules/tasks/services/launch.service.ts"
+import { Injectable } from '@spraxium/common';
+import { RunOnce } from '@spraxium/schedule';
+
+const LAUNCH_DATE = new Date('2026-06-01T20:00:00Z');
+
+@Injectable()
+export class LaunchService {
+  @RunOnce(LAUNCH_DATE, { name: 'product-launch-ping' })
+  async pingLaunch(): Promise<void> {
+    // Fires once at 20:00 UTC on 2026-06-01
+    await this.notifier.ping();
+  }
+}
+```
+  </Tab>
+  <Tab label="Dynamic date" language="typescript">
+```typescript filename="src/modules/tasks/services/event.service.ts"
+import { Injectable } from '@spraxium/common';
+import { RunOnce } from '@spraxium/schedule';
+
+@Injectable()
+export class EventService {
+  @RunOnce(new Date('2026-12-31T23:00:00Z'), { name: 'new-year-announcement' })
+  async sendNewYearMessage(): Promise<void> {
+    await this.channel.send('ðŸŽ‰ Happy New Year!');
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+<Callout tone="warning">
+  _@RunOnce_ requires a valid Date instance. Passing a date string or an
+  invalid date throws a ConfigurationException at startup, before the bot
+  ever connects to Discord.
+</Callout>
+
 ## Decorator options reference
 
-All four decorators share a common base options interface with additional fields for specific job types. The table below lists every available option and which decorators support it.
+All five decorators share a common base options interface with additional fields for specific job types. The table below lists every available option and which decorators support it.
 
 <Table>
   <TableHead>
@@ -114,27 +176,33 @@ All four decorators share a common base options interface with additional fields
   <TableBody>
     <TableRow>
       <TableCell>*name*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>All</TableCell>
       <TableCell>Unique identifier for runtime management</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*disabled*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>*boolean*</TableCell>
       <TableCell>All</TableCell>
       <TableCell>Skip registration (useful for feature flags)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*runOnInit*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>*boolean*</TableCell>
       <TableCell>*@Cron*, *@Interval*</TableCell>
       <TableCell>Execute immediately during boot phase</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*timezone*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>*string*</TableCell>
       <TableCell>*@Cron*</TableCell>
       <TableCell>Override global timezone for this job</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*date*</TableCell>
+      <TableCell>*Date*</TableCell>
+      <TableCell>*@RunOnce*</TableCell>
+      <TableCell>Absolute date at which the job fires. Passed as the first positional argument, not inside the options object.</TableCell>
     </TableRow>
   </TableBody>
 </Table>

@@ -1,187 +1,33 @@
 ---
-title: "Configuración y Patrones"
+title: Configuración y patrones
 description: |
-  Aprende cómo configurar el módulo schedule con ScheduleConfig y combinar tipos de jobs.
-  Cubre configuración dividida, flags de features, patrones combinados y registro del módulo.
+  La configuración de schedule usa el patrón split-config con defineSchedule para un setup con tipado seguro.
+  Aprende la referencia completa de ScheduleConfig, buenas prácticas y patrones comunes de jobs.
 order: 4
 category: Schedule
 ---
 
-## ScheduleConfig
+## Patrón split config
 
-El objeto _ScheduleConfig_ controla el comportamiento global del módulo de schedule. Se pasa a la fábrica _defineSchedule_ cuando registras el módulo en tu configuración de Spraxium. Todos los campos son opcionales con valores predeterminados razonables, así que la configuración mínima es una llamada sin argumentos.
+Como otros plugins de Spraxium, el módulo schedule usa el patrón split config, donde la configuración vive en un archivo dedicado dentro del directorio `config/`. El helper _defineSchedule_ ofrece tipado completo y autocompletado para todos los campos de configuración. Tu `spraxium.config.ts` principal referencia el archivo de configuración, manteniendo limpia la configuración raíz y aislada cada configuración de plugin.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Campo</TableCell>
-      <TableCell header>Tipo</TableCell>
-      <TableCell header>Predeterminado</TableCell>
-      <TableCell header>Propósito</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>*driver*</TableCell>
-      <TableCell>`ScheduleDriver`</TableCell>
-      <TableCell>`MemoryDriver`</TableCell>
-      <TableCell>
-        Driver de bloqueo para prevenir ejecuciones duplicadas
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*timezone*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>UTC</TableCell>
-      <TableCell>
-        Zona horaria IANA predeterminada para todos los jobs cron
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*defaultLockTtlMs*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`30000`</TableCell>
-      <TableCell>Tiempo de expiración del bloqueo en milisegundos</TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>*disableAll*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>
-        Desactiva todos los jobs globalmente durante pruebas o mantenimiento
-      </TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+Cada plugin tiene su propio archivo de configuración con sus propios tipos, y la configuración raíz simplemente los importa y compone. Así evitas terminar con un objeto de configuración monolítico mezclando ajustes de prefix, schedule y HTTP.
 
-## Configuración dividida
-
-Para proyectos grandes, es útil extraer la configuración del schedule a un archivo separado. Esto mantiene el archivo principal de configuración limpio y te permite cambiar la configuración del schedule según el entorno sin modificar la configuración raíz. La separación también facilita compartir la configuración del schedule entre múltiples bots si es necesario.
+El framework descubre y carga automáticamente la configuración de schedule durante el bootstrap. No necesitas llamar manualmente ninguna función de registro. Solo exporta la configuración desde el archivo y referénciala en el arreglo de imports de tu configuración raíz.
 
 <CodeTabs>
-  <Tab label="Archivo de configuración" language="typescript">
+  <Tab label="Configuración de schedule" language="typescript">
 ```typescript filename="config/schedule.config.ts"
-import { defineSchedule, MemoryDriver, RedisScheduleDriver } from '@spraxium/schedule';
-
-const isProduction = process.env.NODE_ENV === 'production';
+import { defineSchedule } from '@spraxium/schedule';
 
 export default defineSchedule({
-  driver: isProduction
-    ? new RedisScheduleDriver({
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: Number(process.env.REDIS_PORT ?? 6379),
-      })
-    : new MemoryDriver(),
   timezone: 'America/Sao_Paulo',
   defaultLockTtlMs: 30_000,
-  disableAll: process.env.DISABLE_JOBS === 'true',
+  disableAll: false,
 });
 ```
   </Tab>
-  <Tab label="Configuración principal" language="typescript">
-```typescript filename="spraxium.config.ts"
-import { defineConfig } from '@spraxium/core';
-import schedule from './config/schedule.config';
-
-export default defineConfig({
-  plugins: [
-    schedule, ],
-});
-```
-  </Tab>
-</CodeTabs>
-
-## Estructura de carpetas
-
-Los archivos de configuración de schedule siguen el mismo patrón que otros archivos de configuración del framework. El archivo de configuración del schedule vive en la carpeta _config_ junto con los demás archivos de configuración. Los servicios de jobs viven dentro de sus respectivas carpetas de módulos.
-
-<FolderStructure>
-  <Folder name="src" open>
-    <Folder name="modules" open>
-      <Folder name="analytics" open>
-        <Folder name="services" open>
-          <File name="analytics-jobs.service.ts" />
-        </Folder>
-      </Folder>
-    </Folder>
-  </Folder>
-  <Folder name="config" open>
-    <File name="schedule.config.ts" />
-  </Folder>
-</FolderStructure>
-
-## Patrones combinados de jobs
-
-Un único servicio puede combinar múltiples tipos de jobs cuando estos están lógicamente relacionados. Por ejemplo, un servicio de moderación podría tener un job cron para limpieza diaria, un job de intervalo para monitoreo de spam y un job post-online para cargar la configuración de moderación desde la base de datos. Agrupar jobs relacionados en un solo servicio mantiene la cohesión y facilita el testing.
-
-Los nombres de job deben ser únicos dentro de toda la aplicación, no solo dentro del servicio. El framework lanza un error en tiempo de inicio si detecta nombres de job duplicados. Usa un prefijo específico del módulo en los nombres de tus jobs para evitar colisiones, como `moderation:cleanup` o `analytics:daily-report`.
-
-Cuando un servicio tiene múltiples jobs, puedes controlarlos independientemente a través del _ScheduleService_. Pausar un job no afecta a los demás jobs en el mismo servicio. Esta granularidad te permite deshabilitar jobs específicos en runtime sin afectar a otros jobs.
-
-```typescript filename="src/modules/moderation/services/moderation-jobs.service.ts"
-import { Injectable } from '@spraxium/common';
-import {
-  AfterOnline,
-  Cron,
-  CronExpression,
-  Interval,
-  IntervalExpression,
-} from '@spraxium/schedule';
-
-@Injectable()
-export class ModerationJobsService {
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
-    name: 'moderation:cleanup',
-    timezone: 'America/New_York',
-  })
-  async cleanupExpiredBans(): Promise<void> {
-    // Eliminar bans expirados de la base de datos
-  }
-
-  @Interval(IntervalExpression.EVERY_10_SECONDS, {
-    name: 'moderation:spam-check',
-  })
-  async checkSpamQueues(): Promise<void> {
-    // Procesar mensajes en cola para detecci\u00f3n de spam
-  }
-
-  @AfterOnline(5000, {
-    name: 'moderation:load-config',
-  })
-  async loadModerationConfig(): Promise<void> {
-    // Cargar configuraci\u00f3n de moderaci\u00f3n al estar online
-  }
-}
-```
-
-## Flags de features
-
-La opción _disabled_ en los decorators de jobs y el campo _disableAll_ en la configuración proporcionan feature flags integrados para el sistema de schedule. Los feature flags te permiten deshabilitar jobs en entornos específicos sin eliminar el código, lo cual es útil durante pruebas, mantenimiento o despliegue gradual de nuevos jobs.
-
-Puedes vincular las opciones _disabled_ a variables de entorno para controlar qué jobs se ejecutan en cada despliegue. Esto es especialmente útil cuando quieres deshabilitar jobs intensivos en recursos en entornos de staging o deshabilitar todos los jobs temporalmente durante una ventana de mantenimiento de base de datos.
-
-El campo _disableAll_ en la configuración actúa como un interruptor maestro que impide que cualquier job sea planificado al inicio. Esto es diferente a pausar jobs individualmente con _ScheduleService.pause_, porque _disableAll_ previene completamente que los jobs se creen en el registro.
-
-```typescript filename="src/modules/analytics/services/analytics-jobs.service.ts"
-import { Injectable } from '@spraxium/common';
-import { Cron, CronExpression } from '@spraxium/schedule';
-
-@Injectable()
-export class AnalyticsJobsService {
-  @Cron(CronExpression.EVERY_HOUR, {
-    name: 'analytics:hourly',
-    disabled: process.env.DISABLE_ANALYTICS === 'true',
-  })
-  async hourlyReport(): Promise<void> {
-    // Generar reporte por hora
-  }
-}
-```
-
-## Registro del módulo
-
-La configuración final registra el módulo de schedule en el array de plugins del config raíz. El orden de los plugins no afecta a la ejecución de jobs, los jobs siempre se planifican después de que todos los módulos hayan completado su inicialización. Esto garantiza que la inyección de dependencias esté completamente resuelta antes de que cualquier job se ejecute.
-
+  <Tab label="Configuración raíz" language="typescript">
 ```typescript filename="spraxium.config.ts"
 import { defineConfig } from '@spraxium/core';
 import schedule from './config/schedule.config';
@@ -190,7 +36,151 @@ export default defineConfig({
   plugins: [schedule],
 });
 ```
+  </Tab>
+</CodeTabs>
 
-## Siguiente estudio
+## Referencia de ScheduleConfig
 
-Continúa con [Visión General del Paquete HTTP](/guide/http-overview).
+La interfaz _ScheduleConfig_ controla el comportamiento global de todos los jobs programados. La mayoría de los campos son opcionales y tienen valores por defecto razonables que funcionan para bots de un solo proceso.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Predeterminado</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*driver*</TableCell>
+      <TableCell>*ScheduleDriver*</TableCell>
+      <TableCell>*MemoryDriver*</TableCell>
+      <TableCell>Driver de lock para ejecución distribuida</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timezone*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Predeterminado del sistema</TableCell>
+      <TableCell>Zona horaria IANA para jobs cron</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*defaultLockTtlMs*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>30000</TableCell>
+      <TableCell>TTL de lock por defecto en milisegundos para el driver</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disableAll*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>*false*</TableCell>
+      <TableCell>Deshabilita globalmente todos los jobs (útil para mantenimiento)</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Organización del proyecto
+
+Los servicios de schedule son providers inyectables normales que registras en cualquier módulo. Un patrón común es crear un módulo dedicado de tasks que agrupe todos los jobs en segundo plano, pero también puedes colocar métodos decorados con schedule en servicios específicos de dominio. La elección depende de si tus jobs son transversales (como limpieza y sincronización) o están fuertemente acoplados a una funcionalidad concreta.
+
+Para tareas transversales, un módulo centralizado de tasks mantiene todo organizado. Para tareas específicas de una funcionalidad, colocar el decorador de schedule en un método del servicio de la propia funcionalidad evita indirecciones innecesarias. Ambos enfoques son válidos y el framework los trata de forma idéntica.
+
+<FolderStructure>
+  <Folder name="config" open>
+    <File name="schedule.config.ts" />
+  </Folder>
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="tasks" open>
+        <File name="tasks.module.ts" />
+        <Folder name="services" open>
+          <File name="cleanup.service.ts" />
+          <File name="sync.service.ts" />
+          <File name="status.service.ts" />
+        </Folder>
+      </Folder>
+      <Folder name="moderation" open>
+        <File name="moderation.module.ts" />
+        <Folder name="services" open>
+          <File name="warning-expiry.service.ts" />
+        </Folder>
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Patrones comunes
+
+### Combinar varios tipos de job en un servicio
+
+Un solo servicio puede tener métodos decorados con distintos tipos de job. Esto es útil cuando tareas relacionadas tienen requisitos temporales distintos pero comparten las mismas dependencias. El scheduler trata cada método decorado como un job independiente con su propio nombre y ciclo de vida.
+
+```typescript filename="src/modules/tasks/services/maintenance.service.ts"
+import { Injectable } from '@spraxium/common';
+import {
+  Cron,
+  CronExpression,
+  Interval,
+  IntervalExpression,
+  AfterOnline,
+} from '@spraxium/schedule';
+
+@Injectable()
+export class MaintenanceService {
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'daily-cleanup' })
+  async dailyCleanup(): Promise<void> {
+    // Archive old logs, clear temp data
+  }
+
+  @Interval(IntervalExpression.EVERY_10_MINUTES, { name: 'health-ping' })
+  async healthPing(): Promise<void> {
+    // Report bot health to monitoring service
+  }
+
+  @AfterOnline(10_000, { name: 'restore-presences' })
+  async restorePresences(): Promise<void> {
+    // Restore bot status from database after reconnection
+  }
+}
+```
+
+### Ejecución condicional de jobs con feature flags
+
+A veces quieres definir un job pero habilitarlo solo según variables de entorno o condiciones de runtime. La opción _disabled_ en las opciones del decorador te permite controlarlo en el momento de registro. Para control en runtime, usa en su lugar los métodos _ScheduleService.pause_ y _ScheduleService.resume_.
+
+```typescript filename="src/modules/tasks/services/analytics.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class AnalyticsService {
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'hourly-analytics',
+    disabled: process.env.ENABLE_ANALYTICS !== 'true',
+  })
+  async collectAnalytics(): Promise<void> {
+    // Collect and aggregate usage analytics
+  }
+}
+```
+
+### Registro del módulo
+
+Registra tus servicios de tasks como providers dentro de un módulo. _ScheduleModule_ es global y no necesita importarse en tu módulo de funcionalidad. Solo añade tus servicios al arreglo de providers y el scheduler descubrirá automáticamente sus métodos decorados.
+
+```typescript filename="src/modules/tasks/tasks.module.ts"
+import { Module } from '@spraxium/common';
+import { CleanupService } from './services/cleanup.service';
+import { SyncService } from './services/sync.service';
+import { MaintenanceService } from './services/maintenance.service';
+
+@Module({
+  providers: [CleanupService, SyncService, MaintenanceService],
+})
+export class TasksModule {}
+```
+
+## Siguiente página
+
+Continúa con [Descripción general del paquete HTTP](/guide/http-overview).

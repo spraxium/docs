@@ -1,23 +1,39 @@
 ---
 title: Padrões de Arquitetura de Listeners
 description: |
-  Projete listeners como fronteiras finas de evento que delegam pra serviços injetados.
-  Organize módulos e estrutura de arquivos pra manter o tratamento de eventos sustentável conforme o bot cresce.
+  Modele listeners como fronteiras finas de evento que delegam para serviços injetados.
+  Organize módulos e estrutura de arquivos para manter o tratamento de eventos sustentável à medida que o bot cresce.
 order: 3
 category: Listeners
+keywords:
+  - spraxium listeners architecture patterns
+  - padrões de arquitetura de listeners no spraxium
+  - listeners listeners architecture patterns guia
+  - listeners architecture patterns bot discord
+  - listeners architecture patterns typescript
+  - documentacao spraxium listeners
+  - padrões de arquitetura de listeners listeners
+  - spraxium padrões de arquitetura de listeners
+faq:
+  - question: "O que \"Padrões de Arquitetura de Listeners\" cobre no Spraxium?"
+    answer: "Modele listeners como fronteiras finas de evento que delegam para serviços injetados. Organize módulos e estrutura de arquivos para manter o tratamento de eventos sustentável à medida que o bot cresce."
+  - question: "Quando devo usar \"Padrões de Arquitetura de Listeners\"?"
+    answer: "Use esta pagina quando voce estiver implementando listeners architecture patterns dentro da area de Listeners do seu bot."
+  - question: "Qual o proximo passo depois de \"Padrões de Arquitetura de Listeners\"?"
+    answer: "Continue nas paginas relacionadas de Listeners para conectar este conceito com implementacao pratica."
 ---
 
 ## Listeners como fronteiras de evento
 
-Um listener deve ser a fronteira mais fina possível entre um evento Discord e sua lógica de dominio. O trabalho dele e receber o payload do evento, fazer filtragem básica como ignorar contas de bot, e então chamar o serviço aprópriado pra tratar a lógica de negócio real. Quando você mantem listeners finos, seu código de dominio fica testável sem precisar mockar o sistema de eventos do Discord, e seus listeners ficam legiveis porque cada um faz muito pouco por conta própria.
+Um listener deve ser a fronteira mais fina possível entre um evento do Discord e a sua lógica de domínio. A função dele é receber o payload do evento, fazer filtros básicos, como ignorar contas de bot, e então chamar o serviço responsável pela regra de negócio. Quando o listener fica fino, o código de domínio continua testável sem precisar simular o sistema de eventos do Discord, e o próprio listener segue legível porque faz muito pouco por conta própria.
 
-A abordagem oposta, colocar lógica de negócio diretamente nos métodos do listener, funciona em bots pequenos mas quebra rápido conforme o codebase cresce. Se seu algoritmo de ranking de leaderboard mora dentro de um _MessageCreateListener_, você não consegue testar aquele algoritmo sem simular mensagens do Discord. Se a mesma lógica precisa rodar de um endpoint de API ou uma tarefa agendada depois, você vai ter que extrair de qualquer forma. Comecar com o padrão de delegação pra serviço desde o inicio evita essa refatoração por completo.
+O caminho oposto, que é jogar a lógica de negócio diretamente dentro dos métodos do listener, até funciona em bots pequenos, mas degrada rápido quando a base cresce. Se o algoritmo de ranking da sua leaderboard vive dentro de _MessageCreateListener_, você não consegue testá-lo sem simular mensagens do Discord. Se amanhã a mesma lógica precisar rodar em uma rota de API ou em um job agendado, você vai ter de extrair isso de qualquer forma. Começar com delegação para serviço evita esse retrabalho desde o início.
 
-Esse padrão também torna óbvio onde procurar quando algo quebra. Se o evento não esta disparando, o problema esta no binding do listener ou nos gateway intents. Se o evento dispara mas a coisa errada acontece, o problema esta no serviço. A separação torna o debugging mais rápido porque cada camada tem uma responsabilidade clara e restrita.
+Esse padrão também deixa bem claro onde investigar quando algo quebra. Se o evento não dispara de jeito nenhum, o problema está no binding do listener ou nos gateway intents. Se o evento dispara, mas o resultado é errado, o problema tende a estar no serviço. Como cada camada tem uma responsabilidade estreita e objetiva, o debug fica mais rápido.
 
-## Exemplo de delegação pra serviço
+## Exemplo de delegação para serviço
 
-Aqui está o padrão na prática. O listener recebe o evento _MessageCreate_, checa se o autor e um bot, e então delega pra um _LeaderboardService_ que trata a lógica real de tracking. O listener não sabe como scoring funciona, e o serviço não sabe que esta sendo chamado de um evento Discord.
+Aqui está o padrão em prática. O listener recebe _MessageCreate_, verifica se o autor é um bot e depois delega para um _LeaderboardService_, que cuida da lógica real de tracking. O listener não sabe como a pontuação funciona, e o serviço não precisa saber que foi chamado a partir de um evento do Discord.
 
 <CodeTabs>
   <Tab label="Listener" language="typescript">
@@ -36,7 +52,7 @@ export class MessageCreateListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    this.logger.debug(`Mensagem de ${message.author.id} na guild ${message.guildId}`);
+    this.logger.debug(`Message from ${message.author.id} in guild ${message.guildId}`);
     await this.leaderboard.trackMessage(message.author.id, message.guildId);
   }
 }
@@ -48,7 +64,7 @@ export class MessageCreateListener {
 export class LeaderboardService {
   async trackMessage(userId: string, guildId: string | null): Promise<void> {
     if (!guildId) return;
-    // lógica de scoring, atualizações de banco, cálculos de rank
+    // scoring logic, database updates, rank calculations
   }
 }
 ````
@@ -56,11 +72,11 @@ export class LeaderboardService {
   </Tab>
 </CodeTabs>
 
-O serviço é uma classe injetável regular que o módulo registra no array _providers_. O listener o recebe através de injeção de construtor e chama seus métodos. Se você precisar da mesma lógica de scoring de outro ponto de entrada depois, injeta o mesmo serviço ali sem duplicar nenhum código.
+O serviço é uma classe injetável comum, registrada pelo módulo no array _providers_. O listener a recebe por injeção de construtor e chama seus métodos. Se amanhã a mesma regra de pontuação precisar ser usada em outro ponto de entrada, basta injetar o mesmo serviço ali, sem duplicar lógica.
 
-## Organização de módulos
+## Organização do módulo
 
-Um módulo de eventos bem organizado agrupa listeners relacionados juntos e mantem o arquivo de declaracao do módulo na raiz da pasta. Conforme seu bot trata mais eventos, essa estrutura escala sem ficar difícil de navegar. Cada arquivo de listener trata um evento, e o arquivo de módulo e o índice que declara o que esta ativo.
+Um módulo de eventos bem organizado agrupa listeners relacionados e mantém o arquivo de declaração do módulo na raiz da pasta. Conforme o bot passa a lidar com mais eventos, essa estrutura continua escalando sem virar um labirinto. Cada arquivo de listener cuida de um evento, e o arquivo do módulo funciona como índice do que está realmente ativo.
 
 <FolderStructure title="Módulo de eventos com serviços">
   <Folder name="src" open>
@@ -82,7 +98,7 @@ Um módulo de eventos bem organizado agrupa listeners relacionados juntos e mant
   </Folder>
 </FolderStructure>
 
-O módulo amarra tudo listando todos os listeners e providers em um único lugar. Qualquer pessoa lendo o arquivo de módulo consegue ver imediatamente quais eventos o módulo trata e quais serviços estao disponíveis pra injeção.
+O módulo amarra tudo listando listeners e providers em um único lugar. Quem abre esse arquivo entende imediatamente quais eventos aquela área trata e quais serviços estão disponíveis para injeção.
 
 ```typescript filename="src/events/events.module.ts"
 import { Module } from '@spraxium/common';
@@ -105,41 +121,41 @@ import { ReadyListener } from './listeners/ready.listener';
 export class EventsModule {}
 ```
 
-## Padrões práticos pra métodos de listener
+## Padrões práticos para métodos de listener
 
-Métodos de listener devem seguir uma estrutura consistente que os torna previsíveis em todo o codebase. Comece com early returns pra eventos irrelevantes, depois faça qualquer transformacao leve, e por fim chame o serviço. Esse padrão de tres passos mantem todo método de listener legivel e fácil de revisar.
+Métodos de listener devem seguir uma estrutura consistente para continuar previsíveis em toda a codebase. Comece com retornos antecipados para eventos irrelevantes, faça qualquer transformação leve necessária e só depois chame o serviço. Esse padrão em três passos deixa cada método fácil de revisar e difícil de complicar sem necessidade.
 
 <Steps>
   <Step title="Filtre eventos irrelevantes primeiro">
-    Comece o método com guard clauses que retornam cedo pra eventos que você não
-    se importa. Checar se o autor e um bot, se a mensagem e de um canal
-    específico, ou se a interaction tem o tipo certo deve acontecer antes de
-    qualquer trabalho real. Isso previne chamadas desnecessarias a serviços e
-    mantem o throughput de eventos alto.
+    Comece com guard clauses que retornam cedo para eventos que você não quer
+    tratar. Verificar se o autor é um bot, se a mensagem veio de um canal
+    específico ou se a interação tem o tipo correto deve acontecer antes de
+    qualquer trabalho real. Isso evita chamadas desnecessárias ao serviço e
+    ajuda a manter o throughput de eventos alto.
   </Step>
-  <Step title="Extraia o que o serviço precisa">
-    Pegue os dados específicos que seu serviço espera do payload do evento. Em
-    vez de passar o objeto Message ou GuildMember inteiro do Discord.js pro seu
-    serviço, extraia o user ID, guild ID, channel ID ou quaisquer campos
-    específicos que o serviço precisa. Isso mantem sua camada de serviço
-    desacoplada de tipos do Discord e fácilita testar com dados mock simples.
+  <Step title="Extraia só o que o serviço precisa">
+    Puxe do payload apenas os dados que o serviço realmente espera. Em vez de
+    empurrar o objeto inteiro do Discord.js para o serviço, extraia user ID,
+    guild ID, channel ID, ou qualquer outro campo específico necessário. Isso
+    desacopla sua camada de serviço dos tipos do Discord e facilita testes com
+    mocks simples.
   </Step>
-  <Step title="Delegue pro serviço injetado">
-    Chame o método do serviço com os dados extraidos. O trabalho do listener
-    acabou nesse ponto. Quaisquer erros lançados pelo serviço serao capturados
-    pelo pipeline de exceptions pra eventos suportados, então você não precisa
-    de blocos try-catch no método do listener.
+  <Step title="Delegue para o serviço injetado">
+    Chame o método do serviço com os dados já extraídos. Nesse ponto, o papel do
+    listener termina. Se o serviço lançar um erro, o pipeline de exceções cuida
+    disso nos eventos suportados, então você não precisa encher o método do
+    listener com try-catch por padrão.
   </Step>
 </Steps>
 
-<Callout tone="info" title="Evite trabalho pesado no construtor">
-  Não faça operações caras como conexões de banco, requisições HTTP ou leituras
-  de arquivo no construtor do listener. O construtor roda durante o bootstrap
-  antes do bot se conectar ao Discord. Mova lógica de inicialização pra a
-  primeira chamada do event handler ou pra um lifecycle hook se o framework
-  suportar.
+<Callout tone="info" title="Evite construtor pesado">
+  Não execute trabalho caro no construtor do listener, como abrir conexão com
+  banco, fazer request HTTP ou ler arquivos. O construtor roda durante o
+  bootstrap, antes do bot se conectar ao Discord. Se houver lógica de
+  inicialização, mova isso para a primeira chamada do handler ou para um hook de
+  ciclo de vida, caso o framework ofereça esse suporte.
 </Callout>
 
 ## Próxima página
 
-Continue com [Exceptions e Integração com Guards](/listeners-exceptions-integration).
+Continue com [Integração com Exceções e Guards](/listeners-exceptions-integration).

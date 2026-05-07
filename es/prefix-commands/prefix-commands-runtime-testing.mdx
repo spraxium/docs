@@ -1,98 +1,114 @@
 ---
 title: Comportamiento en Runtime
 description: |
-  El subsistema de prefix provee exception layouts, introspección del dispatcher e integración con guards.
-  Aprende a manejar fallos, inspeccionar comandos registrados y proteger handlers con guards.
+  El subsistema de prefijos ofrece layouts de excepciones, introspección del dispatcher e integración con guards.
+  Aprende a manejar fallos de forma elegante, inspeccionar comandos registrados y proteger handlers con guards.
 order: 6
 category: Prefix Commands
 ---
 
 ## Rutas de fallo
 
-Los prefix commands pueden fallar en múltiples puntos del pipeline de ejecución. Cada tipo de fallo produce una excepción diferente con un código específico que puedes capturar y manejar. Comprender estos puntos de fallo te ayuda a diseñar mensajes de error que informen al usuario qué salió mal y cómo corregirlo.
+Cuando un comando con prefijo falla en cualquier etapa, el framework produce una excepción específica que puedes interceptar y formatear. Entender la taxonomía de fallos te ayuda a diseñar respuestas de error amigables para usuarios en lugar de dejar que errores crudos se filtren al chat. Cada tipo de fallo corresponde a una clase de excepción distinta con su propio hook de layout.
 
 <DropdownGroup>
-  <Dropdown title="CommandNotFoundException (comando no encontrado)">
-    Ocurre cuando el prefijo se reconoce, pero el nombre del comando no existe
-    en el registry. Esta excepción permite responder con una sugerencia útil o
-    redirigir al comando de help. También puedes habilitar *replyOnNotFound*
-    para una respuesta automática básica.
+  <Dropdown title="CommandNotFoundException (unknown command)">
+    Se lanza cuando se reconoce el prefijo pero el nombre del comando no
+    coincide con ninguna entrada en el registro. La excepción expone como
+    propiedades el nombre de *command* intentado y el *prefix* coincidente.
+    Puedes interceptarla con un layout de excepciones para enviar una respuesta
+    útil, o habilitar *replyOnNotFound* en *PrefixConfig* para feedback
+    automático sin layout personalizado.
   </Dropdown>
-  <Dropdown title="ArgumentException (argumento inválido o faltante)">
-    Se lanza cuando falta un argumento requerido o cuando falla validación y
-    coerción de tipo. Incluye datos suficientes para explicar al usuario qué
-    entrada no cumple el contrato del comando. Es recomendable centralizar el
-    formato de este error con un layout dedicado.
+  <Dropdown title="ArgumentException (missing or invalid argument)">
+    Se lanza cuando falta un argumento requerido o cuando la coerción de tipo o
+    la validación falla para un valor proporcionado. La excepción expone el
+    *name* del argumento, la restricción *expected*, la entrada cruda
+    *received* y el string *usage* de la definición del comando. Registra un
+    layout para *ArgumentException* para mostrar mensajes de error consistentes
+    en todos los comandos.
   </Dropdown>
-  <Dropdown title="Guard rejection (ForbiddenException o excepción custom)">
-    Si un guard retorna `false`, el flujo de ejecución se bloquea antes de
-    llegar al handler. Si un guard lanza una excepción propia, esa excepción se
-    propaga para manejo específico. Este punto es clave para permisos, límites
-    de canal y reglas de acceso.
+  <Dropdown title="ForbiddenException or custom (guard denial)">
+    Se lanza cuando el método *canActivate* de un guard devuelve `false` o
+    lanza una excepción. Si el guard devuelve `false`, el framework lanza una
+    *ForbiddenException* automáticamente. Si el guard lanza su propia excepción,
+    esa excepción se propaga sin cambios y puede capturarse con un layout
+    compatible.
   </Dropdown>
-  <Dropdown title="Cooldown activo (bloqueo silencioso)">
-    Cuando un usuario ejecuta un comando antes de expirar el cooldown, el
-    framework bloquea la ejecución. Por defecto no se lanza una excepción
-    visible al usuario en ese caso. Si quieres feedback explícito, puedes
-    calcular segundos restantes con el manager de cooldown y responder
-    manualmente.
+  <Dropdown title="Cooldown active (silently blocked)">
+    Cuando un usuario activa un comando antes de que expire el cooldown, el
+    framework bloquea la ejecución silenciosamente sin lanzar excepción. Puedes
+    leer los segundos restantes desde *PrefixCooldownManager.check* y enviar una
+    respuesta personalizada desde un cooldown guard si quieres feedback visible
+    para el usuario.
   </Dropdown>
 </DropdownGroup>
 
-## Layouts de excepción
+## Layouts de excepciones
 
-Las dos excepciones principales del sistema de prefix commands son _CommandNotFoundException_ y _ArgumentException_. Ambas extienden la clase base de excepciones del framework y cargan un código de error que puedes usar para personalizar los mensajes de respuesta. El siguiente ejemplo muestra cómo cada excepción expone sus datos.
+Los layouts de excepciones te permiten definir respuestas personalizadas para tipos de excepción concretos. En lugar de escribir bloques try-catch en cada handler, registras un layout una sola vez y el framework lo aplica automáticamente siempre que ese tipo de excepción se lance durante la ejecución de comandos con prefijo. Esto mantiene limpios tus handlers y hace consistente el formato de errores en todo el bot.
+
+Un layout recibe el _Message_ original y la excepción lanzada, para que puedas construir embeds de error ricos con contexto sobre qué salió mal. El helper _defineExceptionLayout_ crea una fábrica de layouts que el framework descubre mediante el registro de tu módulo.
 
 <CodeTabs>
-  <Tab label="Comando no encontrado" language="typescript">
-```typescript filename="src/filters/prefix-not-found.filter.ts"
-import { CommandNotFoundException } from '@spraxium/core/prefix';
+  <Tab label="Argument layout" language="typescript">
+```typescript filename="src/modules/prefix/layouts/argument-exception.layout.ts"
+import { defineExceptionLayout } from '@spraxium/core';
+import { ArgumentException } from '@spraxium/common';
 
-function handleNotFound(error: CommandNotFoundException): string {
-const { commandName, code } = error;
-return `Command '${commandName}' not found (${code})`;
-}
-
-````
+export const ArgumentExceptionLayout = defineExceptionLayout(
+  ArgumentException,
+  async (message, exception) => {
+    await message.reply({
+      content: `Invalid argument: **${exception.argName}** - ${exception.message}`,
+    });
+  },
+);
+```
   </Tab>
-  <Tab label="Argumento inválido" language="typescript">
-```typescript filename="src/filters/prefix-argument.filter.ts"
-import { ArgumentException } from '@spraxium/core/prefix';
+  <Tab label="Not found layout" language="typescript">
+```typescript filename="src/modules/prefix/layouts/not-found.layout.ts"
+import { defineExceptionLayout } from '@spraxium/core';
+import { CommandNotFoundException } from '@spraxium/common';
 
-function handleArgError(error: ArgumentException): string {
-  const { argumentName, expected, received, code } = error;
-  return `Argument '${argumentName}': expected ${expected}, got ${received} (${code})`;
-}
-````
-
+export const CommandNotFoundLayout = defineExceptionLayout(
+  CommandNotFoundException,
+  async (message, exception) => {
+    await message.reply({
+      content: `Command \`${exception.commandName}\` not found. Use \`!help\` to see available commands.`,
+    });
+  },
+);
+```
   </Tab>
 </CodeTabs>
 
-## Registro de módulo
+Registra layouts en tu módulo junto a comandos y handlers. El framework los detecta durante la inicialización del módulo y los aplica automáticamente a los tipos de excepción correctos.
 
-Los prefix commands se descubren automáticamente cuando están dentro de la estructura de módulos del proyecto. El framework escanea todas las clases decoradas con _@PrefixCommand_ y _@PrefixCommandHandler_, resuelve sus metadatos y vincula cada handler a su definición de comando. Solo necesitas asegurarte de que tus archivos estén dentro de la carpeta del módulo y exportados correctamente.
+```typescript filename="src/modules/prefix/prefix.module.ts"
+import { Module } from '@spraxium/common';
+import { RollCommand } from './commands/roll.command';
+import { RollHandler } from './handlers/roll.handler';
+import { ArgumentExceptionLayout } from './layouts/argument-exception.layout';
+import { CommandNotFoundLayout } from './layouts/not-found.layout';
 
-```typescript filename="spraxium.config.ts"
-import { defineConfig } from '@spraxium/core';
-import { prefixModule } from '@spraxium/core/prefix';
-
-export default defineConfig({
-  modules: [
-    prefixModule({
-      prefix: '!',
-      defaultCooldown: 3,
-    }),
-  ],
-});
+@Module({
+  commands: [RollCommand],
+  handlers: [RollHandler],
+  layouts: [ArgumentExceptionLayout, CommandNotFoundLayout],
+})
+export class PrefixModule {}
 ```
 
 ## Introspección del dispatcher
 
-El servicio _PrefixDispatcher_ te da acceso de solo lectura a todos los comandos registrados y sus metadatos en tiempo de ejecución. Esto es útil para construir comandos de ayuda, herramientas de depuración o dashboards de administración. Puedes inyectar el dispatcher en cualquier handler o servicio y consultar su estado.
+El _PrefixDispatcher_ expone métodos para inspeccionar en runtime el árbol de comandos registrados. El método _getCommandInfo_ devuelve un arreglo de objetos _PrefixCommandInfo_ con nombres de comandos, descripciones, listas de subcomandos y esquemas de argumentos. Esta es la base para construir comandos de ayuda dinámicos.
 
-```typescript filename="src/modules/admin/handlers/help-command.handler.ts"
+El dispatcher también expone _getResolved_ para los bindings comando-handler completamente resueltos, _size_ para el número total de entradas registradas, _commandCount_ para comandos de nivel superior distintos y _guildPrefixes_ para el manager de prefijos por guild. Estos métodos de introspección son útiles para paneles administrativos, health checks y herramientas de depuración.
+
+```typescript filename="src/modules/prefix/handlers/help-command.handler.ts"
 import { Ctx, PrefixCommandHandler } from '@spraxium/common';
-import { PrefixDispatcher } from '@spraxium/core/prefix';
+import { PrefixDispatcher } from '@spraxium/core';
 import type { Message } from 'discord.js';
 import { HelpCommand } from '../commands/help.command';
 
@@ -101,49 +117,56 @@ export class HelpHandler {
   constructor(private readonly dispatcher: PrefixDispatcher) {}
 
   async handle(@Ctx() message: Message): Promise<void> {
-    const count = this.dispatcher.commandCount;
-    const names = this.dispatcher
-      .getResolved()
-      .map((r) => r.command.name)
-      .join(', ');
-    await message.reply(`${count} commands registered: ${names}`);
+    const commands = this.dispatcher.getCommandInfo();
+    const lines = commands.map((cmd) => {
+      const subs = cmd.subcommands?.map((s) => s.name).join(', ');
+      return subs
+        ? `**${cmd.name}** - subcommands: ${subs}`
+        : `**${cmd.name}**`;
+    });
+    await message.reply(lines.join('\n') || 'No commands registered.');
   }
 }
 ```
 
-## Guards en prefix commands
+## Guards con comandos con prefijo
 
-Los guards funcionan con prefix commands de la misma manera que con slash commands. Puedes aplicar guards a nivel de módulo, de comando o de handler usando el decorator _@UseGuards_. Los guards se ejecutan antes del parsing de argumentos, así que un guard que rechaza evita todo el procesamiento posterior. Esto los hace ideales para verificaciones de permisos, restricciones de canal o límites de uso.
+Los comandos con prefijo soportan el mismo sistema de guards usado por slash commands y listeners. Decora una clase handler con _@UseGuards_ para adjuntar uno o más guards que se ejecutan antes de que el handler se ejecute. Si cualquier guard devuelve `false` o lanza una excepción, el handler se omite. Los guards son útiles para comprobaciones de permisos, restricciones por rol y filtrado por tipo de canal.
+
+Los guards reciben el contexto de ejecución, que para comandos con prefijo incluye el objeto _Message_ original. Puedes usar las mismas clases guard en comandos con prefijo, slash commands y listeners sin modificaciones. Este es uno de los beneficios de la arquitectura unificada de guards.
 
 <CodeTabs>
-  <Tab label="Definición del guard" language="typescript">
-```typescript filename="src/guards/admin-only.guard.ts"
-import type { CanActivate, ExecutionContext } from '@spraxium/common';
-import type { Message } from 'discord.js';
+  <Tab label="Guard" language="typescript">
+```typescript filename="src/modules/moderation/guards/moderator.guard.ts"
+import { CanActivate, ExecutionContext } from '@spraxium/common';
 
-export class AdminOnlyGuard implements CanActivate {
+export class ModeratorGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const message = context.switchToPrefix().getMessage() as Message;
-    return message.member?.permissions.has('Administrator') ?? false;
+    const message = context.getMessage();
+    const member = message.member;
+    if (!member) return false;
+    return member.permissions.has('ModerateMembers');
   }
 }
 ```
   </Tab>
-  <Tab label="Aplicar al handler" language="typescript">
-```typescript filename="src/modules/admin/handlers/set-prefix-command.handler.ts"
+  <Tab label="Handler with guard" language="typescript">
+```typescript filename="src/modules/moderation/handlers/ban-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
-import { AdminOnlyGuard } from '../../../guards/admin-only.guard';
-import { SetPrefixCommand } from '../commands/set-prefix.command';
+import { ModeratorGuard } from '../guards/moderator.guard';
+import { ModCommand } from '../commands/mod.command';
 
-@UseGuards(AdminOnlyGuard)
-@PrefixCommandHandler(SetPrefixCommand)
-export class SetPrefixHandler {
+@UseGuards(ModeratorGuard)
+@PrefixCommandHandler(ModCommand, { subcommand: 'ban' })
+export class BanHandler {
   async handle(
     @Ctx() message: Message,
-    @PrefixArg('newPrefix') newPrefix: string,
+    @PrefixArg('target') targetId: string,
+    @PrefixArg('reason') reason: string | undefined,
   ): Promise<void> {
-    await message.reply(`Prefix updated to \`${newPrefix}\``);
+    await message.guild?.members.ban(targetId, { reason: reason ?? 'No reason provided' });
+    await message.reply(`Banned <@${targetId}>.`);
   }
 }
 
@@ -154,4 +177,3 @@ export class SetPrefixHandler {
 ## Siguiente página
 
 [Descripción General de Slash Commands](/slash-commands-overview)
-```

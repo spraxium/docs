@@ -1,0 +1,452 @@
+---
+title: Localized Component Builders
+description: |
+  Build fully localized buttons, selects, modals, embeds, and V2 containers directly from component metadata.
+  The buildLocalized* functions resolve i18n keys declared inside component decorators without any manual t() calls in handlers.
+order: 5
+category: i18n
+keywords:
+  - spraxium i18n components
+  - localized component builders in spraxium
+  - i18n i18n components guide
+  - i18n components discord bot
+  - i18n components typescript
+  - spraxium i18n documentation
+  - localized component builders i18n
+  - spraxium localized component builders
+faq:
+  - question: "What does \"Localized Component Builders\" cover in Spraxium?"
+    answer: "Build fully localized buttons, selects, modals, embeds, and V2 containers directly from component metadata. The buildLocalized* functions resolve i18n keys declared inside component decorators without any manual t() calls in handlers."
+  - question: "When should I use \"Localized Component Builders\"?"
+    answer: "Use this page when you are implementing i18n components in the i18n area of your bot architecture."
+  - question: "What should I read after \"Localized Component Builders\"?"
+    answer: "Continue with related i18n pages to connect this concept with practical implementation details."
+---
+
+## Why localized builders exist
+
+When you define components with decorators such as _@Button_, _@StringSelect_, or _@ModalComponent_, the visible text usually lives in decorator metadata: labels, placeholders, option descriptions, titles, and field names. In a single-language bot that is enough. In a localized bot, that quickly becomes repetitive because every handler would otherwise need to resolve the same strings manually before sending the component.
+
+The localized builders remove that repetition. They read the _i18n_ metadata declared on the component class, resolve each key for the requested locale through _I18nService_, and return a ready-to-send discord.js builder. The handler stays focused on interaction flow instead of translation plumbing.
+
+The usual workflow is simple:
+
+1. Declare fallback text and i18n keys in the component decorator.
+2. Resolve the target locale in the handler.
+3. Call the matching localized builder.
+4. Send the returned row, modal, embed, or V2 payload.
+
+## Declaring i18n keys on components
+
+Add an _i18n_ object to any component decorator that supports it. Each entry points to the translation key that should override the static fallback text at runtime. The static value is still important: it becomes the fallback shown when the locale file does not define that key.
+
+This fallback-first model is what makes gradual translation practical. You can translate one component at a time without breaking the rest of the UI.
+
+```typescript filename="src/components/confirm-button.component.ts"
+import { Button } from '@spraxium/components';
+
+@Button({
+  customId: 'confirm',
+  label: 'Confirm',
+  style: 'success',
+  i18n: {
+    label: 'buttons.confirm.label',
+  },
+})
+export class ConfirmButton {}
+```
+
+```typescript filename="src/components/topic-select.component.ts"
+import { SelectOption, StringSelect } from '@spraxium/components';
+
+@StringSelect({
+  customId: 'topic_select',
+  placeholder: 'Choose a topic…',
+  i18n: { placeholder: 'select.topic.placeholder' },
+})
+@SelectOption({
+  label: 'Development',
+  value: 'dev',
+  description: 'Code and architecture topics',
+  i18n: {
+    label: 'select.topic.options.dev.label',
+    description: 'select.topic.options.dev.description',
+  },
+})
+@SelectOption({
+  label: 'Operations',
+  value: 'ops',
+  description: 'Deployment and infra topics',
+  i18n: {
+    label: 'select.topic.options.ops.label',
+    description: 'select.topic.options.ops.description',
+  },
+})
+export class TopicSelect {}
+```
+
+## buildLocalizedButton
+
+Use _buildLocalizedButton_ when the only thing your handler needs is a localized action row made of static button classes. It resolves labels and emoji-related keys declared on each button and returns a single action row ready to send.
+
+```typescript filename="src/commands/actions-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { buildLocalizedButton } from '@spraxium/i18n';
+import type { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ActionsCommand } from '../commands/actions.command';
+import { ConfirmButton } from '../components/confirm-button.component';
+import { CancelButton } from '../components/cancel-button.component';
+
+@SlashCommandHandler(ActionsCommand)
+export class ActionsCommandHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = await this.i18n.getUserLocale(interaction.user.id);
+    const row = buildLocalizedButton({ input: [ConfirmButton, CancelButton], locale });
+
+    await interaction.reply({ content: 'Choose an action:', components: [row] });
+  }
+}
+```
+
+**Signature:** `buildLocalizedButton(options): ActionRowBuilder<ButtonBuilder>`
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*input*</TableCell>
+      <TableCell>Class or Class[]</TableCell>
+      <TableCell>One button class or an array of button classes to place in the row.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*locale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Target locale, such as pt-BR. If a key is missing, the static decorator label is used.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+If you already have runtime-specific button rendering logic, keep using the dynamic component APIs. The localized builder is best when the structure is static and only the visible text changes by locale.
+
+## buildLocalizedSelect
+
+Use _buildLocalizedSelect_ for string selects whose placeholder, option labels, and option descriptions come from translation files. The function is async because select metadata may need asynchronous locale resolution.
+
+```typescript filename="src/commands/topic-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { buildLocalizedSelect } from '@spraxium/i18n';
+import type { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { TopicCommand } from '../commands/topic.command';
+import { TopicSelect } from '../components/topic-select.component';
+
+@SlashCommandHandler(TopicCommand)
+export class TopicCommandHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = await this.i18n.getUserLocale(interaction.user.id);
+    const row = await buildLocalizedSelect({ selectClass: TopicSelect, locale });
+
+    await interaction.reply({ content: 'Pick a topic:', components: [row] });
+  }
+}
+```
+
+**Signature:** `buildLocalizedSelect(options): Promise<ActionRowBuilder<AnySelectBuilder>>`
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*selectClass*</TableCell>
+      <TableCell>Class</TableCell>
+      <TableCell>The component class decorated with _@StringSelect_.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*locale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The locale whose placeholder and option texts should be resolved.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+This builder is a good fit for stable option sets such as topic lists, onboarding choices, or settings menus. If the option list itself changes at runtime, combine localization with the dynamic select APIs instead of forcing all possibilities into static decorator metadata.
+
+## buildLocalizedModal
+
+Use _buildLocalizedModal_ when the modal structure is fixed but the title, labels, and placeholders must change per locale. The modal title and custom ID come from the _@ModalComponent_ metadata, while field labels and placeholders are resolved from the field decorators.
+
+```typescript filename="src/commands/feedback-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { buildLocalizedModal } from '@spraxium/i18n';
+import type { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { FeedbackCommand } from '../commands/feedback.command';
+import { FeedbackModal } from '../components/feedback-modal.component';
+
+@SlashCommandHandler(FeedbackCommand)
+export class FeedbackCommandHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = await this.i18n.getUserLocale(interaction.user.id);
+    await interaction.showModal(buildLocalizedModal({ modalClass: FeedbackModal, locale }));
+  }
+}
+```
+
+**Signature:** `buildLocalizedModal(options): ModalBuilder`
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*modalClass*</TableCell>
+      <TableCell>Class</TableCell>
+      <TableCell>The component class decorated with _@ModalComponent_.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*locale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The locale used to resolve the modal title, labels, and placeholders.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+This keeps handlers especially clean in feedback flows, forms, onboarding steps, and any modal opened from buttons or slash commands.
+
+## buildLocalizedEmbed
+
+Use _buildLocalizedEmbed_ when your embed shape is stable and only the visible text changes by locale or template data. It resolves title, description, field names, and field values at call time, then interpolates any variables supplied through _data_.
+
+```typescript filename="src/components/stats-embed.component.ts"
+import { Embed, EmbedField } from '@spraxium/components';
+
+@Embed({
+  color: 0x5865f2,
+  i18n: { title: 'embeds.stats.title' },
+})
+@EmbedField({
+  name: 'Guilds',
+  value: '{{guilds}}',
+  inline: true,
+  i18n: { name: 'embeds.stats.fields.guilds' },
+})
+export class StatsEmbed {}
+```
+
+```typescript filename="src/commands/stats-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { buildLocalizedEmbed } from '@spraxium/i18n';
+import type { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { StatsCommand } from '../commands/stats.command';
+import { StatsEmbed } from '../components/stats-embed.component';
+
+@SlashCommandHandler(StatsCommand)
+export class StatsCommandHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = await this.i18n.getUserLocale(interaction.user.id);
+    const embed = buildLocalizedEmbed({
+      embedClass: StatsEmbed,
+      locale,
+      data: { guilds: String(interaction.client.guilds.cache.size) },
+    });
+
+    await interaction.reply({ embeds: [embed] });
+  }
+}
+```
+
+**Signature:** `buildLocalizedEmbed(options): EmbedBuilder`
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*embedClass*</TableCell>
+      <TableCell>Class</TableCell>
+      <TableCell>The component class decorated with _@Embed_.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*locale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The locale used for title, description, and field text resolution.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*data*</TableCell>
+      <TableCell>Record&lt;string, string&gt;</TableCell>
+      <TableCell>Optional variables used to fill placeholders such as {{guilds}} or {{username}}.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+It is especially useful for status cards, dashboards, and summary embeds where the same layout is reused across locales and only the content strings vary.
+
+## buildLocalizedV2
+
+Use _buildLocalizedV2_ when your UI is built with V2 containers and you want the same locale-driven workflow used by the other builders. It resolves _i18n_ keys on text blocks, sections, and embedded components, then delegates rendering to _V2Service_.
+
+```typescript filename="src/commands/profile-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import type { V2Service } from '@spraxium/components';
+import { buildLocalizedV2 } from '@spraxium/i18n';
+import type { I18nService } from '@spraxium/i18n';
+import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
+import { ProfileCommand } from '../commands/profile.command';
+import { ProfileContainer } from '../schemas/profile.container';
+
+@SlashCommandHandler(ProfileCommand)
+export class ProfileCommandHandler {
+  constructor(
+    private readonly i18n: I18nService,
+    private readonly v2: V2Service,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = await this.i18n.getUserLocale(interaction.user.id);
+    const data = { username: interaction.user.username };
+
+    const reply = buildLocalizedV2({
+      containerClass: ProfileContainer,
+      locale,
+      v2Service: this.v2,
+      data,
+    });
+
+    await interaction.reply({ ...reply, flags: reply.flags | MessageFlags.Ephemeral });
+  }
+}
+```
+
+**Signature:** `buildLocalizedV2(options): V2ReplyPayload`
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*containerClass*</TableCell>
+      <TableCell>Class</TableCell>
+      <TableCell>The class decorated with _@V2Container_.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*locale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>The locale whose strings should be resolved across the container tree.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*v2Service*</TableCell>
+      <TableCell>V2Service</TableCell>
+      <TableCell>The injected renderer used to build the final V2 payload.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*data*</TableCell>
+      <TableCell>Record&lt;string, string&gt;</TableCell>
+      <TableCell>Optional variables used for placeholder interpolation inside localized strings.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Reach for this builder when you want one V2 schema to serve multiple locales without duplicating container classes.
+
+## Builder reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Function</TableCell>
+      <TableCell header>Returns</TableCell>
+      <TableCell header>Async</TableCell>
+      <TableCell header>Best fit</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*buildLocalizedButton*</TableCell>
+      <TableCell>ActionRowBuilder&lt;ButtonBuilder&gt;</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Static button rows whose text changes by locale.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildLocalizedSelect*</TableCell>
+      <TableCell>ActionRowBuilder&lt;AnySelectBuilder&gt;</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Localized string select menus with static option metadata.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildLocalizedModal*</TableCell>
+      <TableCell>ModalBuilder</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Forms whose labels and placeholders vary by locale.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildLocalizedEmbed*</TableCell>
+      <TableCell>EmbedBuilder</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Reusable embed layouts with translated text and interpolated values.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildLocalizedV2*</TableCell>
+      <TableCell>V2ReplyPayload</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Localized V2 containers and reply payloads.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="info">
+  All builders fall back to the static value defined in the decorator when the
+  requested locale does not contain the key. Partially translated bots keep
+  working, and missing keys degrade to the default text instead of breaking the
+  interaction flow.
+</Callout>
+
+## Practical guidance
+
+Use the localized builders when the *structure* of the UI is stable and the *text* is what changes. If both structure and content vary at runtime, keep the localized builder for the translated pieces and combine it with the dynamic component APIs where needed.
+
+That split usually keeps code easier to maintain:
+
+1. Decorators define the stable component shape.
+2. Locale files define the visible text.
+3. Handlers decide only *when* to build and send the component.
+
+## Next page
+
+Continue with [Slash Commands Overview](/guide/slash-commands-overview).

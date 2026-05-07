@@ -1,0 +1,276 @@
+---
+title: Handlers and Field Injection
+description: |
+  Process modal submissions with @ModalHandler and inject field values directly into
+  handle() parameters. Learn @ModalField, the ten typed field decorators, and @Ctx.
+order: 3
+category: Modals
+keywords:
+  - spraxium modals handlers injection
+  - handlers and field injection in spraxium
+  - modals modals handlers injection guide
+  - modals handlers injection discord bot
+  - modals handlers injection typescript
+  - spraxium modals documentation
+  - handlers and field injection modals
+  - spraxium handlers and field injection
+faq:
+  - question: "What does \"Handlers and Field Injection\" cover in Spraxium?"
+    answer: "Process modal submissions with @ModalHandler and inject field values directly into handle() parameters. Learn @ModalField, the ten typed field decorators, and @Ctx."
+  - question: "When should I use \"Handlers and Field Injection\"?"
+    answer: "Use this page when you are implementing modals handlers injection in the Modals area of your bot architecture."
+  - question: "What should I read after \"Handlers and Field Injection\"?"
+    answer: "Continue with related Modals pages to connect this concept with practical implementation details."
+---
+
+## The handler class
+
+A handler class is a standalone class decorated with _@ModalHandler_ that contains the submission logic for a modal. The decorator receives the modal component class as its argument, creating a metadata link between the component schema and the submission logic. The handler class is instantiated by the DI container during module loading, so constructor parameters are resolved automatically from the module providers.
+
+The handler must expose a _handle_ method. When a modal submission arrives whose `customId` matches the component's `id`, the _ModalDispatcher_ calls this method after the guard pipeline passes. Method parameters are populated from metadata: _@Ctx()_ injects the raw `ModalSubmitInteraction`, and field decorators inject the resolved value for each named field.
+
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { FeedbackModal } from '../components/feedback.modal';
+
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('message') message: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    await ctx.reply({
+      content: `Thanks for your feedback on *${subject}*!`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+`ModalContext` is exported from `@spraxium/components` and is a direct alias for `ModalSubmitInteraction`. Use whichever fits your team's import style; both are interchangeable.
+
+## The @ModalHandler decorator
+
+_@ModalHandler_ accepts the modal component class as its only argument. There is no routing configuration; each handler owns exactly one component, identified by the component's `id` string.
+
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(...): Promise<void> { ... }
+}
+```
+
+Spraxium reads the `id` from the _@ModalComponent_ decorator on `FeedbackModal` and registers this handler under that id. When Discord sends a `MODAL_SUBMIT` interaction, the dispatcher matches `customId` to the registered id and calls `handle`.
+
+## Parameter injection with @Ctx and field decorators
+
+Method parameters are resolved by the dispatcher at call time. Two categories of decorators control what each position receives.
+
+**@Ctx()** injects the raw `ModalSubmitInteraction` (aliased as `ModalContext`). It can appear at any position and is the entry point to the full Discord API surface for the interaction: reply, deferReply, followUp, and the raw `fields` manager.
+
+**Field decorators** inject the submitted value for a specific field, identified by the property name defined in the modal component class. The generic _@ModalField(fieldId)_ works for any field type. The typed variants, documented in the next section, carry the intent of the field type explicitly and should be preferred when the field type is known at compile time.
+
+In practice, that means most handlers only need two things: the resolved field values and the interaction object for replying. Once those are injected, the method body can stay focused on persistence, service calls, and response flow.
+
+```typescript filename="src/modules/profile/handlers/profile.handler.ts"
+import { Ctx } from '@spraxium/common';
+import {
+  ModalCheckboxField,
+  ModalCheckboxGroupField,
+  ModalHandler,
+  ModalRadioGroupField,
+  ModalStringSelectField,
+  type ModalContext,
+} from '@spraxium/components';
+import { ProfileModal } from '../components/profile.modal';
+
+@ModalHandler(ProfileModal)
+export class ProfileHandler {
+  async handle(
+    @Ctx() ctx: ModalContext,
+    @ModalStringSelectField('role') role: string,
+    @ModalRadioGroupField('timezone') timezone: string | null,
+    @ModalCheckboxGroupField('notifications') notifications: string[],
+    @ModalCheckboxField('acceptedRules') acceptedRules: boolean,
+  ): Promise<void> {
+    if (!acceptedRules) {
+      await ctx.reply({ content: 'âŒ You must accept the rules.', flags: 'Ephemeral' });
+      return;
+    }
+    await ctx.reply({
+      content: [
+        'âœ… Profile saved!',
+        `**Role:** ${role}`,
+        `**Timezone:** ${timezone ?? 'Not set'}`,
+        `**Notifications:** ${notifications.join(', ') || 'None'}`,
+      ].join('\n'),
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Typed field decorators
+
+Ten typed parameter decorators are provided, each corresponding to a specific field type in the modal component class. Using them makes the intended field type explicit in handler code without any runtime overhead; all typed decorators store the same `{ index, fieldId }` metadata as the generic _@ModalField_.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Component field type</TableCell>
+      <TableCell header>Resolved TypeScript type</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@ModalTextField(fieldId)*</TableCell>
+      <TableCell>*@ModalInput*</TableCell>
+      <TableCell>string</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalStringSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalSelect*</TableCell>
+      <TableCell>string | null (single) or string[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalUserSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalUserSelect*</TableCell>
+      <TableCell>User | null (single) or User[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRoleSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalRoleSelect*</TableCell>
+      <TableCell>Role | null (single) or Role[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalMentionableSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalMentionableSelect*</TableCell>
+      <TableCell>User | Role | null</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalChannelSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalChannelSelect*</TableCell>
+      <TableCell>GuildBasedChannel | null (single) or GuildBasedChannel[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRadioGroupField(fieldId)*</TableCell>
+      <TableCell>*@ModalRadioGroup*</TableCell>
+      <TableCell>string | null</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckboxGroupField(fieldId)*</TableCell>
+      <TableCell>*@ModalCheckboxGroup*</TableCell>
+      <TableCell>string[]</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckboxField(fieldId)*</TableCell>
+      <TableCell>*@ModalCheckbox*</TableCell>
+      <TableCell>boolean</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalFileUploadField(fieldId)*</TableCell>
+      <TableCell>*@ModalFileUpload*</TableCell>
+      <TableCell>Attachment[]</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+All typed decorators are imported from `@spraxium/components` alongside `ModalHandler`.
+
+Choose the typed decorator whenever the field type is already known from the component schema. It communicates intent immediately in code review and saves the next reader from mentally mapping a generic _@ModalField_ call back to the component definition.
+
+<Callout tone="info" title="Single vs. multi-value selects">
+  For string, user, role, and channel select fields, whether the injected value
+  is a single item or an array depends on the _maxValues_ configuration of the
+  field in the component class. When _maxValues_ is greater than 1, the dispatcher
+  returns an array; otherwise it returns a single value or null.
+</Callout>
+
+## Accessing raw fields via @Ctx
+
+For fields that do not have a corresponding field decorator, such as `radio_group` fields accessed outside of injection or fields read conditionally, use `@Ctx()` and call the appropriate method on `ctx.fields` directly.
+
+```typescript filename="src/modules/survey/handlers/survey.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { SurveyModal } from '../components/survey.modal';
+
+@ModalHandler(SurveyModal)
+export class SurveyHandler {
+  async handle(
+    @ModalTextField('feedback') feedback: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    // Read radio group values directly from the interaction
+    const rating = ctx.fields.getRadioGroup('rating') ?? 'N/A';
+    const tags = ctx.fields.getCheckboxGroup('tags');
+
+    await ctx.reply({
+      content: `Rating: ${rating}\nTags: ${tags.join(', ')}\nFeedback: ${feedback}`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Combining DI services with field injection
+
+Because handler classes are instantiated through the DI container, any module provider can be injected through the constructor. This is the standard pattern for accessing databases, external APIs, or application services from inside a handler.
+
+```typescript filename="src/modules/ticket/handlers/ticket-submit.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { Injectable } from '@spraxium/core';
+import { TicketModal } from '../components/ticket.modal';
+import { TicketService } from '../ticket.service';
+
+@Injectable()
+@ModalHandler(TicketModal)
+export class TicketSubmitHandler {
+  constructor(private readonly tickets: TicketService) {}
+
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('description') description: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    const ticket = await this.tickets.create({
+      userId: ctx.user.id,
+      subject,
+      description,
+    });
+
+    await ctx.reply({
+      content: `âœ… Ticket **#${ticket.id}** created!`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Module registration
+
+Register handler classes in the _handlers_ array of a feature module. Modal component classes decorated with _@ModalComponent_ are metadata-only and are never registered; Spraxium resolves them transitively from the handler's `@ModalHandler` link.
+
+```typescript filename="src/modules/feedback/feedback.module.ts"
+import { Module } from '@spraxium/core';
+import { FeedbackHandler } from './handlers/feedback.handler';
+
+@Module({
+  handlers: [FeedbackHandler],
+})
+export class FeedbackModule {}
+```
+
+<Callout tone="warning" title="Register the handler, not the component">
+  Only handler classes decorated with *@ModalHandler* go in the *handlers*
+  array. Adding the modal component class to the module will have no effect and
+  may produce confusing log output during boot.
+</Callout>
+
+## Next page
+
+Continue with [Dynamic Modals](/guide/modals-dynamics).

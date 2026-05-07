@@ -1,0 +1,111 @@
+---
+title: "Spraxium 0.2.0, Community-Driven Expansion"
+summary: "A major release focused on community feedback, new packages, dynamic components, context menu commands, and broad cross-package stabilization."
+version: "0.2.0"
+date: "2026-05-05"
+banner: "/code-wallpapers/photo-1577083862054-7324cd025fa6.webp"
+tags:
+  - release
+  - core
+  - components
+  - cli
+  - logger
+  - webhook
+published: true
+keywords:
+  - spraxium v0 2 0
+  - spraxium 0.2.0, community-driven expansion in spraxium
+  - changelogs v0 2 0 guide
+  - v0 2 0 discord bot
+  - v0 2 0 typescript
+  - spraxium changelogs documentation
+  - spraxium 0.2.0, community-driven expansion changelogs
+  - spraxium spraxium 0.2.0, community-driven expansion
+faq:
+  - question: "What does \"Spraxium 0.2.0, Community-Driven Expansion\" cover in Spraxium?"
+    answer: "Spraxium 0.2.0, Community-Driven Expansion explains the core concepts of this area and how to apply them in real Spraxium bot workflows."
+  - question: "When should I use \"Spraxium 0.2.0, Community-Driven Expansion\"?"
+    answer: "Use this page when you are implementing v0 2 0 in the changelogs area of your bot architecture."
+  - question: "What should I read after \"Spraxium 0.2.0, Community-Driven Expansion\"?"
+    answer: "Continue with related changelogs pages to connect this concept wiNth practical implementation details."
+---
+
+0.2.0 is the first community-driven release of Spraxium. Since 0.1.0 shipped, the core packages have gone through a broad stabilization pass covering security hardening, lifecycle correctness, and validation consistency across `@spraxium/core`, `@spraxium/components`, `@spraxium/http`, `@spraxium/signal`, `@spraxium/schedule`, `@spraxium/logger`, `@spraxium/env`, and `@spraxium/webhook`. All example apps and release docs were synchronized with the updated behavior.
+
+## Breaking changes
+
+**In-memory storage adapter removed.** The `memory` option has been removed from both *context.storage* and *payload.storage* inside *defineComponents*. All contexts and dynamic component payloads now require a persistent adapter: *filesystem*, *redis*, or *sqlite*. For single-instance bots with no external infrastructure, replace `storage: 'memory'` with `storage: 'filesystem'`. The filesystem adapter writes to _.spraxium/contexts.json_ and _.spraxium/payloads.json_ and survives process restarts automatically with zero additional configuration.
+
+The memory adapter was removed because it silently dropped all state on every process restart: a failure mode that only appeared in production and was consistently confused with correct behavior during development and staging. Forcing a persistent adapter from the start aligns the local environment with production from day one and makes TTL, revocation, and context lifecycle visible at the right time.
+
+## New packages
+
+**@spraxium/logger** extracts structured logging out of `@spraxium/core` into a standalone package. The console transport is ANSI-native: chalk has been fully removed from the entire monorepo. *Logger.configure()* handles custom log levels, token masking via *TokenMasker*, timestamp format, and an optional Discord transport that forwards log entries to a webhook channel. The transport system is pluggable: any object implementing a *name* string and a *log(entry)* method can be registered via *Logger.addTransport()*. The `@spraxium/env` startup validation table was migrated to use *TableBuilder* from this package, removing two direct dependencies between packages.
+
+**@spraxium/webhook** adds first-class Discord webhook support. Decorate a class with *@WebhookSender* and mark methods with *@Send* to dispatch messages automatically based on the return value: a string becomes plain message content, an *EmbedBuilder* instance becomes an embed, any plain object is forwarded as raw message options. For programmatic control, the injected *WebhookService* exposes *send()*, *sendEmbed()*, *sendMany()*, and *sendAll()*. The webhook registry is defined once with *defineWebhook*, accepting a webhook map, an optional global username override, and an error handler for failed deliveries.
+
+## Core additions
+
+**Context menu commands** are now fully supported for both user and message target types. *@ContextMenuCommand* defines the command metadata, *@ContextMenuCommandHandler* wires up the handler, and both *@UseGuards* and *@Ctx* injection work identically to slash command handlers. Commands are auto-registered on boot alongside slash commands via a single Discord REST PUT, with a dev-mode content-hash cache that skips re-registration when the command payloads are unchanged between restarts.
+
+**@Defer and @AutoDefer** give precise control over Discord's 3-second response deadline. *@Defer* calls *deferReply()* immediately after guards pass: deferral is intentionally skipped when a guard denies the interaction, preventing a stuck "Thinking..." state in the channel. *@AutoDefer* starts a background timer and defers only if the handler has not responded within the configured threshold, which defaults to 2000 ms. The framework patches *interaction.reply()* transparently so handlers never need to branch on whether deferral happened: the same reply call works either way.
+
+## Process safety & developer tooling
+
+Spraxium now writes a per-project lock file at _.spraxium/spraxium.lock_ on startup and removes it on clean shutdown. A second instance starting against the same project directory will detect the conflict, log a clear warning describing the running PID, and exit instead of silently duplicating event listeners and slash command registrations. Stale locks left by crashed processes are cleaned automatically by probing the recorded PID before assuming a conflict. Pass `--force-unlock` to take over from a running instance without restarting it, or `--no-lock` to opt out of locking entirely. Both flags are also available as environment variables (`SPRAXIUM_FORCE_UNLOCK`, `SPRAXIUM_NO_LOCK`).
+
+<img width="606" height="367" alt="Spraxium PID locker" src="https://github.com/user-attachments/assets/510f6e3d-9a9d-4090-b153-f0ed3e1e7669" />
+
+The **upgrade notifier** scans all installed `@spraxium/*` packages at startup, checks the npm registry for newer versions of each one, and prints a grouped notice if any updates are available: without blocking the boot sequence. Results are cached with a 24-hour TTL shared across all projects on the machine, so the registry is not hit on every restart during active development. Set `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` to suppress the check entirely in CI environments.
+
+<img width="764" height="407" alt="spraxium package updater" src="https://github.com/user-attachments/assets/8abe915a-5fc2-4361-9f69-7ec780a2bf78" />
+
+## Unified option & field injection
+
+The slash command option API has been unified. Nine typed specialized decorators replace the previous generic *@SlashOpt*: *@SlashStringOption*, *@SlashIntegerOption*, *@SlashBooleanOption*, *@SlashUserOption*, *@SlashChannelOption*, *@SlashRoleOption*, *@SlashMentionableOption*, *@SlashAttachmentOption*, and *@SlashNumberOption*. Each decorator embeds the Discord option type directly in class metadata, making handler intent self-documenting without requiring a lookup of the command class at runtime. The previous *@SlashOpt* decorator remains functional but is now marked deprecated and will be removed in a future major version. All 24 handler files across example apps have been migrated.
+
+The same unification applies to modal field injection. Ten typed decorators replace the previous generic *@Field*: *@ModalTextField*, *@ModalStringSelectField*, *@ModalUserSelectField*, *@ModalRoleSelectField*, *@ModalMentionableSelectField*, *@ModalChannelSelectField*, *@ModalRadioGroupField*, *@ModalCheckboxGroupField*, *@ModalCheckboxField*, and *@ModalFileUploadField*. A dispatcher fix also corrects silent null returns for the radio group, checkbox group, and checkbox field types, which were previously unhandled and caused submitted values to be dropped. All 9 modal handler files across example apps have been migrated.
+
+## Dynamic components & guards
+
+`@spraxium/components` gains a complete data-driven component system built around a three-channel custom ID model. Each channel solves a distinct problem and all three can coexist in a single button or select menu interaction.
+
+The **payload channel** handles store-encoded dynamic components. *@DynamicButton* and *@DynamicStringSelect* compute their visual output and payload data at render time via a static *render()* method. Each payload is persisted by *PayloadService* under a UUID-based key embedded in the custom ID. The handler receives the original object back via *@ButtonPayload()* or *@SelectPayload()*: fully deserialized and fully typed, with no manual store query. *@PayloadRef()* provides a *consume()* method for one-shot interactions that should be blocked from re-triggering after the first click. Default TTL is 10 minutes and is configurable per decorator. When a flow ends externally: for example, a ticket closed by a slash command: *ButtonPayloadService.revokeMany(refs)* invalidates a batch of stored payloads at once, so any subsequent click receives the configured expiry message rather than reaching the handler.
+
+The **inline channel** lets small primitive parameters travel directly inside the custom ID, with no storage involved. Setting `encoding: 'inline'` on *@DynamicButton* or *@DynamicStringSelect* causes the *params* field returned by *render()* to be URL-encoded and appended to the custom ID after a tilde separator. The handler reads them back via *@ButtonParams()* or *@SelectParams()* with full type inference from the render return type. The 100-character Discord custom ID limit applies: the framework throws *DynamicButtonInlinePayloadTooLargeError* or *DynamicSelectInlinePayloadTooLargeError* at render time if the encoded string would exceed the limit. Inline encoding is the right choice whenever the data is a single record ID or small flag and revocation is not needed.
+
+The **context channel** provides long-lived shared state for multi-step wizard flows. *ContextService.create(data)* allocates a context entry in the persistent store and returns a *SpraxiumContext* carrying a UUID. Attaching that context to a button or select via *rowWithContext()* causes the framework to append a context segment to the custom ID. Any handler in the flow receives the resolved context via *@FlowContext()*, mutates *flow.data* freely, and calls *flow.save()* to persist the change. The same context object is available across every interaction in the flow regardless of component type. A payload ID, an inline params segment, and a context ID can all coexist within a single custom ID simultaneously.
+
+**buildMixedRow** is a new *ButtonService* method that combines multiple dynamic buttons of different types into a single action row in one call. It accepts an array of entries pairing a button class with its render items, and returns a tuple of the built action row and a flat array of all payload refs: one per store-encoded button in declaration order, with inline-encoded buttons producing no ref. This replaces the previous pattern of manually constructing an *ActionRowBuilder* and spreading each button's output, which required importing discord.js internals into the application layer. *buildMixedRow* is the recommended rendering path for messages that carry several functionally distinct buttons from the same source entity, such as an Assign and a Close button on a ticket embed.
+
+**@V2DynamicRow** auto-chunks N items through a *@DynamicButton* class into ActionRow groups inside a V2 container. The framework calculates the number of rows needed and slices the item list automatically: no manual five-item chunking required.
+
+*@UseGuards* and *GuardRegistry.register()* now apply uniformly to *@ButtonHandler*, *@StringSelectHandler*, and *@ModalHandler* via the same guard executor pipeline as `@spraxium/core`. A *ComponentExecutionContext* bridges any interaction type into the shared *ExecutionContext* interface, so guards that read member data, guild ID, or permissions work identically regardless of whether the trigger was a slash command or a component interaction. Global guards registered in the application entry point now fire on buttons, selects, and modals: closing a previous gap where a command guard left its reply components unprotected.
+
+## Other additions
+
+`@spraxium/i18n` ships five buildLocalized helpers: *buildLocalizedButton*, *buildLocalizedSelect*, *buildLocalizedModal*, *buildLocalizedEmbed*, and *buildLocalizedV2*: that resolve translation keys directly from component metadata at render time without requiring per-locale subclasses.
+
+`@spraxium/schedule` gains *@RunOnce(date)*, which fires exactly once at an absolute date and removes itself after execution. If the date is already past at boot, a warning is logged and the job never runs. This is useful for one-time migration steps or announcement jobs that should execute at a specific calendar moment.
+
+All 11 packages now carry targeted npm keywords to improve discoverability.
+
+Five new example apps ship with this release:
+
+- guard-bot: unified guard pipeline across slash commands and buttons
+- i18n-components-bot: all five buildLocalized builders with dual-locale support
+- webhook-bot: declarative and imperative webhook API
+- context-menu-bot: User and Message context menu handlers
+- slash-bot (updated): @Defer and @AutoDefer usage examples
+
+## Bug fixes
+
+A broad corrective sweep was applied across dispatching, component runtime, transport reliability, and operational logging:
+
+- Guard and exception flow consistency across all handler types, including deferred reply fallback on unhandled errors
+- Graceful shutdown now waits for in-flight handler promises before exiting
+- Pluggable nonce storage and signal envelope verification for `@spraxium/signal`
+- Redis and file-based payload store fallback with corrupt-entry self-healing on read errors
+- HTTP rate limit and access log middleware now properly wired into the request pipeline at runtime (both were configured but not activated in 0.1.0)
+- *@RunOnce* correctly handles the transition from scheduled to fired state across startup and mid-execution restarts
+- _.devcontainer_ configuration now runs `pnpm build` automatically on Codespace creation

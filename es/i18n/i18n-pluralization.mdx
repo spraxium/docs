@@ -1,171 +1,212 @@
 ---
 title: Pluralización
 description: |
-  La pluralización no es una simple distinción entre singular y plural, sino una regla matemática que varía significativamente entre idiomas.
-  Entiende cómo el motor selecciona la forma correcta y por qué el sistema de categorías CLDR es el modelo adecuado.
+  La pluralización no es una simple comprobación singular-vs-plural. Es una regla matemática que varía significativamente entre idiomas.
+  Entiende cómo el motor selecciona la forma plural correcta y por qué el sistema de categorías CLDR es el modelo adecuado.
 order: 4
 category: i18n
 ---
 
 ## Por qué la pluralización no es una condición simple
 
-El primer impulso al manejar texto en plural es escribir algo como:
+La primera intuición al manejar texto plural es escribir algo como:
 
-```typescript filename="plural-ingenuo.ts"
-const mensaje = total === 1 ? 'Un objeto' : `${total} objetos`;
+```typescript filename="naive-plural.ts"
+const message = count === 1 ? 'One item' : `${count} items`;
 ```
 
-Esto funciona para inglés. Falla para polaco, donde "2 objetos" es `2 elementy` y "5 objetos" es
-`5 elementów`. Falla para árabe, que tiene seis formas plurales. Falla para ruso, que distingue
-entre un objeto, dos a cuatro objetos y cinco o más objetos. Falla incluso para español en algunos
-contextos: "0 elementos" usa la forma plural, pero eso no es universalmente cierto entre todos los
-idiomas.
+Esto funciona en inglés. Falla en polaco, donde "2 items" es `2 elementy`, "5 items" es
+`5 elementów`, y "21 items" vuelve a ser `21 elementów`. Falla en árabe, que tiene seis formas
+de plural. Falla en ruso, que distingue entre un ítem, dos-a-cuatro ítems y cinco-o-más
+ítems. Falla para cero. En francés, cero usa la forma singular (`0 élément`), mientras que en inglés
+cero usa la forma plural (`0 items`).
 
-La clave es que la selección del plural es una función tanto del idioma como del número. Todos los
-idiomas principales tienen reglas documentadas en el proyecto Unicode CLDR, y esas reglas mapean
-cualquier entero a una de seis categorías con nombre: `zero`, `one`, `two`, `few`, `many` y
-`other`. El motor de pluralización de Spraxium delega la selección de categoría a _Intl.PluralRules_
-y luego consulta la variante con clave en el mapa plano de traducciones.
+La idea central es que la selección plural es una función tanto del idioma como del número. Cada
+idioma importante tiene reglas documentadas en el proyecto Unicode CLDR (Common Locale Data Repository), y esas reglas mapean cualquier entero a una de cinco categorías con nombre: `zero`, `one`, `two`, `few`, `many` y `other`. Cada idioma usa un subconjunto de estas categorías, y `other` siempre es la
+categoría de cierre obligatoria.
 
-## La convención de nomenclatura para variantes plurales
+El motor de pluralización de Spraxium delega la selección de categorías a _Intl.PluralRules_, el motor V8
+integrado en Node.js que implementa las reglas CLDR, y luego busca la variante con key correspondiente en el
+map plano de traducciones.
 
-Las claves de plural siguen el patrón `claveBase_categoria`. La clave base es la misma que usarías
-para _t()_. La categoría es uno de los seis nombres CLDR añadido con un separador de guión bajo.
+## Convención de nombres para variantes plurales
 
-```json filename="locales/comandos/es-ES/objetos.json"
+Las keys plurales siguen el patrón `baseKey_category`. La base key es la misma key que usarías para
+_t()_. La categoría es uno de los seis nombres CLDR anexado con un separador de guion bajo.
+
+```json filename="locales/commands/en-US/items.json"
 {
-  'objetos': {
-    '_zero': 'Ningún objeto en tu inventario',
-    '_one': 'Un objeto en tu inventario',
-    '_other': '{{count}} objetos en tu inventario'
+  'items': {
+    '_zero': 'No items in your inventory',
+    '_one': 'One item in your inventory',
+    '_other': '{{count}} items in your inventory'
   }
 }
 ```
 
-Tras el aplanado con el nombre de referencia `comandos` y el nombre de archivo `objetos`, las claves
-completas son `comandos.objetos._zero`, `comandos.objetos._one` y `comandos.objetos._other`.
+Después de aplanar con el nombre de referencia `commands` y nombre de archivo `items`, las keys completas quedan:
+
+- `commands.items._zero`
+- `commands.items._one`
+- `commands.items._other`
+
+El motor construye la key de búsqueda anexando `_` más la categoría resuelta a la base key
+que pases a `tp()`.
 
 ## Las seis categorías y cuándo aplica cada una
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Categoría</TableCell>
       <TableCell header>Aplica a</TableCell>
-      <TableCell header>Idiomas y reglas de ejemplo</TableCell>
+      <TableCell header>Idiomas de ejemplo y reglas</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*zero*</TableCell>
       <TableCell>Forma específica para cero</TableCell>
-      <TableCell>Árabe (0), Galés (0)</TableCell>
+      <TableCell>Árabe (0), galés (0)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*one*</TableCell>
       <TableCell>Singular</TableCell>
-      <TableCell>Inglés (1), Español (1), Portugués (1)</TableCell>
+      <TableCell>Inglés (1), español (1), portugués (1)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*two*</TableCell>
       <TableCell>Forma dual</TableCell>
-      <TableCell>Árabe (2), Galés (2), Hebreo (2)</TableCell>
+      <TableCell>Árabe (2), galés (2), hebreo (2)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*few*</TableCell>
-      <TableCell>Plural pequeño / paucal</TableCell>
+      <TableCell>Paucal / plural pequeño</TableCell>
       <TableCell>
-        Ruso (-), Polaco (2, 3, 4 fuera de teens), Árabe (-0)
+        Ruso (-), polaco (2, 3, 4 que no terminan en teen), árabe (-0)
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*many*</TableCell>
       <TableCell>Plural grande o irregular</TableCell>
-      <TableCell>Ruso (5+, 1-4), Polaco (5+), Árabe (1-9)</TableCell>
+      <TableCell>Ruso (5+, 1-4), polaco (5+), árabe (1-9)</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*other*</TableCell>
-      <TableCell>Plural general, reserva obligatoria</TableCell>
-      <TableCell>Inglés (0, 2+), Chino (todos), Japonés (todos)</TableCell>
+      <TableCell>Plural general, categoría de cierre obligatoria</TableCell>
+      <TableCell>Inglés (0, 2+), chino (todos), japonés (todos)</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## El algoritmo de resolución
+Los idiomas que no tienen una forma de cero dedicada (la mayoría de idiomas de Europa occidental) mapean cero a
+_other_. Esto significa que en inglés `0 items` se resuelve a `_other`, por eso la variante de cero en el
+ejemplo de arriba dice "No items.". Necesitas proporcionar una entrada `_zero` específicamente para esa redacción.
+
+## Algoritmo de resolución
 
 <Steps>
-<Step title="Determinación de la categoría">
-  El motor determina la categoría plural para el `count` proporcionado. Si se ha registrado una
-  regla personalizada para el locale actual en `pluralRules`, se ejecuta primero. En caso contrario, el motor delega a *Intl.PluralRules*, el motor V8 integrado en Node.js que implementa las reglas
-  CLDR para todos los idiomas principales.
-</Step>
-
-<Step title="Construcción de la clave candidata">
-  El motor concatena la clave base con un separador de guión bajo y la categoría
-  obtenida en el paso anterior, produciendo una clave con el formato
-  `clave_categoria`. Por ejemplo, si la clave base es `comandos.objetos` y la
-  categoría es `one`, la clave candidata construida es `comandos.objetos_one`.
-  Este formato es el mismo para todas las categorías CLDR.
-</Step>
-
-<Step title="Consulta en el locale principal">
-  La clave candidata se busca en el mapa plano del locale solicitado. Si la
-  clave existe, el valor se devuelve inmediatamente tras la interpolación de
-  variables. Si no existe, el motor pasa al siguiente paso de fallback en lugar
-  de lanzar un error.
-</Step>
-
-<Step title="Fallback a la categoría other">
-  Si la clave candidata no se encontró y la categoría no es `other`, el motor
-  intenta la variante `clave_other` en el mismo locale. Esto garantiza que los
-  idiomas con pocas categorías declaradas nunca queden sin respuesta, ya que
-  `_other` es la variante obligatoria por convención y siempre debe existir.
-</Step>
-
-<Step title="Fallback al locale predeterminado">
-  Si la clave aún no se ha encontrado y el locale solicitado es diferente del
-  `defaultLocale` configurado, el motor repite los pasos 3 y 4 usando el mapa
-  plano del locale predeterminado. Esto permite publicar bots parcialmente
-  traducidos y aún así ofrecer respuestas comprensibles para locales sin archivo
-  completo.
-</Step>
-
-<Step title="Retorno de la clave sin procesar">
-  Si la clave no se encontró en ningún locale recorrido, el motor devuelve la
-  propia string de clave sin modificar. Este comportamiento garantiza que nunca
-  se lanzan excepciones en producción por traducciones ausentes, haciendo segura
-  la deprecación gradual de claves sin exigir sincronización inmediata de todos
-  los archivos de locale.
-</Step>
-
-<Step title="Interpolación de variables">
-  El valor resuelto pasa por la interpolación de variables, reemplazando todos los marcadores
-  `{{nombreVar}}` por los valores proporcionados en el objeto de vars. El valor de `count` se
-  inyecta automáticamente como `{{count}}` sin necesidad de declararlo en el objeto de vars, pero
-  cualquier otra variable adicional debe pasarse explícitamente.
-</Step>
+  <Step title="Determinación de categoría">
+    Verifica si se registró una regla plural personalizada para el
+    locale solicitado en el campo de configuración *pluralRules*. Si existe
+    una regla personalizada, ejecuta esa función con el count numérico y usa la
+    string de categoría que devuelva. Si no hay regla personalizada registrada,
+    delega en *Intl.PluralRules(locale).select(count)*, que implementa las
+    reglas Unicode CLDR integradas en Node.js y devuelve una de las seis strings de categoría con nombre.
+  </Step>
+  <Step title="Construcción de key candidata">
+    Construye la key de búsqueda concatenando la base key, un carácter de guion bajo
+    y la categoría resuelta. Por ejemplo, una base key `commands.items` con
+    categoría resuelta *few* produce la key candidata `commands.items_few`.
+    Esta string construida es la primera key que el registro buscará al
+    intentar encontrar la forma plural traducida.
+  </Step>
+  <Step title="Búsqueda primaria en el locale">
+    Busca la key candidata en el map plano del locale solicitado
+    llamando a *LocaleRegistry.get(locale)*. El registro mantiene un *Map&lt;string,
+    string&gt;* por locale cargado y devuelve la string traducida al instante si
+    la key existe. Si la key se encuentra en este paso, la ejecución salta
+    directamente a la interpolación.
+  </Step>
+  <Step title="Fallback a la categoría _other">
+    Si la búsqueda primaria no devolvió nada y la categoría resuelta no es
+    ya *other*, construye una segunda key candidata usando `_other` como sufijo
+    y busca de nuevo en el mismo map del locale. Este fallback es lo que permite
+    proporcionar solo `_one` y `_other` para la mayoría de idiomas sin necesidad de
+    definir todas las categorías CLDR posibles, ya que *other* es el
+    cierre obligatorio.
+  </Step>
+  <Step title="Fallback al locale predeterminado">
+    Si ni la key de categoría ni la key `_other` se encontraron en el locale solicitado,
+    y el locale solicitado no es ya el locale predeterminado configurado,
+    repite los pasos tres y cuatro contra el map plano del locale predeterminado.
+    Este nivel permite traducciones parciales: un idioma que solo cubre algunas
+    keys producirá silenciosamente el texto del locale predeterminado para las entradas faltantes
+    en lugar de romper la respuesta.
+  </Step>
+  <Step title="Retorno seguro de la key cruda">
+    Si todas las búsquedas anteriores fallan, devuelve la base key cruda tal cual
+    en lugar de lanzar un error. El motor de pluralización nunca lanza una excepción
+    de key faltante en tiempo de petición, así que una traducción faltante aparece como
+    texto visible de placeholder en la UI sin tumbar el bot ni dejar la
+    interacción sin respuesta. Este comportamiento hace seguro publicar traducciones
+    parciales en producción mientras el trabajo en los locales restantes sigue
+    en progreso.
+  </Step>
+  <Step title="Interpolación de variables">
+    Fusiona el count numérico en el objeto vars bajo la key `count`, dejándolo
+    disponible como `{{ count }}` en la string traducida sin trabajo extra
+    del llamador. Reemplaza cada placeholder `{{ varName }}` en la string
+    resuelta con su valor correspondiente del objeto vars fusionado.
+    La string totalmente interpolada se devuelve al handler que llamó a *tp()*
+    o *tpUser()*.
+  </Step>
 </Steps>
 
-## Usando la pluralización en handlers
+## Proveer traducciones para un idioma con reglas plurales complejas
+
+El ruso requiere cuatro entradas para ser correcto. Si omites `_few` o `_many`, el motor cae
+hacia `_other` para esos valores, lo que puede ser gramaticalmente incorrecto para tu string concreta.
+
+```json filename="locales/commands/ru/items.json"
+{
+  'items': {
+    '_one': '{{count}} предмет',
+    '_few': '{{count}} предмета',
+    '_many': '{{count}} предметов',
+    '_other': '{{count}} предмета'
+  }
+}
+```
+
+```typescript filename="test the russian plural"
+i18n.tp('commands.items', 'ru', 1); // '1 предмет'    (one)
+i18n.tp('commands.items', 'ru', 2); // '2 предмета'   (few)
+i18n.tp('commands.items', 'ru', 5); // '5 предметов'  (many)
+i18n.tp('commands.items', 'ru', 11); // '11 предметов' (many, teen numbers are always many in Russian)
+i18n.tp('commands.items', 'ru', 21); // '21 предмет'   (one, 21 ends in 1)
+```
+
+## Usar pluralización en handlers
 
 <CodeTabs>
   <Tab label="Locale explícito" language="typescript">
-```typescript filename="inventario.handler.ts"
+```typescript filename="inventory.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { I18nService } from '@spraxium/i18n';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { InventarioCommand } from '../commands/inventario.command';
+import { InventoryCommand } from '../commands/inventory.command';
 
-@SlashCommandHandler(InventarioCommand)
-export class InventarioHandler {
+@SlashCommandHandler(InventoryCommand)
+export class InventoryHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
-    const total = await contarObjetos(interaction.user.id);
+    const count = await getInventoryCount(interaction.user.id);
     const locale = interaction.locale;
 
-    const mensaje = this.i18n.tp('comandos.objetos', locale, total, { count: total });
-    await interaction.reply(mensaje);
+    const message = this.i18n.tp('commands.items', locale, count, { count });
+    await interaction.reply(message);
 
   }
 }
@@ -173,30 +214,31 @@ export class InventarioHandler {
 ````
   </Tab>
   <Tab label="Locale resuelto por usuario" language="typescript">
-```typescript filename="inventario.handler.ts"
+```typescript filename="inventory.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { I18nService } from '@spraxium/i18n';
 import type { ChatInputCommandInteraction } from 'discord.js';
-import { InventarioCommand } from '../commands/inventario.command';
+import { InventoryCommand } from '../commands/inventory.command';
 
-@SlashCommandHandler(InventarioCommand)
-export class InventarioHandler {
+@SlashCommandHandler(InventoryCommand)
+export class InventoryHandler {
   constructor(private readonly i18n: I18nService) {}
 
   async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
     const userId  = interaction.user.id;
     const guildId = interaction.guildId ?? undefined;
-    const total   = await contarObjetos(userId);
+    const count   = await getInventoryCount(userId);
 
-    const mensaje = await this.i18n.tpUser(
+    // Resolves locale via user > guild > default priority
+    const message = await this.i18n.tpUser(
       userId,
-      'comandos.objetos',
-      total,
-      { count: total },
+      'commands.items',
+      count,
+      { count },
       guildId,
     );
 
-    await interaction.reply(mensaje);
+    await interaction.reply(message);
   }
 }
 ````
@@ -204,16 +246,20 @@ export class InventarioHandler {
   </Tab>
 </CodeTabs>
 
-## Reglas de plural personalizadas
+## Reglas plurales personalizadas para casos límite
+
+Cuando `Intl.PluralRules` da resultados incorrectos para un identificador de locale específico (esto es poco común, pero
+puede ocurrir con strings de locale personalizadas o variantes de locale no cubiertas por los datos CLDR de la
+versión actual de Node.js), puedes sobrescribir la regla en tiempo de configuración:
 
 ```typescript filename="config/i18n.config.ts"
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'es-ES',
-  references: [{ name: 'comandos', path: './locales/comandos' }],
+  defaultLocale: 'en-US',
+  references: [{ name: 'commands', path: './locales/commands' }],
   pluralRules: {
-    'es-ES': (count) => (count === 1 ? 'one' : 'other'),
+    'pt-BR': (count) => (count === 1 ? 'one' : 'other'),
     ar: (count) => {
       if (count === 0) return 'zero';
       if (count === 1) return 'one';
@@ -226,29 +272,34 @@ export const i18nConfig = defineI18n({
 });
 ```
 
+Las reglas personalizadas reciben el count numérico y deben devolver una de las seis strings de categoría. Se ejecutan
+antes de `Intl.PluralRules` y la sobrescriben por completo para el locale especificado. Los locales sin una
+regla personalizada siguen usando `Intl.PluralRules` con normalidad.
+
 ## La variable `{{count}}`
 
-El valor pasado a _tp()_ o _tpUser()_ está disponible automáticamente como `{{count}}` en la cadena
-traducida. No necesitas pasarlo explícitamente en el objeto de variables.
+El count pasado a _tp()_ o _tpUser()_ queda disponible automáticamente como `{{count}}` en la
+string traducida. No necesitas pasarlo explícitamente en el objeto vars. El motor lo fusiona
+automáticamente para que cada variante plural pueda referenciar el count sin boilerplate extra.
 
-```json filename="objetos con count en la traducción"
+```json filename="items translation showing count use"
 {
-  'objetos': {
-    '_one': 'Tienes un objeto restante',
-    '_other': 'Tienes {{count}} objetos restantes'
+  'items': {
+    '_one': 'You have one item remaining',
+    '_other': 'You have {{count}} items remaining'
   }
 }
 ```
 
-Si pasas variables adicionales, se fusionan con `count` y todas quedan disponibles como
-marcadores `{{nombreVar}}`:
+Si pasas vars adicionales, se fusionan con `count` y todas quedan disponibles como `{{varName}}`
+placeholders:
 
-```typescript filename="usando vars extra con count"
-i18n.tp('comandos.objetos', 'es-ES', 5, { capacidadMax: 10 });
-// Traducción: 'Estás usando {{count}} de {{capacidadMax}} ranuras de objeto'
-// Resultado:  'Estás usando 5 de 10 ranuras de objeto'
+```typescript filename="using extra vars with count"
+i18n.tp('commands.items', 'en-US', 5, { maxCapacity: 10 });
+// Translation: 'You have {{count}} of {{maxCapacity}} item slots used'
+// Result:      'You have 5 of 10 item slots used'
 ```
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Fundamentos de Slash Commands](/guide/slash-commands-overview).
+Continúa con [Builders de componentes localizados](/i18n-components).

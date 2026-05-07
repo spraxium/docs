@@ -1,23 +1,23 @@
 ---
 title: Modales dinámicos
 description: |
-  Genera campos de modal en runtime con @ModalDynamic, @ModalDynamicFields y @ModalWhen.
-  Construye modales sensibles al contexto que adaptan su estructura según datos de usuario o estado de la aplicación.
-order: 3
+  Genera campos de modal en tiempo de ejecución con @ModalDynamic, @ModalDynamicFields y @ModalWhen.
+  Construye modales conscientes de contexto que adapten su estructura según datos de usuario o estado de la aplicación.
+order: 4
 category: Modals
 ---
 
 ## Por qué modales dinámicos
 
-Los modales estáticos funcionan bien cuando los campos se conocen en tiempo de compilación. Sin embargo, muchos escenarios del mundo real requieren modales que se adapten a condiciones de runtime. Un modal de creación de tickets podría mostrar campos diferentes según la categoría del ticket. Un modal de configuración podría incluir campos solo para funcionalidades a las que el usuario tiene acceso. Un asistente multi-paso podría pasar datos de un paso anterior al modal para personalizar su contenido.
+Los modales estáticos funcionan bien cuando los campos se conocen en tiempo de compilación. Sin embargo, muchos escenarios reales requieren modales que se adapten a condiciones de runtime. Un modal de creación de tickets puede mostrar campos distintos según la categoría del ticket. Un modal de configuración puede incluir campos solo para funcionalidades a las que la persona usuaria tiene acceso. Un asistente de varios pasos puede pasar datos de un paso previo al modal para personalizar su contenido.
 
-Spraxium proporciona tres mecanismos para modales dinámicos. El decorator _@ModalDynamic_ marca un modal como sensible a datos, el método _@ModalDynamicFields_ genera campos programáticamente en el momento de construcción, y el decorator _@ModalWhen_ incluye o excluye condicionalmente campos estáticos individuales basándose en un predicado. Estos mecanismos se componen de forma natural, así que puedes mezclar campos estáticos, condicionales y generados dinámicamente en el mismo modal.
+Spraxium ofrece tres mecanismos para modales dinámicos. El decorator _@ModalDynamic_ marca un modal como consciente de datos, el método _@ModalDynamicFields_ genera campos de forma programática al construir, y el decorator _@ModalWhen_ incluye o excluye condicionalmente campos estáticos individuales según un predicado. Estos mecanismos se componen de forma natural, por lo que puedes mezclar campos estáticos, condicionales y generados dinámicamente en el mismo modal.
 
-El _ModalSchemaBuilder_ resuelve las tres fuentes (decorators estáticos, condicionales y métodos dinámicos) en una única lista plana de campos cuando se llama a _ModalService.build_. Esto significa que la estructura del modal se determina en el momento del renderizado, no en el momento de definición de la clase.
+El _ModalSchemaBuilder_ resuelve las tres fuentes (decorators estáticos, condicionales y métodos dinámicos) en una única lista plana de campos cuando se llama a _ModalService.build_. Esto significa que la estructura del modal se determina en el momento de renderizar, no en el momento de definir la clase.
 
-## Hacer un modal sensible a datos
+## Hacer que un modal sea consciente de datos
 
-El decorator genérico _@ModalDynamic_ marca una clase de componente modal como receptora de datos externos de un tipo específico. Cuando llamas a _ModalService.build(MyModal, data)_, los datos se almacenan y se ponen a disposición de los métodos _@ModalDynamicFields_ y los predicados _@ModalWhen_. El parámetro de tipo proporciona seguridad en compilación para la forma de los datos.
+El decorator genérico _@ModalDynamic_ marca una clase de componente modal como receptora de datos externos de un tipo específico. Cuando llamas a _ModalService.build(MyModal, data)_, los datos se almacenan y quedan disponibles para métodos _@ModalDynamicFields_ y predicados _@ModalWhen_. El parámetro de tipo aporta seguridad en tiempo de compilación sobre la forma de los datos.
 
 ```typescript filename="src/components/config-modal.modal.ts"
 import { ModalComponent, ModalDynamic, ModalInput } from '@spraxium/components';
@@ -41,9 +41,9 @@ export class ConfigModal {
 
 ## Campos condicionales con @ModalWhen
 
-El decorator _@ModalWhen_ toma una función predicado que recibe los datos del modal y retorna un booleano. Si el predicado retorna `true`, el campo se incluye en el modal renderizado. Si retorna `false`, el campo se omite completamente, no solo se oculta. Esto significa que el campo no cuenta hacia el límite de 5 campos cuando se excluye, liberando action rows para otros campos.
+El decorator _@ModalWhen_ recibe una función predicado que toma los datos del modal y devuelve un booleano. Si el predicado devuelve `true`, el campo se incluye en el modal renderizado. Si devuelve `false`, el campo se omite por completo, no solo se oculta. Esto significa que el campo no cuenta para el límite de 5 campos cuando está excluido, liberando filas de acción para otros campos.
 
-El predicado recibe los datos pasados a _ModalService.build_. Si no se proporcionan datos, el predicado recibe `undefined`, así que tu predicado debería manejar este caso correctamente.
+El predicado recibe los datos pasados a _ModalService.build_. Si no se proporcionan datos, el predicado recibe `undefined`, así que tu predicado debe manejar ese caso con seguridad.
 
 ```typescript filename="src/components/config-modal.modal.ts"
 import {
@@ -90,9 +90,9 @@ export class ConfigModal {
 
 ## Generación dinámica de campos
 
-El decorator de método _@ModalDynamicFields_ marca un método de clase que retorna un array de objetos _ModalFieldDef_ en runtime. Este método se llama durante _ModalService.build_ y recibe los datos pasados a la llamada build. Los campos retornados se agregan después de todos los campos estáticos y condicionales en el layout del modal.
+El decorator de método _@ModalDynamicFields_ marca un método de clase que devuelve en runtime un arreglo de objetos _ModalFieldDef_. Este método se llama durante _ModalService.build_ y recibe los datos pasados a la llamada de build. Los campos devueltos se agregan después de todos los campos estáticos y condicionales en el layout del modal.
 
-Usa los helpers del namespace _Modal.field_ para construir definiciones de campo dentro del método dinámico. Esto mantiene el código legible y con seguridad de tipos en comparación con construir objetos de definición crudos.
+Usa los helpers del namespace _Modal.field_ para construir definiciones de campo dentro del método dinámico. Esto mantiene el código legible y tipado frente a construir objetos de definición crudos.
 
 ```typescript filename="src/components/survey.modal.ts"
 import {
@@ -133,12 +133,12 @@ export class SurveyModal {
 }
 ```
 
-## Construir modales sensibles a datos
+## Construir modales conscientes de datos
 
-Cuando tu modal usa _@ModalDynamic_, pasa el objeto de datos como segundo argumento a _ModalService.build_. El schema builder lee los datos, evalúa todos los predicados _@ModalWhen_, llama a los métodos _@ModalDynamicFields_, fusiona los resultados con los campos estáticos y produce el layout final del modal.
+Cuando tu modal usa _@ModalDynamic_, pasa el objeto de datos como segundo argumento de _ModalService.build_. El schema builder lee los datos, evalúa todos los predicados _@ModalWhen_, llama a métodos _@ModalDynamicFields_, mezcla resultados con campos estáticos y produce el layout final del modal.
 
 <CodeTabs>
-<Tab label="Construir con datos">
+<Tab label="Construcción con datos">
 ```typescript filename="src/commands/survey.command-handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { ModalService } from '@spraxium/components';
@@ -170,7 +170,7 @@ export class SurveyCommandHandler {
 
 ````
 </Tab>
-<Tab label="Campos condicionales de admin">
+<Tab label="Campos condicionales para admin">
 ```typescript filename="src/commands/configure.command-handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { ModalService } from '@spraxium/components';
@@ -205,7 +205,7 @@ export class ConfigureCommandHandler {
 
 ## Combinar campos estáticos, condicionales y dinámicos
 
-Las tres fuentes de campos se componen en un solo modal. El _ModalSchemaBuilder_ las procesa en orden: primero campos estáticos (en orden de declaración), luego campos condicionales (evaluados contra los datos), luego campos dinámicos (agregados desde el retorno del método). El conteo total de campos no debe exceder 5 después de la resolución.
+Las tres fuentes de campo se componen en un único modal. El _ModalSchemaBuilder_ las procesa en orden: primero campos estáticos (en orden de declaración), luego campos condicionales (evaluados contra datos), y después campos dinámicos (agregados desde el retorno del método). El total de campos no debe superar 5 tras la resolución.
 
 ```typescript filename="src/components/application.modal.ts"
 import {
@@ -275,33 +275,33 @@ export class ApplicationModal {
 }
 ```
 
-## Orden de resolución del schema
+## Orden de resolución del esquema
 
-Comprender el orden de resolución te ayuda a predecir el layout final del modal. El _ModalSchemaBuilder_ sigue un proceso determinístico que produce el mismo resultado dados los mismos inputs.
+Entender el orden de resolución te ayuda a predecir el layout final del modal. El _ModalSchemaBuilder_ sigue un proceso determinista que produce el mismo resultado con las mismas entradas.
 
 <Steps>
 <Step title="Recopilar campos estáticos">
-El builder lee todos los decorators de propiedad (*@ModalInput*, *@ModalSelect*, etc.) de la clase del componente modal. Estos se recopilan en orden de declaración y forman la lista base de campos. Los campos sin decorator *@ModalWhen* siempre se incluyen.
+El builder lee todos los decorators de propiedad (*@ModalInput*, *@ModalSelect*, etc.) de la clase componente modal. Se recopilan en orden de declaración y forman la lista base de campos. Los campos sin decorator *@ModalWhen* siempre se incluyen.
 </Step>
 
 <Step title="Evaluar condicionales">
-  Para cada campo que tiene un decorator *@ModalWhen*, el builder llama a la
-  función predicado con el objeto de datos. Si el predicado retorna `false`, el
+  Para cada campo que tenga un decorator *@ModalWhen*, el builder llama a la
+  función predicado con el objeto de datos. Si el predicado devuelve `false`, el
   campo se elimina de la lista. Este paso solo puede eliminar campos, nunca
   reordenarlos ni agregarlos.
 </Step>
 
 <Step title="Generar campos dinámicos">
   Si la clase tiene un método *@ModalDynamicFields*, el builder lo llama con el
-  objeto de datos. El array de *ModalFieldDef* retornado se agrega al final de
-  la lista de campos, después de todos los campos estáticos y condicionales.
+  objeto de datos. El arreglo *ModalFieldDef* devuelto se agrega al final de la
+  lista de campos, después de todos los campos estáticos y condicionales.
 </Step>
 
 <Step title="Validar y construir">
-El builder valida que el conteo total de campos no exceda 5. Si lo excede, se lanza un error en tiempo de construcción con un mensaje descriptivo indicando qué modal superó el límite. Los campos validados se convierten entonces en componentes de action row de Discord.
+El builder valida que el total de campos no supere 5. Si lo supera, se lanza un error en tiempo de build con un mensaje descriptivo que indica qué modal excedió el límite. Luego los campos validados se convierten en componentes de action row de Discord.
 </Step>
 </Steps>
 
 ## Siguiente página
 
-Continúa con [Validación de modales](/guide/modals-validation).
+Continúa con [Modal Validation](/guide/modals-validation).

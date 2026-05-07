@@ -5,6 +5,22 @@ description: |
   Understand how global, class, and method scopes combine to form a complete access policy.
 order: 2
 category: Guards
+keywords:
+  - spraxium guards registration
+  - guard registration and scope in spraxium
+  - guards guards registration guide
+  - guards registration discord bot
+  - guards registration typescript
+  - spraxium guards documentation
+  - guard registration and scope guards
+  - spraxium guard registration and scope
+faq:
+  - question: "What does \"Guard Registration and Scope\" cover in Spraxium?"
+    answer: "Create custom guards with the Guard decorator and apply them through UseGuards. Understand how global, class, and method scopes combine to form a complete access policy."
+  - question: "When should I use \"Guard Registration and Scope\"?"
+    answer: "Use this page when you are implementing guards registration in the Guards area of your bot architecture."
+  - question: "What should I read after \"Guard Registration and Scope\"?"
+    answer: "Continue with related Guards pages to connect this concept with practical implementation details."
 ---
 
 ## Creating a guard with @Guard
@@ -130,6 +146,34 @@ This predictable ordering means your team can always reason about which guards r
   If a guard already runs at global scope, do not attach the same guard again at
   class or method scope. Duplicate guards waste runtime cycles and create
   confusion about where the policy is actually enforced.
+</Callout>
+
+## Guards on component handlers
+
+_@UseGuards_ works on component handlers too. `@ButtonHandler`, `@StringSelectHandler` (and all select variants), and `@ModalHandler` all run the same _GuardExecutor_ pipeline used by slash and context-menu commands.
+
+```typescript filename="src/modules/vip/handlers/vip-claim-button.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { ButtonHandler, Ctx } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { VipClaimButton } from '../components/vip-claim.button';
+import { VipRoleGuard } from '../guards/vip-role.guard';
+
+@UseGuards(withOptions(VipRoleGuard, { roleId: '123456789' }))
+@ButtonHandler(VipClaimButton)
+export class VipClaimButtonHandler {
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    await interaction.reply({ content: 'âœ… VIP perk claimed!', flags: 'Ephemeral' });
+  }
+}
+```
+
+Guards on component handlers receive the same _ExecutionContext_ interface as guards on command handlers. Any guard that calls `ctx.getMember()`, `ctx.getGuildId()`, or `ctx.getMemberPermissions()` works identically on slash commands and component handlers with no modification.
+
+Global guards registered via `useGlobalGuards()` at bootstrap now fire on **all** interaction types: slash commands, context menu commands, listeners, buttons, selects, and modals. This closes the gap where a `@UseGuards` on a `@SlashCommandHandler` protected the command but not the button that the reply contained.
+
+<Callout tone="info" title="Guards run before payload consumption in dynamic components">
+  For @DynamicButtonHandler and @DynamicSelectHandler, guards execute before the payload is consumed. If a guard denies, the payload is left intact and the interaction receives the guard's denial reply.
 </Callout>
 
 ## Next page

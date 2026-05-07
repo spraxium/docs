@@ -1,33 +1,94 @@
 ---
 title: Referência de Validadores
 description: |
-  Todos os decorators de validação do @spraxium/env explicados com tipos e comportamento.
-  Conheça validadores de string, número, boolean, rede, Discord, dados e utilitários comuns.
+  Todos os decorators de validação embutidos do @spraxium/env explicados com tipos e comportamento.
+  Aprenda os validadores de string, número, boolean, rede, Discord, dados e utilitários, incluindo MinLength, MaxLength, Matches, Min, Max, IsPositive, IsNegative, IsDiscordWebhookUrl e IsDiscordClientSecret.
 order: 2
 category: Environment
+keywords:
+  - spraxium env validators
+  - referência de validadores no spraxium
+  - ambiente env validators guia
+  - env validators bot discord
+  - env validators typescript
+  - documentacao spraxium ambiente
+  - referência de validadores ambiente
+  - spraxium referência de validadores
+faq:
+  - question: "O que \"Referência de Validadores\" cobre no Spraxium?"
+    answer: "Todos os decorators de validação embutidos do @spraxium/env explicados com tipos e comportamento. Aprenda os validadores de string, número, boolean, rede, Discord, dados e utilitários, incluindo MinLength, MaxLength, Matches, Min, Max, IsPositive, IsNegative, IsDiscordWebhookUrl e IsDiscordClientSecret."
+  - question: "Quando devo usar \"Referência de Validadores\"?"
+    answer: "Use esta pagina quando voce estiver implementando env validators dentro da area de Ambiente do seu bot."
+  - question: "Qual o proximo passo depois de \"Referência de Validadores\"?"
+    answer: "Continue nas paginas relacionadas de Ambiente para conectar este conceito com implementacao pratica."
 ---
 
 ## Como os validadores funcionam
 
-Cada validador é um decorator de propriedade que anexa uma regra de validação aos metadados do campo. Quando o schema executa no boot, as regras rodam na ordem em que foram declaradas na propriedade. Cada regra pode incluir um passo de _transform_ que converte a string bruta no tipo alvo e um passo de _validate_ que verifica se o valor convertido é aceitável. Se qualquer regra retornar uma mensagem de erro, o campo falha na validação.
+Todo validador é um decorator de propriedade que anexa uma regra de validação à metadata do campo. Quando o schema roda no boot, as regras são executadas na ordem em que foram declaradas na propriedade. Cada regra pode incluir uma etapa de _transform_, que converte a string bruta para o tipo de destino, e uma etapa de _validate_, que verifica se o valor convertido é aceitável. Se qualquer regra retornar uma mensagem de erro, o campo falha na validação.
 
-Você pode empilhar múltiplos validadores em uma única propriedade. Um campo como uma URI Redis pode usar _IsRedisUri_ para verificação de formato e _Secret_ para mascaramento. O pipeline executa cada regra sequencialmente, então _Transform_ roda sua conversão antes de _Validate_ ver o valor. Entender essa ordem importa quando você combina transforms customizados com validadores de tipo embutidos.
+Você pode empilhar múltiplos validadores em uma mesma propriedade. Um campo como uma URI do Redis, por exemplo, pode usar _IsRedisUri_ para checar o formato e _Secret_ para mascaramento. O pipeline executa cada regra em sequência, então _Transform_ faz a conversão antes de _Validate_ receber o valor. Entender essa ordem importa quando você combina transformações personalizadas com validadores de tipo embutidos.
 
-Os validadores são organizados em seis famílias: string, número, boolean, rede, Discord e dados. Um sétimo grupo, validadores comuns, contém decorators utilitários que modificam o comportamento do campo sem verificar tipos.
+Os validadores se organizam em seis famílias: string, número, boolean, rede, Discord e dados. Um sétimo grupo, o de validadores comuns, reúne decorators utilitários que modificam o comportamento do campo sem checar tipos.
 
-## Validador de string
+## Como escolher bem os validadores
 
-O validador _IsString_ confirma que o valor é uma string não vazia. Ele não realiza nenhuma transformação porque variáveis de ambiente já são strings. Use para campos de texto livre onde você quer garantir que a variável existe e não está vazia.
+Comece com o validador que corresponde ao *tipo em runtime* que você quer dentro da aplicação, e só depois adicione validadores de restrição para impor regras de negócio mais específicas. Em outras palavras, primeiro decida se o campo deve virar string, number ou boolean, e só então acrescente verificações como comprimento mínimo, correspondência por padrão ou limites numéricos.
+
+Essa ordem deixa o schema mais fácil de ler. Qualquer pessoa que abrir o arquivo de env consegue entender rapidamente no que aquele campo se transforma no código e quais regras extras ele precisa obedecer.
+
+## Validadores de string
+
+_IsString_ confirma que o valor é uma string não vazia. Use-o para qualquer campo de texto livre. Há três validadores de restrição que podem ser empilhados por cima para limitar ainda mais o valor.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Argumentos</TableCell>
+      <TableCell header>Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsString()*</TableCell>
+      <TableCell>Nenhum</TableCell>
+      <TableCell>Valida que o valor é uma string não vazia.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MinLength(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Valida que a string tem pelo menos a quantidade informada de caracteres.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MaxLength(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Valida que a string tem no máximo a quantidade informada de caracteres.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Matches(pattern, message?)*</TableCell>
+      <TableCell>pattern: RegExp, message?: string</TableCell>
+      <TableCell>Valida que a string corresponde à expressão regular informada. Aceita uma mensagem de erro personalizada opcional.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ```typescript filename="src/app.env.ts"
 @Env('APP_NAME')
 @IsString()
+@MinLength(3)
+@MaxLength(64)
 APP_NAME!: string;
+
+@Env('SLUG', { secret: false })
+@IsString()
+@Matches(/^[a-z0-9-]+$/, 'Must be lowercase alphanumeric with hyphens')
+SLUG!: string;
 ```
 
-## Validadores numéricos
+## Validadores de número
 
-Três validadores tratam valores numéricos. Cada um transforma a string bruta em um número JavaScript antes de validar seu formato. Eles diferem no que aceitam após a conversão.
+Três validadores cuidam de valores numéricos. Cada um transforma a string bruta em um number do JavaScript antes de validar o formato. Eles diferem no que aceitam depois da conversão.
 
 <Table>
   <TableHead>
@@ -40,31 +101,68 @@ Três validadores tratam valores numéricos. Cada um transforma a string bruta e
   <TableBody>
     <TableRow>
       <TableCell>*IsNumber*</TableCell>
-      <TableCell>Qualquer número finito, incluindo decimais</TableCell>
-      <TableCell>`"3.14"`, `"42"`, `"-1.5"`</TableCell>
+      <TableCell>Qualquer número finito, inclusive decimais</TableCell>
+      <TableCell>"3.14", "42", "-1.5"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsInteger*</TableCell>
       <TableCell>Apenas números inteiros</TableCell>
-      <TableCell>`"42"`, `"-7"`, `"0"`</TableCell>
+      <TableCell>"42", "-7", "0"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsPort*</TableCell>
       <TableCell>Inteiro entre 1 e 65535</TableCell>
-      <TableCell>`"3000"`, `"8080"`, `"443"`</TableCell>
+      <TableCell>"3000", "8080", "443"</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-Os três transformam a string com `Number()` antes de validar. _IsNumber_ rejeita `NaN` e strings vazias. _IsInteger_ exige adicionalmente que `Number.isInteger()` seja verdadeiro. _IsPort_ adiciona uma verificação de faixa de 1 a 65535 sobre o requisito de inteiro.
+Os três convertem a string com `Number()` antes de validar. _IsNumber_ rejeita `NaN` e strings vazias. _IsInteger_ ainda exige que `Number.isInteger()` retorne verdadeiro. _IsPort_ acrescenta uma checagem de intervalo entre 1 e 65535 por cima da exigência de inteiro.
+
+Quatro validadores de restrição podem ser aplicados sobre qualquer campo numérico e devem vir depois do validador de tipo:
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Argumentos</TableCell>
+      <TableCell header>Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*Min(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Valida que o valor numérico é maior ou igual ao mínimo informado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Max(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Valida que o valor numérico é menor ou igual ao máximo informado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsPositive()*</TableCell>
+      <TableCell>Nenhum</TableCell>
+      <TableCell>Valida que o valor numérico é maior que zero.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsNegative()*</TableCell>
+      <TableCell>Nenhum</TableCell>
+      <TableCell>Valida que o valor numérico é menor que zero.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ```typescript filename="src/app.env.ts"
 @Env('RATE_LIMIT')
 @IsNumber()
+@Min(1)
+@Max(1000)
 RATE_LIMIT!: number;
 
 @Env('MAX_RETRIES')
 @IsInteger()
+@IsPositive()
 MAX_RETRIES!: number;
 
 @Env('HTTP_PORT', { secret: false })
@@ -74,9 +172,9 @@ HTTP_PORT!: number;
 
 ## Validador boolean
 
-O validador _IsBoolean_ transforma representações em string para booleans nativos. Ele aceita quatro valores brutos: `"true"`, `"false"`, `"1"` e `"0"`. A comparação é case-insensitive e remove espaços, então `" TRUE "` resolve para `true`. Qualquer outro valor falha na validação.
+O validador _IsBoolean_ transforma representações em string em booleans nativos. Ele aceita quatro valores brutos: `"true"`, `"false"`, `"1"` e `"0"`. A comparação ignora maiúsculas e minúsculas e remove espaços em volta, então `" TRUE "` vira `true`. Qualquer outro valor falha na validação.
 
-Após a transformação, a propriedade contém um boolean JavaScript real. Você nunca precisa comparar com a string `"true"` no seu código. Essa é a forma recomendada de lidar com feature flags e switches de toggle armazenados em variáveis de ambiente.
+Depois da transformação, a propriedade passa a conter um boolean real do JavaScript. Você nunca precisa comparar com a string `"true"` no código. Essa é a forma recomendada de tratar feature flags e toggles armazenados em variáveis de ambiente.
 
 ```typescript filename="src/app.env.ts"
 @Env('ENABLE_METRICS', { default: 'false', secret: false })
@@ -86,7 +184,7 @@ ENABLE_METRICS!: boolean;
 
 ## Validadores de rede
 
-Quatro validadores cobrem formatos comuns relacionados a rede. Cada um verifica a string contra um padrão específico sem transformar o valor, já que URIs e endereços de rede permanecem como strings.
+Cinco validadores cobrem formatos comuns relacionados a rede. Cada um checa a string contra um padrão específico sem transformar o valor, porque URIs e endereços de rede continuam sendo strings.
 
 <Table>
   <TableHead>
@@ -98,36 +196,40 @@ Quatro validadores cobrem formatos comuns relacionados a rede. Cada um verifica 
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>*IsUrl*</TableCell>
-      <TableCell>Qualquer URL parseável via `new URL()`</TableCell>
-      <TableCell>`"https://api.example.com"`</TableCell>
+      <TableCell>*IsUrl(options?)*</TableCell>
+      <TableCell>Qualquer URL interpretável pelo construtor URL. Passe a opção https para rejeitar URLs que não usem HTTPS.</TableCell>
+      <TableCell>"https://api.example.com"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsEmail*</TableCell>
-      <TableCell>Formato básico de email `user@domain.tld`</TableCell>
-      <TableCell>`"bot@spraxium.dev"`</TableCell>
+      <TableCell>Formato básico de email, como user@domain.tld</TableCell>
+      <TableCell>"bot@spraxium.dev"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsHost*</TableCell>
-      <TableCell>Hostname, IPv4 ou IPv6</TableCell>
-      <TableCell>`"localhost"`, `"192.168.1.1"`</TableCell>
+      <TableCell>Hostname, endereço IPv4 ou endereço IPv6</TableCell>
+      <TableCell>"localhost", "192.168.1.1"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsMongoUri*</TableCell>
-      <TableCell>URI iniciando com `mongodb://` ou `mongodb+srv://`</TableCell>
-      <TableCell>`"mongodb+srv://user:pass@cluster.net/db"`</TableCell>
+      <TableCell>URI que começa com mongodb:// ou mongodb+srv://</TableCell>
+      <TableCell>"mongodb+srv://user:pass@cluster.net/db"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsRedisUri*</TableCell>
-      <TableCell>URI iniciando com `redis://` ou `rediss://`</TableCell>
-      <TableCell>`"redis://localhost:6379"`</TableCell>
+      <TableCell>URI que começa com redis:// ou rediss://</TableCell>
+      <TableCell>"redis://localhost:6379"</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-Validadores de rede funcionam bem com _Secret_ para mascarar credenciais na tabela de inicialização. Uma string de conexão MongoDB contém uma senha, então o mascaramento padrão a protege automaticamente. Hostnames e portas são seguros para exibir, então marque-os com `secret: false` nas opções do _@Env_.
+Validadores de rede funcionam muito bem com _Secret_ para mascarar credenciais no log de inicialização. Uma string de conexão do MongoDB contém senha, então o comportamento padrão de mascaramento já a protege automaticamente. Hostnames e portas são seguros para exibir, então marque esses campos com `secret: false` nas opções de _@Env_.
 
 ```typescript filename="src/app.env.ts"
+@Env('CALLBACK_URL', { secret: false })
+@IsUrl({ https: true })
+CALLBACK_URL!: string;
+
 @Env('MONGO_URI')
 @IsMongoUri()
 MONGO_URI!: string;
@@ -141,31 +243,66 @@ REDIS_URI!: string;
 API_HOST!: string;
 ```
 
-## Validadores Discord
+## Validadores do Discord
 
-Dois validadores são voltados para formatos específicos do Discord. Eles são rigorosos quanto ao formato porque tokens ou IDs inválidos causam falhas de autenticação difíceis de debugar no momento da conexão.
+Quatro validadores são voltados para formatos específicos do Discord. Eles são rígidos quanto ao formato porque tokens, IDs ou webhook URLs inválidos causam falhas de autenticação difíceis de depurar no momento da conexão.
 
-_IsDiscordToken_ verifica se é uma string base64url de três segmentos entre 59 e 100 caracteres. Ele valida que cada segmento é não vazio, usa apenas caracteres base64url, e que o comprimento total está dentro da faixa esperada. Isso captura erros comuns como colar um token com espaço extra ou copiar apenas parte dele do Developer Portal.
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Valida</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsDiscordToken()*</TableCell>
+      <TableCell>String base64url com três segmentos e 59 a 100 caracteres. Valida se cada segmento usa apenas caracteres base64url.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordId()*</TableCell>
+      <TableCell>Snowflake numérico com 17 a 19 dígitos. Rejeita caracteres que não são dígitos e comprimentos fora do intervalo.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordWebhookUrl()*</TableCell>
+      <TableCell>Webhook URL completa do Discord correspondente ao caminho de webhook em discord.com, canary.discord.com ou ptb.discord.com. Sempre marque esse campo com *@Secret()* porque a URL embute um token.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordClientSecret()*</TableCell>
+      <TableCell>OAuth2 client secret: string não vazia, segura para URL, com 24 a 64 caracteres e sem espaços em branco. Sempre marque esse campo com *@Secret()*.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
-_IsDiscordId_ verifica se é um snowflake numérico entre 17 e 19 dígitos. Snowflakes do Discord são sempre strings numéricas nessa faixa, então o validador rejeita qualquer coisa que contenha caracteres não numéricos ou fique fora dos limites de comprimento. O requisito estrito de comprimento também rejeita IDs truncados que poderiam parecer válidos em outros contextos mas causariam erros de API quando usados em requisições do Discord.
+Para valores específicos do Discord, a validação rígida compensa o esforço extra. Uma webhook URL malformada ou um client secret incorreto costuma falhar longe do arquivo de env, então a validação no boot é um dos pontos mais baratos para detectar esse tipo de erro.
 
 ```typescript filename="src/app.env.ts"
 @Env('DISCORD_TOKEN')
 @IsDiscordToken()
 TOKEN!: string;
 
-@Env('GUILD_ID')
+@Env('GUILD_ID', { secret: false })
 @IsDiscordId()
 GUILD_ID!: string;
+
+@Env('ALERT_WEBHOOK')
+@IsDiscordWebhookUrl()
+@Secret()
+ALERT_WEBHOOK!: string;
+
+@Env('DISCORD_CLIENT_SECRET')
+@IsDiscordClientSecret()
+@Secret()
+CLIENT_SECRET!: string;
 ```
 
 ## Validadores de dados
 
 Dois validadores lidam com dados estruturados armazenados como strings em variáveis de ambiente.
 
-_IsJson_ parseia o valor bruto com `JSON.parse` durante a fase de transform. Se o parse for bem-sucedido, a propriedade contém o objeto ou array JavaScript parseado. Se o parse falhar, a string bruta passa adiante e a fase de validate a rejeita. Isso é útil para configurações complexas que você quer armazenar como string JSON em uma única variável de ambiente.
+_IsJson_ interpreta o valor bruto com `JSON.parse` durante a fase de transformação. Se o parsing der certo, a propriedade passa a conter o objeto ou array JavaScript resultante. Se falhar, a string bruta segue adiante e a fase de validação a rejeita. Isso é útil para configurações complexas que você quer armazenar como uma string JSON em uma única variável de ambiente.
 
-_IsEnum_ aceita um array de valores permitidos e verifica se o valor resolvido corresponde a um deles. Ele não transforma o valor, então funciona com strings por padrão. Você pode combiná-lo com um validador de tipo como _IsNumber_ se seus valores de enum forem numéricos, já que _IsEnum_ executa sua verificação após todas as transforms completarem.
+_IsEnum_ aceita um array de valores permitidos e verifica se o valor resolvido corresponde a um deles. Ele não transforma o valor, então funciona com strings por padrão. Você pode combiná-lo com um validador de tipo como _IsNumber_ quando os valores do enum forem numéricos, já que _IsEnum_ faz a checagem depois que todas as transformações terminam.
 
 ```typescript filename="src/app.env.ts"
 @Env('FEATURE_FLAGS')
@@ -179,47 +316,45 @@ LOG_LEVEL!: string;
 
 ## Validadores comuns
 
-Os validadores comuns não verificam tipos. Em vez disso, eles modificam como o campo se comporta no pipeline. Você os usa junto com validadores de tipo para controlar opcionalidade, mascaramento, defaults e lógica customizada.
+Os validadores comuns não checam tipos. Em vez disso, eles alteram como o campo se comporta dentro do pipeline. Você os usa junto com validadores de tipo para controlar opcionalidade, mascaramento, valores padrão e lógica personalizada.
 
 <DropdownGroup>
 <Dropdown title="IsOptional">
-  Marca o campo para que ele não falhe na validação quando a variável de ambiente está ausente ou vazia. Sem esse decorator, todo campo é obrigatório por padrão e o schema lança um erro durante o boot se a variável estiver faltando. Use *IsOptional* para campos que não têm um default significativo mas não devem bloquear a inicialização.
+  Marca o campo para que ele não falhe na validação quando a variável de ambiente estiver ausente ou vazia. Sem esse decorator, todo campo é obrigatório por padrão e o schema lança um erro no boot se a variável estiver faltando. Use *IsOptional* em campos que não têm um valor padrão útil, mas também não devem bloquear a inicialização.
 </Dropdown>
 
 <Dropdown title="Secret">
-  Força o mascaramento do valor do campo no log de inicialização, independente
-  da opção `secret` do *@Env*. Por padrão, campos com o decorator *@Env*
-  mascaram seus valores a menos que `secret: false` seja definido
-  explicitamente. Use *Secret* como override no nível de decorator quando quiser
-  garantir mascaramento mesmo se alguém alterar as opções do *@Env* depois.
+  Força o mascaramento do valor do campo no log de inicialização, independentemente
+  da opção `secret` de *@Env*. Por padrão, campos com o decorator *@Env*
+  mascaram seus valores, a menos que `secret: false` seja definido
+  explicitamente. Use *Secret* como sobrescrita no nível do decorator quando
+  você quiser garantir o mascaramento mesmo que alguém altere as opções de
+  *@Env* mais tarde.
 </Dropdown>
 
 <Dropdown title="Default">
-  Define um valor de fallback estático e automaticamente marca o campo como
-  opcional. Se a variável de ambiente estiver ausente, o campo resolve para o
-  default fornecido em vez de falhar na validação. Isso combina o comportamento
-  de *IsOptional* com um fallback concreto, então a propriedade sempre tem um
-  valor em runtime.
+  Define um valor estático de fallback e marca automaticamente o campo como opcional. Se a variável de ambiente estiver ausente, o campo passa a resolver para o valor padrão informado em vez de falhar na validação. Isso combina o comportamento de *IsOptional* com um fallback concreto, então a propriedade sempre terá um valor em runtime.
 </Dropdown>
 
 <Dropdown title="Transform">
-  Executa uma função customizada na string bruta antes de qualquer passo de
-  validação na mesma regra e antes de regras declaradas abaixo dele. A função
-  recebe a string bruta e retorna o valor transformado, que se torna a nova
-  entrada para validadores subsequentes. Use isso para normalizar dados como
-  remover espaços, dividir listas separadas por vírgula ou converter formatos.
+  Executa uma função personalizada sobre a string bruta antes de qualquer etapa
+  de validação da mesma regra e antes das regras declaradas abaixo dela. A
+  função recebe a string bruta e retorna o valor transformado, que se torna a
+  nova entrada para os validadores seguintes. Use isso para normalizar dados,
+  como remover espaços extras, dividir listas separadas por vírgula ou converter
+  formatos.
 </Dropdown>
 
 <Dropdown title="Validate">
-  Executa uma verificação customizada no valor já transformado. A função recebe o valor e deve retornar `true` quando aceitável ou uma mensagem de erro em string quando não. Esse é o escape hatch para regras de negócio que os validadores embutidos não cobrem, como verificar faixas de valor, padrões de formato ou dependências entre campos.
+  Executa uma verificação personalizada sobre o valor já transformado. A função recebe o valor e deve retornar `true` quando ele for aceitável ou uma string de erro quando não for. Essa é a rota de escape para regras de negócio que os validadores embutidos não cobrem, como verificar intervalos, padrões de formato ou dependências entre campos.
 </Dropdown>
 </DropdownGroup>
 
-_IsOptional_ e _Default_ ambos tornam o campo opcional, mas _Default_ também fornece um fallback concreto. Se você usar _Default_, o campo sempre resolve para um valor. Se usar _IsOptional_ sozinho, a propriedade pode ser `undefined` em runtime.
+_IsOptional_ e _Default_ tornam o campo opcional, mas _Default_ também fornece um fallback concreto. Se você usar _Default_, o campo sempre resolve para algum valor. Se usar apenas _IsOptional_, a propriedade pode ser `undefined` em runtime.
 
-_Transform_ intercepta a string bruta e retorna o novo valor. Ele executa antes de qualquer passo de _validate_ na mesma regra e antes de regras declaradas abaixo dele. Isso permite normalizar dados, como remover espaços ou dividir listas separadas por vírgula, antes que o validador de tipo veja o valor.
+_Transform_ intercepta a string bruta e retorna o novo valor. Ele roda antes de qualquer etapa de _validate_ da mesma regra e antes das regras declaradas abaixo dela. Isso permite normalizar dados, como remover espaços extras ou dividir listas separadas por vírgula, antes que o validador de tipo veja o valor.
 
-_Validate_ adiciona uma verificação customizada ao pipeline. A função recebe o valor já transformado e retorna `true` quando é aceitável ou uma mensagem de erro em string quando não é. Esse é o escape hatch para regras de negócio que os validadores embutidos não cobrem.
+_Validate_ adiciona uma checagem personalizada ao pipeline. A função recebe o valor já transformado e retorna `true` quando ele é aceitável ou uma string de erro quando não é. Essa é a rota de escape para regras de negócio que os validadores embutidos não cobrem.
 
 <CodeTabs>
   <Tab label="Transform" language="typescript">

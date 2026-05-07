@@ -1,23 +1,45 @@
 ---
 title: Visão Geral dos Modais
 description: |
-  Construa modais do Discord com o padrão declarativo @ModalComponent e @ModalHandler.
-  Aprenda registro de modais, declaração de campos, renderização com serviço e fluxo de despacho de submissões.
+  Crie modais do Discord com o padrão declarativo @ModalComponent e @ModalHandler.
+  Aprenda o registro de modais, a declaração de campos, a renderização pelo service e o fluxo de despacho das submissões.
 order: 1
 category: Modals
+keywords:
+  - spraxium modals overview
+  - visão geral dos modais no spraxium
+  - modals modals overview guia
+  - modals overview bot discord
+  - modals overview typescript
+  - documentacao spraxium modals
+  - visão geral dos modais modals
+  - spraxium visão geral dos modais
+faq:
+  - question: "O que \"Visão Geral dos Modais\" cobre no Spraxium?"
+    answer: "Crie modais do Discord com o padrão declarativo @ModalComponent e @ModalHandler. Aprenda o registro de modais, a declaração de campos, a renderização pelo service e o fluxo de despacho das submissões."
+  - question: "Quando devo usar \"Visão Geral dos Modais\"?"
+    answer: "Use esta pagina quando voce estiver implementando modals overview dentro da area de Modals do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão Geral dos Modais\"?"
+    answer: "Continue nas paginas relacionadas de Modals para conectar este conceito com implementacao pratica."
 ---
 
 ## O que são modais no Spraxium
 
-Modais são formulários sobrepostos que o Discord apresenta aos usuários quando acionados por um clique de botão, interação de menu de seleção ou comando de aplicação. Eles coletam entrada estruturada através de campos como inputs de texto, menus de seleção, grupos de rádio e checkboxes. No Spraxium, modais seguem o mesmo padrão declarativo decorator-handler usado por botões e selects, mas com um sistema de campos mais rico, validação integrada, campos dinâmicos e cache por usuário que justificam uma categoria de documentação dedicada.
+Modais são formulários sobrepostos que o Discord apresenta aos usuários quando são acionados por um clique em botão, uma interação com menu de seleção ou um comando de aplicação. Eles coletam entradas estruturadas por campos como inputs de texto, menus de seleção, grupos de rádio e checkboxes. No Spraxium, os modais seguem o mesmo padrão declarativo de decorator e handler usado por botões e selects, mas com um sistema de campos mais rico, validação nativa, campos dinâmicos e cache por usuário, o que justifica uma categoria própria na documentação.
 
-O sistema de modal consiste em duas peças principais: uma classe _@ModalComponent_ que declara a estrutura do modal (título, campos e opções), e uma classe _@ModalHandler_ que processa os valores submetidos. O _ModalService_ renderiza o componente em um objeto modal pronto para o Discord, e o _ModalDispatcher_ roteia submissões para o handler correto após executar regras de validação.
+O sistema de modais é composto por duas peças principais: uma classe _@ModalComponent_, que declara a estrutura do modal (título, campos e opções), e uma classe _@ModalHandler_, que processa os valores enviados. O _ModalService_ renderiza o componente em um objeto de modal pronto para o Discord, e o _ModalDispatcher_ encaminha as submissões para o handler correto depois de executar as regras de validação.
 
-Diferente de botões e selects, onde o componente é um decorator leve em uma classe, modais usam decorators no nível da propriedade para definir cada campo. Isso dá controle refinado sobre tipos de campo, texto de placeholder, restrições de validação, inclusão condicional e geração dinâmica, tudo expresso através de decorators TypeScript.
+Diferentemente de botões e selects, em que o componente é um decorator leve aplicado à classe, modais usam decorators no nível de propriedade para definir cada campo. Isso dá controle fino sobre tipos de campo, texto de placeholder, restrições de validação, inclusão condicional e geração dinâmica, tudo expresso com decorators do TypeScript.
+
+## Quando um modal é a escolha certa
+
+Use um modal quando o usuário precisar digitar ou revisar várias informações antes de enviar. Formulários de feedback, criação de tickets, configuração de perfil, fluxos de candidatura e telas administrativas costumam se encaixar bem nesse formato.
+
+Se o usuário só precisa escolher uma opção ou clicar em uma confirmação, um botão ou menu de seleção costuma ser mais simples. O modal é mais útil quando a interação precisa de entrada de texto estruturada e de um limite claro de envio.
 
 ## Definindo um componente de modal
 
-Use _@ModalComponent_ para marcar uma classe como uma definição de modal. O decorator aceita um objeto com _id_ (o _customId_ que o Discord envia de volta na submissão) e _title_ (exibido no topo do modal). Decorators de campo nas propriedades da classe definem os campos de entrada do modal.
+Use _@ModalComponent_ para marcar uma classe como definição de modal. O decorator aceita um objeto com _id_ (o _customId_ que o Discord devolve na submissão) e _title_ (exibido no topo do modal). Os decorators de campo nas propriedades da classe definem os campos de entrada do modal.
 
 ```typescript filename="src/components/feedback.modal.ts"
 import { ModalComponent, ModalInput } from '@spraxium/components';
@@ -48,31 +70,33 @@ export class FeedbackModal {
 
 ## Criando um handler de modal
 
-O decorator _@ModalHandler_ vincula uma classe de handler a um componente de modal específico. O método _handle_ do handler recebe a interação de submissão do modal e quaisquer parâmetros injetados. Use o decorator de parâmetro _@Field_ para extrair valores individuais de campos pelo nome da propriedade.
+O decorator _@ModalHandler_ liga uma classe de handler a um componente de modal específico. O método _handle_ do handler recebe a submissão do modal e quaisquer parâmetros injetados. Use decorators de campo tipados para extrair os valores individuais de cada campo pelo nome da propriedade. O _@ModalField(fieldId)_ genérico funciona para qualquer tipo de campo; as nove variantes tipadas (`@ModalTextField`, `@ModalStringSelectField`, `@ModalRadioGroupField` etc.) deixam a intenção explícita e são preferíveis quando o tipo do campo já é conhecido em tempo de compilação.
 
 ```typescript filename="src/components/feedback.handler.ts"
-import { ModalHandler, Field, Ctx } from '@spraxium/components';
-import type { ModalSubmitInteraction } from 'discord.js';
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
 import { FeedbackModal } from './feedback.modal';
 
 @ModalHandler(FeedbackModal)
 export class FeedbackModalHandler {
   async handle(
-    @Ctx() interaction: ModalSubmitInteraction,
-    @Field('subject') subject: string,
-    @Field('details') details: string,
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('details') details: string,
+    @Ctx() ctx: ModalContext,
   ): Promise<void> {
-    await interaction.reply({
+    await ctx.reply({
       content: `Thank you for your feedback on '${subject}'.`,
-      ephemeral: true,
+      flags: 'Ephemeral',
     });
   }
 }
 ```
 
+Para a documentação completa de todos os decorators de campo, da integração com guards e da API completa de injeção, veja [Handlers e Injeção de Campos](/guide/modals-handlers-injection).
+
 ## Exibindo um modal
 
-Use o _ModalService_ para construir um modal pronto para o Discord e apresentá-lo ao usuário. O método _build_ recebe a classe do componente de modal e retorna uma resposta de interação modal. Você normalmente chama isso a partir de um handler de botão, handler de select ou comando slash que recebeu uma interação com método _showModal_.
+Use _ModalService_ para montar um modal pronto para o Discord e apresentá-lo ao usuário. O método _build_ recebe a classe do componente de modal e retorna uma resposta de interação de modal. Em geral, você chama isso dentro de um handler de botão, handler de select ou comando slash que recebeu uma interação com o método _showModal_.
 
 <CodeTabs>
 <Tab label="A partir de um botão">
@@ -117,43 +141,24 @@ export class FeedbackCommandHandler {
 </Tab>
 </CodeTabs>
 
-## O decorator de parâmetro @Field
+## Injeção de campos no handler
 
-O decorator _@Field_ extrai um valor de campo específico da submissão do modal combinando com o nome da propriedade definido na classe do componente. O valor extraído é sempre uma string para inputs de texto, ou o(s) valor(es) selecionado(s) para campos de tipo select. Esse decorator elimina a necessidade de acessar manualmente `interaction.fields.getTextInputValue()` ou iterar pelos componentes.
+A classe com `@ModalHandler` recebe os valores enviados dos campos por meio de decorators de parâmetro. Use decorators tipados como `@ModalTextField`, `@ModalStringSelectField` e `@ModalCheckboxField` para injetar cada valor de campo diretamente no método `handle()`, sem precisar analisar o objeto de interação manualmente.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Uso</TableCell>
-      <TableCell header>Valor resolvido</TableCell>
-      <TableCell header>Observações</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`@Field('subject')`</TableCell>
-      <TableCell>Valor do input de texto como `string`</TableCell>
-      <TableCell>
-        Combina com o nome da propriedade na classe do componente de modal.
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`@Field('category')`</TableCell>
-      <TableCell>Valor selecionado como `string`</TableCell>
-      <TableCell>
-        Para selects de valor único, retorna o valor da opção selecionada.
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`@Field('tags')`</TableCell>
-      <TableCell>Valores selecionados como `string[]`</TableCell>
-      <TableCell>
-        Para selects de múltiplos valores, retorna um array dos valores
-        selecionados.
-      </TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('message') message: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    await ctx.reply({ content: `Received: ${subject}`, flags: 'Ephemeral' });
+  }
+}
+```
+
+O antigo decorator `@Field` foi descontinuado no modelo atual em favor das variantes tipadas. Para ver a lista completa de decorators tipados de campo e seus tipos resolvidos em TypeScript, consulte [Handlers e Injeção de Campos](/guide/modals-handlers-injection).
 
 ## Referência da API do ModalService
 
@@ -168,35 +173,37 @@ O decorator _@Field_ extrai um valor de campo específico da submissão do modal
   <TableBody>
     <TableRow>
       <TableCell>*build*</TableCell>
-      <TableCell>`build(modal: Type, data?: unknown)`</TableCell>
-      <TableCell>Constrói o modal a partir da classe do componente. Passe *data* para fornecer contexto de campos dinâmicos.</TableCell>
+      <TableCell>build(modal: Type, data?: unknown)</TableCell>
+      <TableCell>Monta o modal a partir da classe de componente. Passe *data* para fornecer contexto aos campos dinâmicos.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*buildFor*</TableCell>
-      <TableCell>`buildFor(modal: Type, interaction: Interaction, data?: unknown)`</TableCell>
-      <TableCell>Constrói com contexto do usuário. Preenche valores de campos em cache se uma submissão anterior falhou na validação.</TableCell>
+      <TableCell>buildFor(modal: Type, interaction: Interaction, data?: unknown)</TableCell>
+      <TableCell>Monta com contexto do usuário. Preenche novamente os valores em cache dos campos se uma submissão anterior falhou na validação.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*storeCache*</TableCell>
-      <TableCell>`storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record<string, string>)`</TableCell>
-      <TableCell>Armazena manualmente valores de campos no cache. Usado internamente pelo fluxo de validação.</TableCell>
+      <TableCell>storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record&lt;string, string&gt;)</TableCell>
+      <TableCell>Armazena manualmente os valores dos campos no cache. É usado internamente pelo fluxo de validação.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*clearCacheFor*</TableCell>
-      <TableCell>`clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)`</TableCell>
-      <TableCell>Remove valores em cache para uma combinação específica de usuário e modal.</TableCell>
+      <TableCell>clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)</TableCell>
+      <TableCell>Remove os valores em cache de uma combinação específica de usuário e modal.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getCacheFor*</TableCell>
-      <TableCell>`getCacheFor(modal: Type, interaction: Interaction)`</TableCell>
-      <TableCell>Recupera valores de campos em cache. Retorna `null` se não houver cache.</TableCell>
+      <TableCell>getCacheFor(modal: Type, interaction: Interaction)</TableCell>
+      <TableCell>Recupera os valores dos campos em cache. Retorna null quando não existe cache.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
+A dupla mais comum é _build_ para a primeira renderização e _buildFor_ para fluxos em que você quer preenchimento prévio com contexto do usuário depois de uma falha de validação. Em outras palavras, _build_ é o caminho simples; _buildFor_ é o caminho mais ergonômico para formulários com tentativas repetidas.
+
 ## Registro no módulo
 
-Registre seus handlers de modal no array _handlers_ de um módulo de feature. Classes de componente modal decoradas com _@ModalComponent_ e classes de botão decoradas com _@Button_ são somente metadados e nunca são registradas em nenhum módulo. O sistema varre todas as instâncias de handlers registradas em busca de metadados _@ModalHandler_ durante o ciclo de vida do boot e lê os metadados do componente modal referenciado por referência de classe.
+Registre seus handlers de modal no array _handlers_ de um módulo de feature. Classes de componente de modal decoradas com _@ModalComponent_ e classes de botão decoradas com _@Button_ existem apenas como metadados e nunca são registradas em nenhum módulo. O sistema percorre todas as instâncias de handler registradas em busca dos metadados de _@ModalHandler_ durante o ciclo de boot e lê os metadados do componente de modal referenciado pela referência da classe.
 
 ```typescript filename="src/components/components.module.ts"
 import { Module } from '@spraxium/core';
@@ -211,33 +218,35 @@ export class FeedbackModule {}
 
 ## Fluxo de despacho
 
-Quando um usuário submete um modal, a interação passa por várias etapas antes de chegar ao seu handler. Entender esse fluxo ajuda a raciocinar sobre onde a validação, o cache e a resolução de campos acontecem.
+Quando um usuário envia um modal, a interação passa por várias etapas antes de chegar ao seu handler. Entender esse fluxo ajuda você a enxergar onde acontecem a validação, o cache e a resolução dos campos.
 
 <Steps>
 <Step title="Interação recebida">
-O client do discord.js emite um evento *interactionCreate* com uma *ModalSubmitInteraction*. O *ComponentDispatcher* verifica se o *customId* corresponde a um handler de modal registrado, dividindo o custom ID no separador til para extrair o ID base e o ID de contexto opcional.
+O cliente do Discord.js emite um evento *interactionCreate* com um *ModalSubmitInteraction*. O *ComponentDispatcher* verifica se o *customId* corresponde a um handler de modal registrado, separando o custom ID no caractere til para extrair o ID base e o ID de contexto opcional.
 </Step>
 
-<Step title="Resolução de contexto">
-  Se o *customId* contém um ID de contexto (após o til), o dispatcher recupera o
-  *SpraxiumContext* do adaptador de armazenamento. Se o contexto estiver
-  expirado ou o usuário estiver restrito, o dispatcher envia uma resposta
-  efêmera e para o processamento. Se nenhum contexto for necessário, essa etapa
-  é pulada.
+<Step title="Resolução do contexto">
+  Se o *customId* contiver um ID de contexto (depois do til), o dispatcher
+  recupera o *SpraxiumContext* a partir do adapter de armazenamento. Se o
+  contexto tiver expirado ou o usuário estiver restrito, o dispatcher envia uma
+  resposta efêmera e interrompe o processamento. Se nenhum contexto for
+  necessário, esta etapa é ignorada.
 </Step>
 
-<Step title="Execução de validação">
-  Se o componente de modal tem regras *@ModalValidate*, o *ModalValidatorRunner*
-  as executa sequencialmente contra os valores dos campos submetidos. Na
-  primeira falha, o runner faz cache de todos os valores submetidos (se
-  *@ModalCache* estiver presente), envia o embed de erro de validação e para o
-  processamento. Consulte a página de validação para detalhes.
+<Step title="Execução da validação">
+  Se o componente de modal tiver regras de *@ModalValidate*, o
+  *ModalValidatorRunner* as executa em sequência contra os valores enviados dos
+  campos. Na primeira falha, o runner coloca em cache todos os valores enviados
+  (se *@ModalCache* estiver presente), envia o embed de erro de validação e
+  interrompe o processamento. Consulte a página de validação para mais detalhes.
 </Step>
 
 <Step title="Resolução de campos e invocação do handler">
-O dispatcher resolve os decorators de parâmetro *@Field* extraindo valores da submissão. O decorator *@Ctx* recebe a *ModalSubmitInteraction* bruta. Se um decorator *@FlowContext* estiver presente, o contexto resolvido é injetado. O método *handle* do handler é chamado com todos os parâmetros resolvidos.
+O dispatcher resolve os decorators de parâmetro de campo (`@ModalTextField`, `@ModalStringSelectField` etc.) extraindo os valores da submissão. O decorator *@Ctx* recebe o *ModalSubmitInteraction* bruto. Se houver um decorator *@FlowContext*, o contexto resolvido é injetado. O método *handle* do handler é chamado com todos os parâmetros resolvidos.
 </Step>
 </Steps>
+
+Esse fluxo em camadas é o que mantém os handlers de modal enxutos. Validação, cache, carregamento de contexto e extração de campos acontecem antes de a lógica de negócio rodar, então o handler pode focar na submissão aceita em vez de reconstruir o estado do formulário manualmente.
 
 ## Próxima página
 

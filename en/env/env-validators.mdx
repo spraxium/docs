@@ -2,9 +2,25 @@
 title: Validators Reference
 description: |
   Every built-in validator decorator for @spraxium/env explained with types and behavior.
-  Learn string, number, boolean, network, Discord, data, and common validators.
+  Learn string, number, boolean, network, Discord, data, and common validators including MinLength, MaxLength, Matches, Min, Max, IsPositive, IsNegative, IsDiscordWebhookUrl, and IsDiscordClientSecret.
 order: 2
 category: Environment
+keywords:
+  - spraxium env validators
+  - validators reference in spraxium
+  - environment env validators guide
+  - env validators discord bot
+  - env validators typescript
+  - spraxium environment documentation
+  - validators reference environment
+  - spraxium validators reference
+faq:
+  - question: "What does \"Validators Reference\" cover in Spraxium?"
+    answer: "Every built-in validator decorator for @spraxium/env explained with types and behavior. Learn string, number, boolean, network, Discord, data, and common validators including MinLength, MaxLength, Matches, Min, Max, IsPositive, IsNegative, IsDiscordWebhookUrl, and IsDiscordClientSecret."
+  - question: "When should I use \"Validators Reference\"?"
+    answer: "Use this page when you are implementing env validators in the Environment area of your bot architecture."
+  - question: "What should I read after \"Validators Reference\"?"
+    answer: "Continue with related Environment pages to connect this concept with practical implementation details."
 ---
 
 ## How validators work
@@ -15,14 +31,59 @@ You can stack multiple validators on a single property. A field like a Redis URI
 
 The validators are organized into six families: string, number, boolean, network, Discord, and data validators. A seventh group, common validators, contains utility decorators that modify field behavior without checking types.
 
-## String validator
+## Choosing validators well
 
-The _IsString_ validator confirms that the value is a non-empty string. It does not perform any transformation because environment variables are already strings. Use it for free-form text fields where you want to guarantee the variable exists and is not empty.
+Start with the validator that matches the *runtime type* you want in the application, then add constraint validators for tighter business rules. In other words, first decide whether the field should become a string, number, or boolean, and only then add checks like minimum length, pattern matching, or numeric bounds.
+
+That order keeps schemas easier to read. Anyone opening the env file can quickly understand what the field becomes in code and which extra rules it must satisfy.
+
+## String validators
+
+_IsString_ confirms that the value is a non-empty string. Use it for any free-form text field. Three constraint validators can be stacked on top to further restrict the value.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Arguments</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsString()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the value is a non-empty string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MinLength(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Validates that the string has at least the given number of characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MaxLength(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Validates that the string has at most the given number of characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Matches(pattern, message?)*</TableCell>
+      <TableCell>pattern: RegExp, message?: string</TableCell>
+      <TableCell>Validates that the string matches the given regular expression. Accepts an optional custom error message.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ```typescript filename="src/app.env.ts"
 @Env('APP_NAME')
 @IsString()
+@MinLength(3)
+@MaxLength(64)
 APP_NAME!: string;
+
+@Env('SLUG', { secret: false })
+@IsString()
+@Matches(/^[a-z0-9-]+$/, 'Must be lowercase alphanumeric with hyphens')
+SLUG!: string;
 ```
 
 ## Number validators
@@ -41,30 +102,67 @@ Three validators handle numeric values. Each one transforms the raw string into 
     <TableRow>
       <TableCell>*IsNumber*</TableCell>
       <TableCell>Any finite number, including decimals</TableCell>
-      <TableCell>`"3.14"`, `"42"`, `"-1.5"`</TableCell>
+      <TableCell>"3.14", "42", "-1.5"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsInteger*</TableCell>
       <TableCell>Whole numbers only</TableCell>
-      <TableCell>`"42"`, `"-7"`, `"0"`</TableCell>
+      <TableCell>"42", "-7", "0"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsPort*</TableCell>
       <TableCell>Integer between 1 and 65535</TableCell>
-      <TableCell>`"3000"`, `"8080"`, `"443"`</TableCell>
+      <TableCell>"3000", "8080", "443"</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 All three transform the string with `Number()` before validating. _IsNumber_ rejects `NaN` and empty strings. _IsInteger_ further requires `Number.isInteger()` to pass. _IsPort_ adds a range check from 1 to 65535 on top of the integer requirement.
 
+Four constraint validators work on top of any numeric field and must be applied after the type validator:
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Arguments</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*Min(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Validates that the numeric value is greater than or equal to the given minimum.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Max(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Validates that the numeric value is less than or equal to the given maximum.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsPositive()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the numeric value is greater than zero.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsNegative()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the numeric value is less than zero.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
 ```typescript filename="src/app.env.ts"
 @Env('RATE_LIMIT')
 @IsNumber()
+@Min(1)
+@Max(1000)
 RATE_LIMIT!: number;
 
 @Env('MAX_RETRIES')
 @IsInteger()
+@IsPositive()
 MAX_RETRIES!: number;
 
 @Env('HTTP_PORT', { secret: false })
@@ -86,7 +184,7 @@ ENABLE_METRICS!: boolean;
 
 ## Network validators
 
-Four validators cover common network-related formats. Each one checks the string against a specific pattern without transforming the value, since network URIs and addresses remain as strings.
+Five validators cover common network-related formats. Each one checks the string against a specific pattern without transforming the value, since network URIs and addresses remain as strings.
 
 <Table>
   <TableHead>
@@ -98,29 +196,29 @@ Four validators cover common network-related formats. Each one checks the string
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>*IsUrl*</TableCell>
-      <TableCell>Any parseable URL via `new URL()`</TableCell>
-      <TableCell>`"https://api.example.com"`</TableCell>
+      <TableCell>*IsUrl(options?)*</TableCell>
+      <TableCell>Any parseable URL via the URL constructor. Pass the https option to reject non-HTTPS URLs.</TableCell>
+      <TableCell>"https://api.example.com"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsEmail*</TableCell>
-      <TableCell>Basic email format `user@domain.tld`</TableCell>
-      <TableCell>`"bot@spraxium.dev"`</TableCell>
+      <TableCell>Basic email format like user@domain.tld</TableCell>
+      <TableCell>"bot@spraxium.dev"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsHost*</TableCell>
       <TableCell>Hostname, IPv4, or IPv6 address</TableCell>
-      <TableCell>`"localhost"`, `"192.168.1.1"`</TableCell>
+      <TableCell>"localhost", "192.168.1.1"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsMongoUri*</TableCell>
-      <TableCell>URI starting with `mongodb://` or `mongodb+srv://`</TableCell>
-      <TableCell>`"mongodb+srv://user:pass@cluster.net/db"`</TableCell>
+      <TableCell>URI starting with mongodb:// or mongodb+srv://</TableCell>
+      <TableCell>"mongodb+srv://user:pass@cluster.net/db"</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*IsRedisUri*</TableCell>
-      <TableCell>URI starting with `redis://` or `rediss://`</TableCell>
-      <TableCell>`"redis://localhost:6379"`</TableCell>
+      <TableCell>URI starting with redis:// or rediss://</TableCell>
+      <TableCell>"redis://localhost:6379"</TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -128,6 +226,10 @@ Four validators cover common network-related formats. Each one checks the string
 Network validators work well with _Secret_ to mask credentials in the startup log. A MongoDB connection string contains a password, so the default masking behavior protects it automatically. Hostnames and ports are safe to display, so mark them with `secret: false` in the _@Env_ options.
 
 ```typescript filename="src/app.env.ts"
+@Env('CALLBACK_URL', { secret: false })
+@IsUrl({ https: true })
+CALLBACK_URL!: string;
+
 @Env('MONGO_URI')
 @IsMongoUri()
 MONGO_URI!: string;
@@ -143,20 +245,55 @@ API_HOST!: string;
 
 ## Discord validators
 
-Two validators target Discord-specific formats. They are strict about shape because invalid tokens or IDs cause hard-to-debug authentication failures at connect time.
+Four validators target Discord-specific formats. They are strict about shape because invalid tokens, IDs, or webhook URLs cause hard-to-debug authentication failures at connect time.
 
-_IsDiscordToken_ checks for a three-segment base64url string between 59 and 100 characters. It validates that each segment is non-empty, uses only base64url characters, and that the total length falls within the expected range. This catches common mistakes like pasting a token with trailing whitespace or copying only part of it from the Developer Portal.
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Validates</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsDiscordToken()*</TableCell>
+      <TableCell>Three-segment base64url string, 59–100 chars. Validates each segment uses only base64url characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordId()*</TableCell>
+      <TableCell>Numeric snowflake, 17–19 digits. Rejects non-digit characters and out-of-range lengths.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordWebhookUrl()*</TableCell>
+      <TableCell>Full Discord webhook URL matching the Discord webhook path on discord.com, canary.discord.com, or ptb.discord.com. Always mark this field with *@Secret()* because the URL embeds a token.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordClientSecret()*</TableCell>
+      <TableCell>OAuth2 client secret: non-empty URL-safe string of 24–64 characters without whitespace. Always mark this field with *@Secret()*.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
-_IsDiscordId_ checks for a numeric snowflake between 17 and 19 digits. Discord snowflakes are always numeric strings in this range, so the validator rejects anything that contains non-digit characters or falls outside the length bounds. The strict length requirement also rejects truncated IDs that might appear valid in other contexts but would cause API errors when used in Discord requests.
+For Discord-specific values, strict validation is worth the extra ceremony. A malformed webhook URL or client secret often fails far away from the env file, which makes startup validation one of the cheapest places to catch the mistake.
 
 ```typescript filename="src/app.env.ts"
 @Env('DISCORD_TOKEN')
 @IsDiscordToken()
 TOKEN!: string;
 
-@Env('GUILD_ID')
+@Env('GUILD_ID', { secret: false })
 @IsDiscordId()
 GUILD_ID!: string;
+
+@Env('ALERT_WEBHOOK')
+@IsDiscordWebhookUrl()
+@Secret()
+ALERT_WEBHOOK!: string;
+
+@Env('DISCORD_CLIENT_SECRET')
+@IsDiscordClientSecret()
+@Secret()
+CLIENT_SECRET!: string;
 ```
 
 ## Data validators

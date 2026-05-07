@@ -5,6 +5,21 @@ description: |
   Learn modal registration, field declaration, service rendering, and submission dispatch flow.
 order: 1
 category: Modals
+keywords:
+  - spraxium modals overview
+  - modals overview in spraxium
+  - modals modals overview guide
+  - modals overview discord bot
+  - modals overview typescript
+  - spraxium modals documentation
+  - modals overview modals
+faq:
+  - question: "What does \"Modals Overview\" cover in Spraxium?"
+    answer: "Build Discord modals with the declarative @ModalComponent and @ModalHandler pattern. Learn modal registration, field declaration, service rendering, and submission dispatch flow."
+  - question: "When should I use \"Modals Overview\"?"
+    answer: "Use this page when you are implementing modals overview in the Modals area of your bot architecture."
+  - question: "What should I read after \"Modals Overview\"?"
+    answer: "Continue with related Modals pages to connect this concept with practical implementation details."
 ---
 
 ## What are modals in Spraxium
@@ -14,6 +29,12 @@ Modals are overlay forms that Discord presents to users when triggered by a butt
 The modal system consists of two main pieces: a _@ModalComponent_ class that declares the modal's structure (title, fields, and options), and a _@ModalHandler_ class that processes the submitted values. The _ModalService_ renders the component into a Discord-ready modal object, and the _ModalDispatcher_ routes submissions to the correct handler after running validation rules.
 
 Unlike buttons and selects where the component is a lightweight decorator on a class, modals use property-level decorators to define each field. This gives you fine-grained control over field types, placeholder text, validation constraints, conditional inclusion, and dynamic generation, all expressed through TypeScript decorators.
+
+## When a modal is the right choice
+
+Use a modal when the user needs to type or review multiple pieces of information before submitting. Feedback forms, ticket creation, profile setup, application flows, and admin input screens are the usual fit.
+
+If the user only needs to pick one option or click a confirmation, a button or select menu is usually simpler. A modal is most helpful when the interaction needs structured text input and a clear submission boundary.
 
 ## Defining a modal component
 
@@ -48,27 +69,29 @@ export class FeedbackModal {
 
 ## Creating a modal handler
 
-The _@ModalHandler_ decorator links a handler class to a specific modal component. The handler's _handle_ method receives the modal submission interaction and any injected parameters. Use the _@Field_ parameter decorator to extract individual field values by their property name.
+The _@ModalHandler_ decorator links a handler class to a specific modal component. The handler's _handle_ method receives the modal submission and any injected parameters. Use tagged field decorators to extract individual field values by their property name. The generic _@ModalField(fieldId)_ works for every field type; the nine typed variants (`@ModalTextField`, `@ModalStringSelectField`, `@ModalRadioGroupField`, etc.) make the intent explicit and are preferred when the field type is known at compile time.
 
 ```typescript filename="src/components/feedback.handler.ts"
-import { ModalHandler, Field, Ctx } from '@spraxium/components';
-import type { ModalSubmitInteraction } from 'discord.js';
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
 import { FeedbackModal } from './feedback.modal';
 
 @ModalHandler(FeedbackModal)
 export class FeedbackModalHandler {
   async handle(
-    @Ctx() interaction: ModalSubmitInteraction,
-    @Field('subject') subject: string,
-    @Field('details') details: string,
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('details') details: string,
+    @Ctx() ctx: ModalContext,
   ): Promise<void> {
-    await interaction.reply({
+    await ctx.reply({
       content: `Thank you for your feedback on '${subject}'.`,
-      ephemeral: true,
+      flags: 'Ephemeral',
     });
   }
 }
 ```
+
+For full documentation on all field decorators, guard integration, and the complete injection API, see [Handlers and Field Injection](/guide/modals-handlers-injection).
 
 ## Showing a modal
 
@@ -117,42 +140,24 @@ export class FeedbackCommandHandler {
 </Tab>
 </CodeTabs>
 
-## The @Field parameter decorator
+## Handler field injection
 
-The _@Field_ decorator extracts a specific field value from the modal submission by matching the property name defined in the modal component class. The extracted value is always a string for text inputs, or the selected value(s) for select-type fields. This decorator eliminates the need to manually access `interaction.fields.getTextInputValue()` or iterate through components.
+The `@ModalHandler` handler class receives submitted field values through parameter decorators. Use typed decorators like `@ModalTextField`, `@ModalStringSelectField`, and `@ModalCheckboxField` to inject each field value directly into the `handle()` method, with no manual interaction object parsing needed.
 
-<Table>
-  <TableHead>
-    <TableRow>
-      <TableCell header>Usage</TableCell>
-      <TableCell header>Resolved value</TableCell>
-      <TableCell header>Notes</TableCell>
-    </TableRow>
-  </TableHead>
-  <TableBody>
-    <TableRow>
-      <TableCell>`@Field('subject')`</TableCell>
-      <TableCell>Text input value as `string`</TableCell>
-      <TableCell>
-        Matches the property name in the modal component class.
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`@Field('category')`</TableCell>
-      <TableCell>Selected value as `string`</TableCell>
-      <TableCell>
-        For single-value selects, returns the selected option value.
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>`@Field('tags')`</TableCell>
-      <TableCell>Selected values as `string[]`</TableCell>
-      <TableCell>
-        For multi-value selects, returns an array of selected values.
-      </TableCell>
-    </TableRow>
-  </TableBody>
-</Table>
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('message') message: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    await ctx.reply({ content: `Received: ${subject}`, flags: 'Ephemeral' });
+  }
+}
+```
+
+The old @Field decorator is deprecated in the current API in favor of the typed variants. For the full list of typed field decorators and their resolved TypeScript types, see [Handlers and Field Injection](/guide/modals-handlers-injection).
 
 ## ModalService API reference
 
@@ -167,31 +172,33 @@ The _@Field_ decorator extracts a specific field value from the modal submission
   <TableBody>
     <TableRow>
       <TableCell>*build*</TableCell>
-      <TableCell>`build(modal: Type, data?: unknown)`</TableCell>
+      <TableCell>build(modal: Type, data?: unknown)</TableCell>
       <TableCell>Builds the modal from the component class. Pass *data* to supply dynamic field context.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*buildFor*</TableCell>
-      <TableCell>`buildFor(modal: Type, interaction: Interaction, data?: unknown)`</TableCell>
+      <TableCell>buildFor(modal: Type, interaction: Interaction, data?: unknown)</TableCell>
       <TableCell>Builds with user context. Prefills cached field values if a previous submission failed validation.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*storeCache*</TableCell>
-      <TableCell>`storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record<string, string>)`</TableCell>
+      <TableCell>storeCache(modal: Type, interaction: ModalSubmitInteraction, values: Record&lt;string, string&gt;)</TableCell>
       <TableCell>Manually stores field values in the cache. Used internally by validation flow.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*clearCacheFor*</TableCell>
-      <TableCell>`clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)`</TableCell>
+      <TableCell>clearCacheFor(modal: Type, interaction: ModalSubmitInteraction)</TableCell>
       <TableCell>Removes cached values for a specific user and modal combination.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*getCacheFor*</TableCell>
-      <TableCell>`getCacheFor(modal: Type, interaction: Interaction)`</TableCell>
-      <TableCell>Retrieves cached field values. Returns `null` if no cache exists.</TableCell>
+      <TableCell>getCacheFor(modal: Type, interaction: Interaction)</TableCell>
+      <TableCell>Retrieves cached field values. Returns null if no cache exists.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
+
+The most common pair is _build_ for a first render and _buildFor_ for flows where you want user-aware prefilling after a validation failure. In other words, _build_ is the simple path; _buildFor_ is the ergonomic path for retry-heavy form flows.
 
 ## Module registration
 
@@ -233,9 +240,11 @@ The Discord.js client emits an *interactionCreate* event with a *ModalSubmitInte
 </Step>
 
 <Step title="Field resolution and handler invocation">
-The dispatcher resolves *@Field* parameter decorators by extracting values from the submission. The *@Ctx* decorator receives the raw *ModalSubmitInteraction*. If a *@FlowContext* decorator is present, the resolved context is injected. The handler's *handle* method is called with all resolved parameters.
+The dispatcher resolves field parameter decorators (`@ModalTextField`, `@ModalStringSelectField`, etc.) by extracting values from the submission. The *@Ctx* decorator receives the raw *ModalSubmitInteraction*. If a *@FlowContext* decorator is present, the resolved context is injected. The handler's *handle* method is called with all resolved parameters.
 </Step>
 </Steps>
+
+This layered flow is what keeps modal handlers small. Validation, caching, context loading, and field extraction happen before your business logic runs, so the handler can focus on the accepted submission instead of reconstructing the form state by hand.
 
 ## Next page
 

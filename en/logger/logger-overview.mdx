@@ -5,7 +5,32 @@ description: |
   Learn the built-in log levels, how to create child loggers, and how the logger integrates with the framework.
 order: 1
 category: Logger
+keywords:
+  - spraxium logger overview
+  - logger overview in spraxium
+  - logger logger overview guide
+  - logger overview discord bot
+  - logger overview typescript
+  - spraxium logger documentation
+  - logger overview logger
+faq:
+  - question: "What does \"Logger Overview\" cover in Spraxium?"
+    answer: "The Logger class provides structured, transport-based logging with automatic token masking. Learn the built-in log levels, how to create child loggers, and how the logger integrates with the framework."
+  - question: "When should I use \"Logger Overview\"?"
+    answer: "Use this page when you are implementing logger overview in the Logger area of your bot architecture."
+  - question: "What should I read after \"Logger Overview\"?"
+    answer: "Continue with related Logger pages to connect this concept with practical implementation details."
 ---
+
+## The @spraxium/logger package
+
+Starting In the current feature set, the logger has been extracted from `@spraxium/core` into its own standalone package: `@spraxium/logger`. Install it alongside the framework or any other Spraxium package that needs logging.
+
+```bash
+pnpm add @spraxium/logger
+```
+
+All framework packages (`@spraxium/core`, `@spraxium/components`, `@spraxium/http`, etc.) now import from `@spraxium/logger` directly. The ANSI console transport has **no color dependencies**; `chalk` has been removed from the entire monorepo.
 
 ## What the logger solves
 
@@ -82,8 +107,8 @@ The _debug_ level is gated behind a flag. Messages sent through _debug_ are sile
 You create a logger by instantiating the _Logger_ class with an optional context string. The context appears in every log line between the level and the message, making it easy to filter logs by source. A typical pattern is to create one logger per service or module.
 
 ```typescript filename="src/services/music.service.ts"
-import { Injectable } from '@spraxium/core';
-import { Logger } from '@spraxium/core';
+import { Injectable } from '@spraxium/common';
+import { Logger } from '@spraxium/logger';
 
 @Injectable()
 export class MusicService {
@@ -104,7 +129,7 @@ export class MusicService {
 The _child_ method creates a new logger that inherits the parent transport configuration but uses a different context name. This is useful inside methods that need their own identity in the log output without creating a separate class-level logger.
 
 ```typescript filename="src/services/queue.service.ts"
-import { Logger } from '@spraxium/core';
+import { Logger } from '@spraxium/logger';
 
 const parentLogger = new Logger('QueueService');
 const importLogger = parentLogger.child('QueueImport');
@@ -117,8 +142,8 @@ importLogger.info('Starting playlist import');
 The _extend_ method creates a named log function bound to a custom level. You specify the level name and an optional color. Once extended, the function works like any built-in method and routes through all transports. This is useful for domain-specific levels like `audit`, `payment`, or `moderation` that you want to filter separately.
 
 ```typescript filename="src/services/audit.service.ts"
-import { Injectable } from '@spraxium/core';
-import { Logger } from '@spraxium/core';
+import { Injectable } from '@spraxium/common';
+import { Logger } from '@spraxium/logger';
 
 @Injectable()
 export class AuditService {
@@ -138,7 +163,7 @@ The color parameter accepts any chalk color name like `'red'`, `'greenBright'`, 
 The _log_ method is the low-level escape hatch for emitting at any level by string name. It accepts the level, the message, and an optional `metadata` object. Unlike the named methods, _log_ lets you attach structured key-value data directly to the log entry without creating a typed function through _extend_. This is the method _CommandLogger_ uses internally to attach command execution data.
 
 ```typescript filename="src/services/payment.service.ts"
-import { Logger } from '@spraxium/core';
+import { Logger } from '@spraxium/logger';
 
 const logger = new Logger('PaymentService');
 
@@ -156,7 +181,7 @@ The metadata keys become available as `{{key}}` placeholders in Discord embed te
 When you need to print a message without any formatting, timestamps, or level prefix, use the _raw_ method. It calls the native `console.log` directly, bypassing all transports and the token masker. This is useful for printing ASCII banners, separator lines, or structured output that should not be wrapped in the standard log format.
 
 ```typescript filename="src/main.ts"
-import { Logger } from '@spraxium/core';
+import { Logger } from '@spraxium/logger';
 
 const logger = new Logger();
 logger.raw('');

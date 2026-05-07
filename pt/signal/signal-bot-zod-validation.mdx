@@ -1,27 +1,43 @@
 ---
-title: Validação Zod nos Listeners do Bot
+title: Validação com Zod em listeners do bot
 description: |
-  Valide payloads Signal com schemas Zod antes que seus handlers de domínio executem.
-  Aprenda padrões de design de schema, mecanica do fluxo de validação, extração de payload tipado e tratamento de erros para envelopes rejeitados.
+  Valide payloads do Signal com schemas Zod antes que seus handlers de domínio sejam executados.
+  Aprenda padrões de modelagem de schema, o funcionamento do fluxo de validação, extração de payload tipado e tratamento de erros para envelopes rejeitados.
 order: 3
 category: "@spraxium/signal"
+keywords:
+  - spraxium signal bot zod validation
+  - validação com zod em listeners do bot no spraxium
+  - "@spraxium/signal signal bot zod validation guia"
+  - signal bot zod validation bot discord
+  - signal bot zod validation typescript
+  - documentacao spraxium @spraxium/signal
+  - validação com zod em listeners do bot @spraxium/signal
+  - spraxium validação com zod em listeners do bot
+faq:
+  - question: "O que \"Validação com Zod em listeners do bot\" cobre no Spraxium?"
+    answer: "Valide payloads do Signal com schemas Zod antes que seus handlers de domínio sejam executados. Aprenda padrões de modelagem de schema, o funcionamento do fluxo de validação, extração de payload tipado e tratamento de erros para envelopes rejeitados."
+  - question: "Quando devo usar \"Validação com Zod em listeners do bot\"?"
+    answer: "Use esta pagina quando voce estiver implementando signal bot zod validation dentro da area de @spraxium/signal do seu bot."
+  - question: "Qual o proximo passo depois de \"Validação com Zod em listeners do bot\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/signal para conectar este conceito com implementacao pratica."
 ---
 
-## Por que Zod pertence a fronteira Signal
+## Por que o Zod pertence à fronteira do Signal
 
-Listeners do bot são onde eventos externos se tornam efeitos colaterais internos. Mudanças de cargo, atualizações de configuração, ações de moderação e mutações de billing todas começam com um payload recebido. Usar Zod nessa fronteira permite rejeitar dados malformados antes que cheguem aos serviços de negócio. Isso não e opcional para bots em produção porque o payload origina de sistemas externos que podem evoluir independentemente, enviar formatos inesperados ou conter valores inválidos devido a bugs no código emissor.
+Listeners do bot são o ponto em que eventos externos viram efeitos colaterais internos. Mudanças de cargo, atualizações de configuração, ações de moderação e mutações de billing começam com um payload recebido. Usar Zod nessa fronteira permite rejeitar dados malformados antes que eles alcancem os serviços de negócio. Isso não é opcional em bots de produção, porque o payload vem de sistemas externos que podem evoluir de forma independente, enviar formatos inesperados ou conter valores inválidos por bugs no código emissor.
 
-O decorator _@OnSignal_ aceita uma opção `schema` que recebe qualquer schema Zod. Quando presente, o _SignalProcessor_ chama _safeParse_ no payload do envelope antes de invocar o handler. Se a validação falhar, o handler nunca e chamado e um log diagnóstico e emitido quando o modo debug esta ativado. Se nenhum schema for configurado, o payload bruto e passado sem alteração, o que e útil para handlers que fazem sua própria lógica de parsing.
+O decorator _@OnSignal_ aceita uma opção `schema` que recebe qualquer schema Zod. Quando ela está presente, o _SignalProcessor_ chama _safeParse_ no payload do envelope antes de invocar o handler. Se a validação falhar, o handler nunca é chamado e um log de diagnóstico é emitido quando o modo debug está habilitado. Se nenhum schema for configurado, o payload bruto segue sem alterações, o que é útil em handlers que fazem seu próprio parsing.
 
 <Callout tone="success" title="Valide na fronteira, não dentro dos handlers">
-  Anexar o schema ao <code>@OnSignal</code> garante que toda invocação do
-  handler receba dados validados e tipados. Isso elimina verificações defensivas
-  dentro do código de negócio e torna as assinaturas dos handlers confiáveis.
+  Associar o schema a <code>@OnSignal</code> garante que toda invocação do
+  handler receba dados validados e tipados. Isso elimina checagens defensivas
+  dentro do código de negócio e torna a assinatura do handler confiável.
 </Callout>
 
-## Design de schema e configuração de listener
+## Modelagem de schema e configuração do listener
 
-O padrão recomendado e definir schemas em arquivos dedicados e importa-los nas classes de listener. Essa separação mantém schemas reutilizaveis entre handlers e testaveis independentemente. Cada arquivo de schema exporta tanto a constante Zod quanto o tipo TypeScript inferido.
+O padrão recomendado é definir schemas em arquivos dedicados e importá-los nas suas classes de listener. Essa separação mantém os schemas reutilizáveis entre handlers e fáceis de testar isoladamente. Cada arquivo de schema exporta tanto a constante do schema Zod quanto o tipo TypeScript inferido.
 
 <CodeTabs>
   <Tab label="Schema" language="typescript">
@@ -53,8 +69,8 @@ export class GuildConfigSignal {
     payload: ConfigUpdatePayload,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // payload esta validado e fortemente tipado
-    // envelope.guildId fornece contexto de tenant
+    // payload is validated and strongly typed
+    // envelope.guildId provides tenant context
   }
 }
 
@@ -62,30 +78,42 @@ export class GuildConfigSignal {
   </Tab>
 </CodeTabs>
 
-## Fluxo de validação no processador
+## Fluxo de validação no processor
 
-Quando o *SignalProcessor* recebe um envelope validado, ele verifica se o handler resolvido possui um schema anexado. Se possuir, o processador chama *schema.safeParse(envelope.payload)* e inspeciona o resultado. Em caso de sucesso, *result.data* substitui o payload bruto e e passado ao handler. Em caso de falha, o handler e ignorado completamente e uma entrada de log diagnóstico e emitida com os detalhes dos problemas Zod.
+Quando o *SignalProcessor* recebe um envelope já validado, ele verifica se o handler resolvido possui um schema associado. Se possuir, o processor chama *schema.safeParse(envelope.payload)* e inspeciona o resultado. Em caso de sucesso, *result.data* substitui o payload bruto e é passado ao handler. Em caso de falha, o handler é totalmente ignorado e uma entrada de log de diagnóstico é emitida com os detalhes do erro do Zod.
 
-Esse fluxo significa que seu handler tem a garantia de receber dados que correspondem ao schema. Não ha necessidade de blocos try-catch em torno do acesso ao payload, não ha necessidade de type assertions manuais e não ha risco de propriedades undefined causando erros de runtime. O schema atua como contrato de compile-time e runtime simultaneamente.
+Isso significa que seu handler recebe, com garantia, dados compatíveis com o schema. Não há necessidade de blocos try-catch para acessar o payload, nem de type assertions manuais, nem do risco de propriedades indefinidas causarem erros em runtime. O schema funciona, ao mesmo tempo, como contrato de compilação e de execução.
 
 <Steps>
-  <Step title="Verificação de presença do schema">
-    O processador verifica se o handler possui um schema Zod. Se nenhum schema estiver anexado, o *envelope.payload* bruto e passado ao handler sem alteração. Isso permite que handlers que não precisam de validação pulem a sobrecarga completamente.
+  <Step title="Checagem de presença do schema">
+    O processor verifica se o handler tem um schema Zod associado. Se não
+    houver schema, o *envelope.payload* bruto é passado ao handler sem
+    alterações. Isso permite que handlers que não precisam de validação pulem
+    totalmente esse custo.
   </Step>
   <Step title="Execução do safe parse">
-    O processador chama *schema.safeParse(envelope.payload)* que nunca lança exceção. Ele retorna uma union discriminada: `{ success: true, data: T }` com o payload parseado e tipado, ou `{ success: false, error: ZodError }` com os problemas de validação.
+    O processor chama *schema.safeParse(envelope.payload)*, que nunca lança
+    exceção. O retorno é uma união discriminada: ou `{ success: true, data: T
+    }` com o payload parseado e tipado, ou `{ success: false, error:
+    ZodError }` com os problemas de validação.
   </Step>
   <Step title="Caminho de sucesso">
-    Na validação bem-sucedida, *result.data* substitui o payload bruto. Essa versão parseada tem defaults aplicados, transforms executados e tipos estreitados. O handler recebe esse valor tipado como primeiro argumento.
+    Quando a validação passa, *result.data* substitui o payload bruto. Essa
+    versão parseada já traz defaults aplicados, transforms executados e tipos
+    refinados. O handler recebe esse valor tipado como primeiro argumento.
   </Step>
   <Step title="Caminho de falha">
-    Na validação falha, o handler nunca e invocado. Se o modo debug estiver ativado, o processador loga os problemas Zod como um array JSON, incluindo o path, tipo esperado e valor recebido para cada campo com falha. O envelope e descartado silenciosamente para prevenir dados corrompidos de chegar a lógica de negócio.
+    Quando a validação falha, o handler nunca é invocado. Se o modo debug
+    estiver habilitado, o processor registra os problemas do Zod como um array
+    JSON, incluindo path, tipo esperado e valor recebido em cada campo que
+    falhou. O envelope é descartado em silêncio para impedir que dados
+    corrompidos cheguem à lógica de negócio.
   </Step>
 </Steps>
 
 ## Múltiplos handlers com schemas diferentes
 
-Uma única classe *@SignalListener* pode conter múltiplos métodos *@OnSignal* com nomes de evento e schemas diferentes. Cada handler e registrado independentemente no *SignalRouter*, e cada schema e validado independentemente durante o despacho. Isso permite agrupar handlers de domínio relacionados em uma classe enquanto mantém contratos de payload estritos por evento.
+Uma única classe *@SignalListener* pode conter vários métodos *@OnSignal* com nomes de evento e schemas diferentes. Cada handler é registrado de forma independente no *SignalRouter*, e cada schema é validado de forma independente durante o despacho. Isso permite agrupar handlers relacionados de um mesmo domínio em uma única classe, mantendo contratos rígidos de payload por evento.
 
 ```typescript filename="src/modules/signal/listeners/guild-config.signal.ts"
 import { SignalListener, OnSignal } from '@spraxium/signal';
@@ -108,7 +136,7 @@ export class GuildConfigSignal {
     payload: z.infer<typeof PrefixSchema>,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // Trata mudancas de prefixo
+    // Handle prefix changes
   }
 
   @OnSignal('config.language.update', { schema: LanguageSchema })
@@ -116,80 +144,78 @@ export class GuildConfigSignal {
     payload: z.infer<typeof LanguageSchema>,
     envelope: SignalEnvelope,
   ): Promise<void> {
-    // Trata mudancas de idioma
+    // Handle language changes
   }
 }
 ````
 
 ## Diretrizes para modelagem de schema
 
-Schemas duráveis seguem um conjunto de principios que minimizam breaking changes entre deploys do produtor e consumidor. Como emissor e bot podem ser deployados independentemente, a evolução de schema deve ser tratada com cuidado.
+Schemas duráveis seguem um conjunto de princípios que minimizam quebras entre implantações de produtor e consumidor. Como o emissor e o bot podem ser implantados de forma independente, a evolução do schema precisa ser tratada com cuidado.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Principio</TableCell>
+      <TableCell header>Princípio</TableCell>
       <TableCell header>Prática</TableCell>
-      <TableCell header>Razão</TableCell>
+      <TableCell header>Motivo</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>Mudanças aditivas</TableCell>
       <TableCell>
-        Adicione novos campos como `.optional()` antes de torna-los
-        obrigatórios.
+        Adicione campos novos como *.optional()* antes de torná-los obrigatórios.
       </TableCell>
       <TableCell>
-        Permite rollout gradual entre deploys do emissor e bot.
+        Permite rollout gradual entre implantações do emissor e do bot.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Payloads enxutos</TableCell>
       <TableCell>
-        Inclua apenas campos que o bot realmente precisa para tomar decisões.
+        Inclua apenas os campos de que o bot realmente precisa para decidir o que fazer.
       </TableCell>
       <TableCell>
-        Reduz acoplamento e facilita a manutenção dos schemas ao longo do tempo.
+        Reduz acoplamento e torna os schemas mais fáceis de manter ao longo do tempo.
       </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Limites estritos</TableCell>
+      <TableCell>Limites rígidos</TableCell>
       <TableCell>
-        Use `.min()`, `.max()`, `.enum()` e `.regex()` para strings e números.
+        Use *.min()*, *.max()*, *.enum()* e *.regex()* para strings e números.
       </TableCell>
       <TableCell>
-        Captura dados inválidos cedo e previne erros de lógica downstream.
+        Antecipam dados inválidos e evitam erros de lógica mais à frente.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Nomes de evento versionados</TableCell>
       <TableCell>
-        Use `config.update.v2` para breaking changes de payload em vez de
-        modificar o schema original.
+        Use *config.update.v2* para mudanças incompatíveis no payload em vez de alterar o schema original.
       </TableCell>
       <TableCell>
-        Preserva compatibilidade durante periodos de transição.
+        Preserva compatibilidade retroativa durante períodos de transição.
       </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Enums explicitos</TableCell>
+      <TableCell>Enums explícitos</TableCell>
       <TableCell>
-        Use `z.enum()` para conjuntos fixos de valores em vez de strings livres.
+        Use *z.enum()* para conjuntos fixos de valores em vez de strings livres.
       </TableCell>
       <TableCell>
-        Previne typos e valores não documentados de chegar aos handlers.
+        Evita erros de digitação e valores não documentados chegando aos handlers.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Padrões avancados de schema
+## Padrões avançados de schema
 
-Para eventos de domínio complexos, Zod suporta padrões poderosos de composição que mantêm schemas DRY e expressivos. Discriminated unions permitem validar diferentes formatos de payload baseados em um campo discriminador compartilhado. Intersections permitem combinar campos base com extensões específicas do evento.
+Para eventos de domínio mais complexos, o Zod oferece padrões poderosos de composição que mantêm os schemas enxutos e expressivos. Uniões discriminadas permitem validar formatos diferentes de payload com base em um campo discriminador compartilhado. Interseções permitem combinar campos-base com extensões específicas de cada evento.
 
 <CodeTabs>
-  <Tab label="Union discriminada" language="typescript">
+  <Tab label="Discriminated union" language="typescript">
 ```typescript filename="src/modules/signal/schemas/billing.schema.ts"
 import { z } from 'zod';
 
@@ -214,7 +240,7 @@ export const BillingEventSchema = z.discriminatedUnion('action', [
 export type BillingEventPayload = z.infer<typeof BillingEventSchema>;
 ```
   </Tab>
-  <Tab label="Base + extensão" language="typescript">
+  <Tab label="Base + extension" language="typescript">
 ```typescript filename="src/modules/signal/schemas/moderation.schema.ts"
 import { z } from 'zod';
 
@@ -236,22 +262,22 @@ export const MuteSchema = BaseModerationSchema.extend({
   </Tab>
 </CodeTabs>
 
-## Responsabilidades de retry
+## Responsabilidade por retry
 
-O pacote bot-side _@spraxium/signal_ não inclui fila de retry interna ou worker. Se uma validação Zod falhar, o envelope e descartado e nenhuma tentativa automática e feita. Isso e por design porque o bot deve permanecer um consumidor deterministico de eventos. A lógica de retry pertence ao lado emissor, onde o pacote _@spraxium/signal-client_ fornece persistencia de fallback com backoff exponencial.
+O pacote _@spraxium/signal_ no lado do bot não inclui fila nem worker interno de retry. Se uma validação com Zod falhar, o envelope é descartado e nenhuma nova tentativa automática é feita. Isso é intencional, porque o bot deve continuar sendo um consumidor determinístico de eventos. A lógica de retry pertence ao lado do emissor, onde o pacote _@spraxium/signal-client_ fornece persistência de fallback com backoff exponencial.
 
-Essa separação mantém cada lado focado em sua responsabilidade. O bot valida e despacha envelopes confiáveis. O emissor cuida de confiabilidade de entrega, agendamento de retries e monitoramento de dead-letter. Se você precisar reprocessar um envelope que falhou, o emissor deve corrigir o formato do payload e reenvia-lo, em vez de o bot tolerar dados inválidos.
+Essa separação mantém cada lado concentrado na própria responsabilidade. O bot valida e despacha envelopes confiáveis. O emissor cuida da confiabilidade de entrega, do agendamento de retries e do monitoramento de dead-letter. Se você precisar reprocessar um envelope que falhou, o lado emissor deve corrigir o formato do payload e reenviá-lo, em vez de o bot tolerar dados inválidos.
 
-<Callout tone="warning" title="A responsabilidade de retry e do lado produtor">
-  O bot-side <code>@spraxium/signal</code> intencionalmente não faz retry de
-  payloads que falharam. Se retries de entrega são necessarios, configure-os no
-  lado emissor usando as configurações de fallback do{" "}
-  <code>@spraxium/signal-client</code> com store de arquivo ou Redis.
+<Callout tone="warning" title="Retries são responsabilidade do produtor">
+  O pacote no lado do bot, <code>@spraxium/signal</code>, intencionalmente não
+  faz retry de payloads inválidos. Se você precisa de novas tentativas de
+  entrega, configure isso no lado emissor com as opções de fallback de
+  <code>@spraxium/signal-client</code>, usando store em arquivo ou Redis.
 </Callout>
 
 ## Testando com createSignalPayload
 
-O pacote `@spraxium/signal` exporta um helper _createSignalPayload_ que constrói envelopes não assinados para fins de teste. Esse helper gera um UUID nonce e um timestamp atual, retornando um _UnsignedEnvelope_ que pode ser usado em testes unitarios para verificar comportamento dos handlers sem montar o pipeline Signal completo.
+O pacote `@spraxium/signal` exporta o helper _createSignalPayload_, que monta envelopes sem assinatura para fins de teste. Esse helper gera um nonce UUID e um timestamp atual, retornando um _UnsignedEnvelope_ que pode ser usado em testes unitários para verificar o comportamento do handler sem precisar montar todo o pipeline do Signal.
 
 ```typescript filename="test/guild-config.signal.test.ts"
 import { createSignalPayload } from '@spraxium/signal';
@@ -265,10 +291,10 @@ const testEnvelope = createSignalPayload(
   },
 );
 
-// testEnvelope possui: v, event, guildId, nonce, sentAt, payload
-// Sem campo signature (nao assinado, apenas para testes)
+// testEnvelope has: v, event, guildId, nonce, sentAt, payload
+// No signature field (unsigned, for testing only)
 ```
 
-## Próximo estudo
+## Próxima página
 
-Continue com [Signal Client para Emissores de Serviço](/signal-client-basics).
+Continue com [Signal Client para emissores de serviço](/signal-client-basics).

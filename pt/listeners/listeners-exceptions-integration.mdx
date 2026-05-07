@@ -1,21 +1,37 @@
 ---
-title: Exceptions e Integração com Guards
+title: Integração com Exceções e Guards
 description: |
-  Listeners tem dois caminhos de execução dependendo do formato do payload do evento.
-  Entenda como guards e exceptions funcionam dentro de listeners e quando se aplicam.
+  Listeners seguem dois caminhos de execução, dependendo do formato do payload do evento.
+  Entenda como guards e exceções funcionam dentro de listeners e em que situações eles realmente se aplicam.
 order: 4
 category: Listeners
+keywords:
+  - spraxium listeners exceptions integration
+  - integração com exceções e guards no spraxium
+  - listeners listeners exceptions integration guia
+  - listeners exceptions integration bot discord
+  - listeners exceptions integration typescript
+  - documentacao spraxium listeners
+  - integração com exceções e guards listeners
+  - spraxium integração com exceções e guards
+faq:
+  - question: "O que \"Integração com Exceções e Guards\" cobre no Spraxium?"
+    answer: "Listeners seguem dois caminhos de execução, dependendo do formato do payload do evento. Entenda como guards e exceções funcionam dentro de listeners e em que situações eles realmente se aplicam."
+  - question: "Quando devo usar \"Integração com Exceções e Guards\"?"
+    answer: "Use esta pagina quando voce estiver implementando listeners exceptions integration dentro da area de Listeners do seu bot."
+  - question: "Qual o proximo passo depois de \"Integração com Exceções e Guards\"?"
+    answer: "Continue nas paginas relacionadas de Listeners para conectar este conceito com implementacao pratica."
 ---
 
 ## Dois caminhos de execução
 
-Nem todos os eventos do Discord sao iguais da perspectiva do framework. Alguns eventos carregam uma message ou interaction como primeiro argumento, e outros carregam outros tipos de payload como um objeto Client, um GuildMember ou um canal. Essa distincao importa porque o framework a usa pra decidir como executar seu método listener e se aplica o pipeline de guards e exceptions.
+Do ponto de vista do framework, nem todo evento do Discord é igual. Alguns eventos trazem uma mensagem ou uma interação como primeiro argumento. Outros carregam tipos diferentes de payload, como um objeto _Client_, um _GuildMember_ ou um canal. Essa distinção importa porque é com base nela que o framework decide como executar o método do listener e se deve ou não aplicar o pipeline de guards e exceções.
 
-Quando o primeiro argumento do evento e um _BaseInteraction_ ou uma _Message_, o framework roda o método pelo pipeline completo. Isso significa que guards de classe e método executam primeiro, e se o método lança uma exception, o pipeline de exceptions trata com renderização de layout e comportamento opcional de reply. Esse é o mesmo pipeline que slash e prefix commands usam, é por isso guards e exception layouts funcionam sem problemas em listeners de message e interaction.
+Quando o primeiro argumento do evento é um _BaseInteraction_ ou um _Message_, o framework executa o método pelo pipeline completo. Isso significa que guards de classe e de método rodam primeiro e, se o método lançar uma exceção, o pipeline de exceção entra em ação com renderização de layout e comportamento opcional de reply. É exatamente o mesmo pipeline usado por slash commands e comandos prefixados, por isso guards e layouts de exceção funcionam sem atrito em listeners de mensagem e interação.
 
-Quando o primeiro argumento e qualquer outra coisa, como o objeto _Client_ pra _ClientReady_ ou um _GuildMember_ pra _GuildMemberAdd_, o framework chama o método diretamente sem o pipeline de guards ou exceptions. Se o método lança um erro, o framework captura e loga como um erro de listener não tratado, mas não ha renderização de layout ou comportamento de reply porque o payload do evento não suporta respostas da mesma forma que messages e interactions.
+Quando o primeiro argumento é qualquer outra coisa, como o objeto _Client_ em _ClientReady_ ou um _GuildMember_ em _GuildMemberAdd_, o framework chama o método diretamente, sem passar pelo pipeline de guards e exceções. Se o método lançar erro, o framework captura e registra isso como erro não tratado de listener, mas não há renderização de layout nem reply estruturado, porque esse tipo de payload não oferece resposta do mesmo jeito que mensagens e interações.
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Tipo do primeiro argumento</TableCell>
@@ -26,9 +42,9 @@ Quando o primeiro argumento e qualquer outra coisa, como o objeto _Client_ pra _
   <TableBody>
     <TableRow>
       <TableCell>*BaseInteraction* ou *Message*</TableCell>
-      <TableCell>Pipeline completo com guards e exception handler</TableCell>
+      <TableCell>Pipeline completo com guards e handler de exceção</TableCell>
       <TableCell>
-        Exception layouts, comportamento de reply, tratamento estruturado
+        Layouts de exceção, comportamento de reply e tratamento estruturado
       </TableCell>
     </TableRow>
     <TableRow>
@@ -39,11 +55,11 @@ Quando o primeiro argumento e qualquer outra coisa, como o objeto _Client_ pra _
   </TableBody>
 </Table>
 
-Esse é um detalhe importante pra manter em mente ao projetar seus listeners. Se você aplica guards a um listener que trata _GuildMemberAdd_, os guards não vao rodar porque o primeiro argumento e um _GuildMember_, não um _BaseInteraction_ ou _Message_. Guards só ativam quando o framework consegue construir um _ExecutionContext_ a partir do payload do evento, o que exige uma interaction ou message.
+Esse detalhe precisa ficar claro quando você desenha seus listeners. Se você anexar guards a um listener de _GuildMemberAdd_, eles não vão rodar, porque o primeiro argumento é um _GuildMember_, não um _BaseInteraction_ nem um _Message_. Guards só entram em ação quando o framework consegue construir um _ExecutionContext_ a partir do payload, o que exige mensagem ou interação.
 
 ## Usando guards em listeners
 
-Pra eventos que passam pelo pipeline completo, você pode aplicar guards no nível de classe ou método usando _@UseGuards_, exatamente como faria em um command handler. Os guards rodam antes do método listener executar, e se qualquer guard nega, o método é pulado e a negação vai pelo pipeline de exceptions.
+Nos eventos que passam pelo pipeline completo, você pode anexar guards no nível da classe ou do método com _@UseGuards_, exatamente como faria em um command handler. Os guards rodam antes do método do listener e, se algum negar a execução, o método é pulado e a negação segue pelo pipeline de exceções.
 
 ```typescript filename="protected-message.listener.ts"
 import { Events, Listener, On, UseGuards, withOptions } from '@spraxium/common';
@@ -56,18 +72,18 @@ export class ProtectedMessageListener {
   @On()
   async onMessage(message: Message): Promise<void> {
     if (message.author.bot) return;
-    await message.reply('Você está verificado e em um servidor.');
+    await message.reply('You are verified and in a server.');
   }
 }
 ```
 
-Nesse exemplo, tanto o guard _GuildOnly_ quanto o _RoleGuard_ rodam antes de _onMessage_ executar. Se a mensagem vem de DM, _GuildOnly_ nega e o método nunca roda. Se o membro não tem a role "Verified", _RoleGuard_ nega. Somente quando ambos os guards passam o método executa.
+Nesse exemplo, tanto o guard _GuildOnly_ quanto o _RoleGuard_ rodam antes de _onMessage_. Se a mensagem vier de DM, _GuildOnly_ nega e o método nem executa. Se o membro não tiver o cargo “Verified”, _RoleGuard_ nega. Só quando os dois passam o método é chamado.
 
-Você também pode usar guards de método pra controle refinado quando uma classe listener tem múltiplos métodos handler. Os guards de classe se aplicam a todos os métodos, e guards de método adicionam restricoes extras a métodos específicos.
+Você também pode usar guards no nível do método para ter controle mais fino quando uma classe de listener possui vários métodos handler. Guards de classe valem para todos os métodos, enquanto guards de método acrescentam restrições extras apenas nos pontos específicos onde forem aplicados.
 
-## Lançando exceptions de listeners
+## Lançando exceções a partir de listeners
 
-Pra eventos no pipeline completo, você pode lancar exceptions de dominio específicas dos métodos listener e a camada de exceptions trata da mesma forma que trata exceptions de comandos. Isso significa que seus layouts, comportamento de reply e configuração de logging se aplicam a exceptions de listener sem nenhuma configuração extra.
+Nos eventos que passam pelo pipeline completo, você pode lançar exceções de domínio dentro do listener, e a camada de exceções vai tratá-las do mesmo jeito que trata exceções de comandos. Isso significa que layouts, comportamento de reply e configuração de logs se aplicam a exceções lançadas por listeners sem nenhum setup adicional.
 
 ```typescript filename="account-policy.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -78,7 +94,7 @@ class AccountSuspendedException extends SpraxiumException {
   constructor(props: { reason: string; userId: string }) {
     super({
       code: 'ACCOUNT_SUSPENDED',
-      message: 'Sua conta foi suspensa: {{reason}}.',
+      message: 'Your account has been suspended: {{reason}}.',
       props,
     });
   }
@@ -93,20 +109,20 @@ export class AccountPolicyListener {
     const isSuspended = await this.checkSuspension(message.author.id);
     if (isSuspended) {
       throw new AccountSuspendedException({
-        reason: 'Violação de política',
+        reason: 'Policy violation',
         userId: message.author.id,
       });
     }
   }
 
   private async checkSuspension(userId: string): Promise<boolean> {
-    // substitua pela consulta real ao banco
+    // replace with actual database lookup
     return false;
   }
 }
 ```
 
-Pra eventos que passam por invocação direta em vez do pipeline completo, erros lançados sao capturados e logados mas não processados pela camada de exceptions. Isso significa que você não recebe renderização de layout ou respostas estruturadas pra esses eventos. Se você precisa de tratamento confiável de erros em eventos de invocação direta como _GuildMemberAdd_, trate erros explicitamente dentro do método com try-catch e seu próprio logging.
+Já nos eventos que seguem pela invocação direta, e não pelo pipeline completo, erros lançados são capturados e logados, mas não passam pela camada de exceção. Isso significa que você não recebe renderização de layout nem replies estruturados nesses casos. Se precisar de tratamento confiável em eventos como _GuildMemberAdd_, trate o erro explicitamente no próprio método com try-catch e o seu logging.
 
 ```typescript filename="member-join.listener.ts"
 import { Events, Listener, On } from '@spraxium/common';
@@ -122,11 +138,11 @@ export class MemberJoinListener {
     try {
       const channel = await member.guild.channels.fetch('1234567890');
       if (channel?.isTextBased()) {
-        await channel.send(`Bem-vindo ao servidor, ${member}!`);
+        await channel.send(`Welcome to the server, ${member}!`);
       }
     } catch (error) {
       this.logger.error(
-        `Falha ao enviar mensagem de boas-vindas pra ${member.user.username}`,
+        `Failed to send welcome message for ${member.user.username}`,
         error,
       );
     }
@@ -136,14 +152,14 @@ export class MemberJoinListener {
 
 <Callout
   tone="warning"
-  title="Guards só funcionam em eventos de message e interaction"
+  title="Guards só funcionam em eventos de mensagem e interação"
 >
-  Aplicar guards a um listener que trata eventos como ClientReady ou
-  GuildMemberAdd não tem efeito porque o framework não consegue construir um
-  ExecutionContext a partir desses payloads de evento. Use checagens explícitas
-  dentro do método no lugar.
+  Anexar guards a um listener que trata eventos como ClientReady ou
+  GuildMemberAdd não produz efeito, porque o framework não consegue montar um
+  ExecutionContext a partir desses payloads. Nesses casos, faça as validações
+  explicitamente dentro do método.
 </Callout>
 
-## Próximo estudo
+## Próxima página
 
-Continue com [Visão Geral dos Prefix Commands](/prefix-commands-overview).
+Continue com [Visão Geral dos Comandos Prefixados](/prefix-commands-overview).

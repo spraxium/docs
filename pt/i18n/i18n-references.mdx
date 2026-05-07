@@ -1,25 +1,35 @@
 ---
 title: Referências e Arquivos de Locale
 description: |
-  Referências são ponteiros nomeados para diretórios de locale que se tornam namespaces de chaves ao carregar.
-  Entenda como múltiplos caminhos se combinam em um único registro plano sem conflitos.
+  Referências são ponteiros nomeados para diretórios de locale que se tornam namespaces de chave no carregamento.
+  Entenda como vários caminhos de referência se combinam em um único registro plano sem conflitos.
 order: 2
 category: i18n
+keywords:
+  - spraxium i18n references
+  - referências e arquivos de locale no spraxium
+  - i18n i18n references guia
+  - i18n references bot discord
+  - i18n references typescript
+  - documentacao spraxium i18n
+  - referências e arquivos de locale i18n
+  - spraxium referências e arquivos de locale
+faq:
+  - question: "O que \"Referências e Arquivos de Locale\" cobre no Spraxium?"
+    answer: "Referências são ponteiros nomeados para diretórios de locale que se tornam namespaces de chave no carregamento. Entenda como vários caminhos de referência se combinam em um único registro plano sem conflitos."
+  - question: "Quando devo usar \"Referências e Arquivos de Locale\"?"
+    answer: "Use esta pagina quando voce estiver implementando i18n references dentro da area de i18n do seu bot."
+  - question: "Qual o proximo passo depois de \"Referências e Arquivos de Locale\"?"
+    answer: "Continue nas paginas relacionadas de i18n para conectar este conceito com implementacao pratica."
 ---
 
 ## O que é uma referência e por que ela existe
 
-Uma referência é a ponte entre um diretório no disco e um namespace no espaço de chaves de tradução.
-Você a declara dando a ela um nome e um caminho. O nome se torna o primeiro segmento de todas as
-chaves que vêm daquele diretório. O caminho aponta para um diretório cuja estrutura segue uma de
-duas convenções: arquivos JSON planos por locale, ou subdiretórios por locale contendo múltiplos
-arquivos JSON.
+Uma referência é a ponte entre um diretório no disco e um namespace no espaço de chaves de tradução. Você declara uma referência atribuindo a ela um nome e um caminho. O nome se torna o primeiro segmento de toda chave que vier daquele diretório. O caminho aponta para um diretório cuja estrutura segue uma de duas convenções: arquivos JSON planos por locale ou subdiretórios por locale contendo vários arquivos JSON. As duas estruturas são válidas e podem coexistir em referências diferentes dentro do mesmo bot.
 
-A razão pela qual referências existem como conceito, em vez de um único diretório de locale plano, é que bots reais têm preocupações de tradução distintas que pertencem a lugares diferentes. Nomes e
-descrições de slash commands são objetos de domínio na mesma categoria que o código. Mensagens de
-erro usadas em todo o bot compartilham um namespace. Strings de interface para modals, menus de
-seleção e embeds formam outra camada. Misturar tudo isso em um único arquivo por locale cria
-overhead de manutenção e dificulta identificar o que está faltando onde.
+O motivo para referências existirem como conceito, em vez de haver um único diretório plano de locale, é que bots reais têm preocupações de tradução diferentes, e cada uma delas pertence a um lugar diferente. Nomes e descrições de slash commands são objetos de domínio, próximos do código. Mensagens de erro usadas em todo o bot compartilham um namespace. Strings de UI para modais, select menus e embeds formam outra camada. Misturar tudo isso em um único arquivo por locale cria custo de manutenção e dificulta identificar o que está faltando e onde. Referências dão a cada preocupação seu próprio diretório e seu próprio prefixo, ao mesmo tempo em que continuam servindo todas as consultas a partir do mesmo mapa plano em memória.
+
+Essa separação é uma decisão de experiência de desenvolvimento, não uma decisão de performance em runtime. Em runtime, todas as referências são mescladas no mesmo mapa plano por locale. O nome da referência vira um prefixo de chave que evita colisões, mas não existe lookup separado por referência nem travessia de diretório durante a requisição.
 
 ## Declarando múltiplas referências
 
@@ -27,95 +37,118 @@ overhead de manutenção e dificulta identificar o que está faltando onde.
 import { defineI18n } from '@spraxium/i18n';
 
 export const i18nConfig = defineI18n({
-  defaultLocale: 'pt-BR',
+  defaultLocale: 'en-US',
   references: [
     { name: 'slash', path: './locales/slash' },
     { name: 'ui', path: './locales/ui' },
-    { name: 'erros', path: './locales/erros' },
+    { name: 'errors', path: './locales/errors' },
     { name: 'embeds', path: './locales/embeds' },
   ],
 });
 ```
 
-Não há limite de referências. Cada uma carrega de forma independente e é mesclada no mesmo registro.
-Desde que cada valor de `name` seja único, não pode haver conflitos de chaves entre referências.
+Não existe limite para a quantidade de referências. Cada uma é carregada de forma independente e mesclada no mesmo registro. Desde que cada valor de `name` seja único, não pode haver colisão de chaves entre referências.
 
-## Estrutura de arquivos planos
+## Estrutura de arquivos plana
 
-Nesse layout, cada locale é um único arquivo JSON na raiz do diretório da referência. O nome do
-arquivo é o identificador do locale, e seu conteúdo é o objeto de tradução para aquele locale.
+Nesse layout, cada locale é um único arquivo JSON na raiz do diretório da referência. O nome do arquivo é o identificador do locale, e o conteúdo dele é o objeto de tradução daquele locale.
 
 <FolderStructure>
   <Folder name="locales" open>
-    <Folder name="erros" open>
-      <File name="pt-BR.json" />
+    <Folder name="errors" open>
       <File name="en-US.json" />
+      <File name="pt-BR.json" />
       <File name="es-ES.json" />
     </Folder>
   </Folder>
 </FolderStructure>
 
-```json filename="locales/erros/pt-BR.json"
+```json filename="locales/errors/en-US.json"
 {
-  'naoEncontrado': 'Recurso não encontrado',
-  'proibido': 'Você não tem permissão para fazer isso',
-  'timeout': 'A operação expirou após {{segundos}} segundos'
+  "notFound": "Resource not found",
+  "forbidden": "You do not have permission to do this",
+  "timeout": "The operation timed out after {{seconds}} seconds"
 }
 ```
 
-Após carregar a referência `{ name: 'erros', path: './locales/erros' }`, as chaves disponíveis no
-registro para `pt-BR` são:
+Depois de carregar a referência `{ name: 'errors', path: './locales/errors' }`, as chaves disponíveis no registro para `en-US` são:
 
-- `erros.naoEncontrado`
-- `erros.proibido`
-- `erros.timeout`
+- `errors.notFound`
+- `errors.forbidden`
+- `errors.timeout`
+
+O nível de aninhamento dentro do arquivo JSON não importa. Estruturas profundamente aninhadas são achatadas recursivamente com notação por pontos ligando cada nível.
 
 ## Estrutura de diretórios aninhados
 
-Quando uma referência contém muitos arquivos ou quando você quer organizar as traduções por funcionalidade
-dentro de um locale, pode usar subdiretórios. Cada subdiretório tem o nome de um locale e contém
-múltiplos arquivos JSON. O nome do arquivo (sem `.json`) se torna um segmento adicional de namespace.
+Quando uma referência contém muitos arquivos, ou quando você quer organizar traduções por recurso dentro de um locale, pode usar subdiretórios. Cada subdiretório recebe o nome de um locale e contém vários arquivos JSON. O nome do arquivo, sem `.json`, se torna um segmento adicional do namespace.
 
 <FolderStructure>
   <Folder name="locales" open>
     <Folder name="slash" open>
-      <Folder name="pt-BR" open>
-        <File name="ping.json" />
-        <File name="ajuda.json" />
-        <File name="config.json" />
-      </Folder>
       <Folder name="en-US" open>
         <File name="ping.json" />
-        <File name="ajuda.json" />
-        <File name="config.json" />
+        <File name="help.json" />
+        <File name="settings.json" />
+      </Folder>
+      <Folder name="pt-BR" open>
+        <File name="ping.json" />
+        <File name="help.json" />
+        <File name="settings.json" />
       </Folder>
     </Folder>
   </Folder>
 </FolderStructure>
 
-```json filename="locales/slash/pt-BR/ping.json"
+```json filename="locales/slash/en-US/ping.json"
 {
-  'name': 'ping',
-  'description': 'Verificar a latência do bot',
-  'options': {
-    'alvo': {
-      'name': 'alvo',
-      'description': 'O servidor ou serviço a verificar'
+  "name": "ping",
+  "description": "Check the bot's response time",
+  "options": {
+    "target": {
+      "name": "target",
+      "description": "The server or service to ping"
     }
   }
 }
 ```
 
-Após carregar a referência `{ name: 'slash', path: './locales/slash' }`, as chaves disponíveis para
-`pt-BR` incluem `slash.ping.name`, `slash.ping.description`, `slash.ping.options.alvo.name`, e assim
-por diante. O caminho completo é sempre: `nomeReferência.nomeArquivo.caminhoChaveJSON`.
+Depois de carregar a referência `{ name: 'slash', path: './locales/slash' }`, as chaves disponíveis para `en-US` incluem:
+
+- `slash.ping.name`
+- `slash.ping.description`
+- `slash.ping.options.target.name`
+- `slash.ping.options.target.description`
+- `slash.help.name`
+- `slash.settings.name`
+- todas as outras chaves de todos os demais arquivos
+
+O nome do arquivo `ping` se torna o segundo segmento depois de `slash`, e as chaves do JSON viram os segmentos seguintes. O caminho completo é sempre: `referenceName.fileName.jsonKeyPath`.
+
+## Misturando as duas estruturas
+
+Você pode misturar livremente layouts planos e aninhados entre referências diferentes da mesma configuração. `ReferenceLoader` detecta qual layout usar no nível da referência verificando se as entradas dentro do diretório da referência são arquivos ou subdiretórios.
+
+```typescript filename="config/i18n.config.ts"
+import { defineI18n } from '@spraxium/i18n';
+
+export const i18nConfig = defineI18n({
+  defaultLocale: 'en-US',
+  references: [
+    // Nested layout: many files per locale, organized by feature
+    { name: 'slash', path: './locales/slash' },
+    // Flat layout: simple key-value pairs in a single file per locale
+    { name: 'errors', path: './locales/errors' },
+    { name: 'system', path: './locales/system' },
+  ],
+});
+```
 
 ## Acessando chaves entre referências
 
-Todas as referências são acessíveis pela mesma API do serviço sem especificar de qual referência uma
-chave pertence. O nome da referência é parte da própria chave.
+Todas as referências ficam acessíveis pela mesma API de serviço, sem a necessidade de informar a qual referência uma chave pertence. O nome da referência já faz parte da própria chave.
 
-```typescript filename="status.handler.ts"
+```typescript filename="multi-ref.handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
 import { I18nService } from '@spraxium/i18n';
 import type { ChatInputCommandInteraction } from 'discord.js';
@@ -130,57 +163,51 @@ export class StatusHandler {
     const userId = interaction.user.id;
     const guildId = interaction.guildId ?? undefined;
 
-    // Chave da referência 'slash'
-    const titulo = this.i18n.t('slash.status.embed.titulo', locale);
+    // Keys from 'slash' reference
+    const title = this.i18n.t('slash.status.embed.title', locale);
 
-    // Chave da referência 'erros', usada quando uma verificação prévia falha
-    const erroPerm = this.i18n.t('erros.proibido', locale);
+    // Keys from 'errors' reference, used when an upstream check fails
+    const permError = this.i18n.t('errors.forbidden', locale);
 
-    // Resolução assíncrona via cadeia de preferências do usuário/servidor
-    const rodape = await this.i18n.tUser(
+    // Async resolution through user/guild preference chain
+    const footer = await this.i18n.tUser(
       userId,
-      'slash.status.embed.rodape',
+      'slash.status.embed.footer',
       {},
       guildId,
     );
 
-    await interaction.reply({ content: `${titulo}: ${rodape}` });
+    await interaction.reply({ content: `${title}: ${footer}` });
   }
 }
 ```
 
 ## Usando chaves de referência em decorators de slash
 
-Quando você adiciona um campo `i18n` a um decorator de slash, os caminhos de chave apontam para o
-mapa plano carregado, que usa o nome da referência como primeiro segmento.
+Quando você adiciona um campo _i18n_ a um decorator de slash, os caminhos de chave apontam para o mapa plano carregado. Eles usam o nome da referência como primeiro segmento, exatamente como aconteceriam em uma chamada a _t()_.
 
-```typescript filename="config.command.ts"
+```typescript filename="settings.command.ts"
 import { SlashCommand } from '@spraxium/common';
 
 @SlashCommand({
-  name: 'config',
-  description: 'Gerenciar configurações do bot',
+  name: 'settings',
+  description: 'Manage bot settings',
   i18n: {
-    name: 'slash.config.name',
-    description: 'slash.config.description',
+    name: 'slash.settings.name',
+    description: 'slash.settings.description',
   },
 })
-export class ConfigCommand {}
+export class SettingsCommand {}
 ```
 
-O lifecycle do i18n já carregou o mapa plano antes do registrador de slash ser executado. A bridge
-consulta o mapa de cada locale suportado pelo bot e passa o resultado para
-_builder.setNameLocalizations()_. O comando então aparece na interface do Discord com nomes
-localizados nativamente.
+Quando o registrador de slash executa, o lifecycle de i18n já carregou o mapa plano. A bridge lê o registro para cada locale do Discord com suporte e para o qual seu bot tenha tradução, então repassa os resultados para os métodos builder do discord.js. Com isso, o comando aparece na UI do Discord com nomes localizados nativamente para todos os locales que você forneceu.
 
-## O que acontece quando um locale está faltando
+## O que acontece quando um locale está ausente
 
-Quando uma chave é solicitada para um locale sem arquivo carregado, o registro retorna silenciosamente
-ao mapa do locale padrão. Se a chave também não existir no padrão, a string da chave bruta é retornada.
-O sistema nunca lança erro em traduções ausentes durante as requisições. Degrada de forma segura em
-produção, o que significa que você pode entregar traduções parciais: se você tem português e inglês e
-quer adicionar espanhol futuramente, pode adicionar os arquivos `es-ES` incrementalmente.
+Quando uma chave é pedida para um locale do qual o bot não tem arquivo, o registro cai silenciosamente no mapa do locale padrão. Se a chave também não existir no locale padrão, a string bruta da chave é retornada. O sistema nunca lança erro por tradução ausente em tempo de requisição. Em produção, ele degrada com segurança e emite um log em nível de trace para ajudar a encontrar lacunas durante o desenvolvimento.
+
+Na prática, isso significa que você pode publicar traduções parciais. Se já tiver inglês e português e quiser adicionar espanhol em uma versão futura, dá para acrescentar os arquivos `es-ES` aos poucos. Usuários com preferência de locale em espanhol vão receber respostas em inglês, o padrão, até que os arquivos em espanhol estejam completos. Nada quebra. O fallback só fica visível para esses usuários.
 
 ## Próxima página
 
-Continue com [Store API](/guide/i18n-store).
+Continue com [API da Store](/guide/i18n-store).

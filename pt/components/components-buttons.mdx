@@ -1,24 +1,40 @@
 ---
 title: Botões
 description: |
-  Construa botões interativos com IDs estáticos e links de URL para interações confiáveis e orientadas a eventos.
-  Aprenda os dois tipos de botão, vinculação de handlers, opções de estilo, configuração de emoji e renderização com ButtonService.
+  Monte botões interativos com IDs estáticos e links de URL para interações confiáveis e orientadas por eventos.
+  Entenda os dois tipos de botão, a ligação com handlers, as opções de estilo, a configuração de emoji e a renderização com ButtonService.
 order: 2
 category: Components
+keywords:
+  - spraxium components buttons
+  - botões no spraxium
+  - components components buttons guia
+  - components buttons bot discord
+  - components buttons typescript
+  - documentacao spraxium components
+  - botões components
+  - spraxium botões
+faq:
+  - question: "O que \"Botões\" cobre no Spraxium?"
+    answer: "Monte botões interativos com IDs estáticos e links de URL para interações confiáveis e orientadas por eventos. Entenda os dois tipos de botão, a ligação com handlers, as opções de estilo, a configuração de emoji e a renderização com ButtonService."
+  - question: "Quando devo usar \"Botões\"?"
+    answer: "Use esta pagina quando voce estiver implementando components buttons dentro da area de Components do seu bot."
+  - question: "Qual o proximo passo depois de \"Botões\"?"
+    answer: "Continue nas paginas relacionadas de Components para conectar este conceito com implementacao pratica."
 ---
 
 ## Tipos de botão
 
-O Spraxium oferece duas variantes de botão, cada uma com seu próprio decorator e caso de uso. Botões estáticos têm um _customId_ fixo e disparam um handler quando clicados. Botões de link abrem uma URL no navegador do usuário e não disparam nenhum handler.
+O Spraxium oferece duas variações de botão, e cada uma resolve um problema diferente. Botões estáticos usam um _customId_ fixo e disparam um handler quando o usuário clica. Botões de link apenas abrem uma URL no navegador e não executam nenhuma lógica no bot.
 
-Ambos os tipos são definidos como classes decoradas e renderizados através do _ButtonService_. As propriedades visuais, como label, estilo, emoji e estado desabilitado, são configuradas no decorator e armazenadas como metadados. O renderizador lê esses metadados no momento do build e produz a instância apropriada do _ButtonBuilder_ do discord.js.
+Nos dois casos, a definição nasce em uma classe decorada e a renderização passa pelo _ButtonService_. Rótulo, estilo, emoji e estado desabilitado ficam descritos no decorator como metadados. Na hora de montar o componente, o renderer lê esses metadados e produz a instância correta de _ButtonBuilder_ do discord.js.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Tipo</TableCell>
-      <TableCell header>Decorator</TableCell>
-      <TableCell header>Possui handler</TableCell>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Tem handler</TableCell>
       <TableCell header>Formato do ID</TableCell>
     </TableRow>
   </TableHead>
@@ -27,13 +43,13 @@ Ambos os tipos são definidos como classes decoradas e renderizados através do 
       <TableCell>Estático</TableCell>
       <TableCell>*@Button*</TableCell>
       <TableCell>Sim, via *@ButtonHandler*</TableCell>
-      <TableCell>String fixa de *customId*</TableCell>
+      <TableCell>String fixa em *customId*</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Link</TableCell>
       <TableCell>*@LinkButton*</TableCell>
-      <TableCell>Não (abre URL)</TableCell>
-      <TableCell>Sem *customId*, usa *url*</TableCell>
+      <TableCell>Não, só abre a URL</TableCell>
+      <TableCell>Não usa *customId*, usa *url*</TableCell>
     </TableRow>
 
   </TableBody>
@@ -41,15 +57,15 @@ Ambos os tipos são definidos como classes decoradas e renderizados através do 
 
 ## Botões estáticos
 
-Um botão estático é o componente interativo mais simples. Você decora uma classe com _@Button_, fornecendo um _customId_ e um _label_ no mínimo. O _customId_ deve ser único em todo o seu bot porque o dispatcher faz a correspondência de interações por igualdade exata de _customId_. O campo _style_ mapeia para os estilos de botão do Discord e usa `'primary'` como padrão se omitido.
+O botão estático é a forma mais direta de criar uma ação clicável. Você decora uma classe com _@Button_ e informa, no mínimo, um _customId_ e um _label_. Esse _customId_ precisa ser único no bot inteiro, porque o dispatcher faz o roteamento comparando o valor recebido com igualdade exata. O campo _style_ segue os estilos de botão do Discord e assume *primary* quando você não informa nada.
 
 <CodeTabs>
-<Tab label="Componente">
-```typescript filename="src/components/confirm.button.ts"
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/buttons/confirm.button.ts"
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm-action',
+  customId: 'confirm_action',
   label: 'Confirm',
   style: 'success',
   emoji: '✅',
@@ -57,9 +73,9 @@ import { Button } from '@spraxium/components';
 export class ConfirmButton {}
 
 ````
-</Tab>
-<Tab label="Handler">
-```typescript filename="src/components/confirm.handler.ts"
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/buttons/confirm.handler.ts"
 import { ButtonHandler, Ctx } from '@spraxium/components';
 import type { ButtonInteraction } from 'discord.js';
 import { ConfirmButton } from './confirm.button';
@@ -67,85 +83,87 @@ import { ConfirmButton } from './confirm.button';
 @ButtonHandler(ConfirmButton)
 export class ConfirmButtonHandler {
   async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
-    await interaction.reply({ content: 'Action confirmed.', ephemeral: true });
+    await interaction.reply({ content: 'Action confirmed.', flags: 'Ephemeral' });
   }
 }
 ````
 
-</Tab>
+  </Tab>
 </CodeTabs>
 
-## Referência de configuração
+A classe do handler precisa usar _@ButtonHandler_ e receber a classe do componente como argumento. É isso que cria o vínculo de metadados que o dispatcher resolve durante o bootstrap. No método _handle_, os parâmetros chegam por decorators: _@Ctx()_ injeta o _ButtonInteraction_ bruto e _@FlowContext()_ injeta o contexto quando ele existir.
 
-O objeto de configuração passado para _@Button_ controla a aparência e o comportamento do botão. Todas as propriedades exceto _customId_ e _label_ são opcionais. O _style_ aceita uma das quatro constantes nomeadas que mapeiam para os estilos visuais do Discord.
+## Referência de configuração do botão
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Propriedade</TableCell>
+      <TableCell header>Campo</TableCell>
       <TableCell header>Tipo</TableCell>
       <TableCell header>Obrigatório</TableCell>
-      <TableCell header>Padrão</TableCell>
-      <TableCell header>Descrição</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*customId*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Sim</TableCell>
-      <TableCell>-</TableCell>
-      <TableCell>Identificador único. Máximo 100 caracteres. Deve ser globalmente único.</TableCell>
+      <TableCell>Identificador único usado no roteamento da interação. Precisa ser único em todo o bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*url*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Sim, em botões de link</TableCell>
+      <TableCell>URL aberta quando o botão de link é clicado. Nenhum handler é executado.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*label*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Sim</TableCell>
-      <TableCell>-</TableCell>
-      <TableCell>Texto exibido no botão. Máximo 80 caracteres.</TableCell>
+      <TableCell>Texto exibido no corpo do botão.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*style*</TableCell>
-      <TableCell>`ButtonStyleName`</TableCell>
+      <TableCell>primary | secondary | success | danger</TableCell>
       <TableCell>Não</TableCell>
-      <TableCell>`'primary'`</TableCell>
-      <TableCell>Estilo visual. Aceita `'primary'`, `'secondary'`, `'success'` ou `'danger'`.</TableCell>
+      <TableCell>Estilo visual. Não se aplica a botões de link. O padrão é *primary*.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*emoji*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string ou objeto de emoji customizado</TableCell>
       <TableCell>Não</TableCell>
-      <TableCell>-</TableCell>
-      <TableCell>Emoji Unicode ou custom emoji no formato `<:name:id>`.</TableCell>
+      <TableCell>Emoji Unicode ou objeto de emoji customizado exibido ao lado do rótulo.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*disabled*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>boolean</TableCell>
       <TableCell>Não</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>Quando `true`, o botão aparece esmaecido e não emite cliques.</TableCell>
+      <TableCell>Quando está como *true*, o botão aparece apagado e não pode ser clicado.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Botões de link
 
-Botões de link usam _@LinkButton_ e abrem uma URL no navegador do usuário ao serem clicados. Eles não têm _customId_ e não disparam handlers. A URL deve ser um endereço HTTP ou HTTPS válido. Botões de link são renderizados com o estilo _Link_ do Discord automaticamente.
+Botões de link abrem uma URL no navegador do usuário sem disparar nenhum handler no bot. Eles são úteis quando você quer levar a pessoa para uma documentação, um painel interno ou qualquer ferramenta externa. Como o Discord exige um estilo próprio para links, o decorator _@LinkButton_ elimina _customId_ e _style_ e trabalha com o campo _url_. 
 
-```typescript filename="src/components/docs-link.button.ts"
+```typescript filename="src/components/buttons/docs-link.button.ts"
 import { LinkButton } from '@spraxium/components';
 
 @LinkButton({
-  url: 'https://spraxium.dev/guide',
-  label: 'Documentation',
-  emoji: '📚',
+  url: 'https://docs.example.com',
+  label: 'View Documentation',
+  emoji: '📘',
 })
 export class DocsLinkButton {}
 ```
 
+Você pode misturar botões de link e botões estáticos na mesma action row. Basta passar todas as classes para _ButtonService.build_, e o renderer escolhe o builder certo para cada uma com base nos metadados.
+
 ## Renderização com ButtonService
 
-O _ButtonService_ transforma metadados de decorator em action rows do discord.js. Dois métodos cobrem os diferentes cenários de build. Os action rows resultantes são passados para a propriedade _components_ da resposta de interação. O Discord limita em 5 botões por action row.
+_ButtonService_ é o serviço injetável que transforma classes decoradas em action rows do discord.js. Ele oferece dois métodos para cenários de renderização diferentes. Como tudo é lido por reflection, você não precisa de configuração extra além das classes decoradas.
 
 <Table>
   <TableHead>
@@ -158,58 +176,101 @@ O _ButtonService_ transforma metadados de decorator em action rows do discord.js
   <TableBody>
     <TableRow>
       <TableCell>*build*</TableCell>
-      <TableCell>`build(...buttons: Type[])`</TableCell>
-      <TableCell>Constrói uma action row a partir de uma ou mais classes de botão. Limitado a 5 botões.</TableCell>
+      <TableCell>build(input: Class | Class[], context?): ActionRowBuilder</TableCell>
+      <TableCell>Renderiza um ou mais botões estáticos ou de link em uma única action row. Quando o contexto é informado, ele é anexado a todos os botões.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*rowWithContext*</TableCell>
-      <TableCell>`rowWithContext(ctx: SpraxiumContext, ...buttons: Type[])`</TableCell>
-      <TableCell>Constrói uma row que anexa o ID do contexto a cada *customId* de botão via separador til.</TableCell>
+      <TableCell>rowWithContext(context, ...Classes): ActionRowBuilder</TableCell>
+      <TableCell>Atalho que chama *build* com o contexto como primeiro argumento e espalha as classes em seguida.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildMixedRow*</TableCell>
+      <TableCell>buildMixedRow(entries: \{button, items\}[], context?): Promise&lt;[ActionRowBuilder, string[]]&gt;</TableCell>
+      <TableCell>Renderiza múltiplos botões dinâmicos de tipos diferentes em uma única action row em uma única chamada. Retorna a linha e um array plano de todos os refs de payload. Misture livremente botões store-encoded e inline-encoded. Limitado automaticamente a cinco botões.</TableCell>
     </TableRow>
 
   </TableBody>
 </Table>
 
-<Callout type="tip">
-  O Discord limita cada action row a 5 botões. O serviço lança um erro se você
-  passar mais de cinco classes para *build*. Para layouts com mais botões, crie
-  múltiplas rows chamando *build* separadamente e passe cada row no array
-  *components*.
+<Callout tone="tip">
+  O Discord limita cada action row a cinco botões. O serviço lança um erro se
+  você passar mais de cinco classes para *build*. Se precisar de layouts maiores,
+  monte múltiplas linhas chamando *build* mais de uma vez e envie cada linha
+  separadamente no array *components*.
 </Callout>
 
-## Referência de estilos de botão
+```typescript filename="src/commands/moderation.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ButtonService, ContextService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfirmButton } from '../components/buttons/confirm.button';
+import { CancelButton } from '../components/buttons/cancel.button';
+import { DocsLinkButton } from '../components/buttons/docs-link.button';
+import { ModerationCommand } from './moderation.command';
+
+@SlashCommandHandler(ModerationCommand)
+export class ModerationCommandHandler {
+  constructor(
+    private readonly buttons: ButtonService,
+    private readonly context: ContextService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ctx = await this.context.create({ targetUserId: '123456' });
+    const actionRow = this.buttons.rowWithContext(
+      ctx,
+      ConfirmButton,
+      CancelButton,
+    );
+    const linkRow = this.buttons.build(DocsLinkButton);
+
+    await interaction.reply({
+      content: 'Review the moderation action below.',
+      components: [actionRow, linkRow],
+    });
+  }
+}
+```
+
+## Referência de estilos do botão
+
+O campo _style_ aceita um entre quatro valores nomeados que mapeiam para o enum _ButtonStyle_ do Discord. Cada estilo muda a cor e o peso visual da ação. Botões de link sempre usam o estilo de link automaticamente e não aceitam o campo _style_.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Estilo</TableCell>
-      <TableCell header>Aparência</TableCell>
-      <TableCell header>Caso de uso típico</TableCell>
+      <TableCell header>Nome</TableCell>
+      <TableCell header>Estilo no Discord</TableCell>
+      <TableCell header>Cor</TableCell>
+      <TableCell header>Quando usar</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`'primary'`</TableCell>
-      <TableCell>Blurple (azul do Discord)</TableCell>
-      <TableCell>
-        Ações principais, botão padrão para a maioria das interações.
-      </TableCell>
+      <TableCell>primary</TableCell>
+      <TableCell>*ButtonStyle.Primary*</TableCell>
+      <TableCell>Azul Discord</TableCell>
+      <TableCell>Ação padrão e interações de uso geral.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'secondary'`</TableCell>
+      <TableCell>secondary</TableCell>
+      <TableCell>*ButtonStyle.Secondary*</TableCell>
       <TableCell>Cinza</TableCell>
-      <TableCell>Ações secundárias, cancelar, dispensar.</TableCell>
+      <TableCell>Ações com menos destaque, como cancelar ou fechar.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'success'`</TableCell>
+      <TableCell>success</TableCell>
+      <TableCell>*ButtonStyle.Success*</TableCell>
       <TableCell>Verde</TableCell>
-      <TableCell>Ações de confirmação, aprovação, ativar.</TableCell>
+      <TableCell>Confirmações e ações com resultado positivo.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'danger'`</TableCell>
+      <TableCell>danger</TableCell>
+      <TableCell>*ButtonStyle.Danger*</TableCell>
       <TableCell>Vermelho</TableCell>
       <TableCell>
-        Ações destrutivas, excluir, banir, ações irreversíveis.
+        Ações destrutivas ou irreversíveis, como banir ou excluir.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -217,18 +278,413 @@ O _ButtonService_ transforma metadados de decorator em action rows do discord.js
 
 ## Registro no módulo
 
-Apenas os handlers precisam ser registrados, e eles vão no array _handlers_ do módulo de feature. Classes de componente decoradas com _@Button_ ou _@LinkButton_ são somente metadados e nunca são adicionadas a nenhum módulo. O dispatcher lê as configurações a partir da referência da classe armazenada dentro de cada decorator _@ButtonHandler_, sem precisar instanciar a classe do componente.
+Só as classes de handler precisam ser registradas, e elas entram no array _handlers_ do módulo da sua feature. As classes de componente decoradas com _@Button_ ou _@LinkButton_ servem apenas como metadados e nunca são adicionadas a módulo nenhum. O dispatcher lê o _customId_ e a configuração direto da referência de classe armazenada em cada decorator _@ButtonHandler_, sem precisar instanciar o componente pela DI.
 
-```typescript filename="src/components/components.module.ts"
-import { Module } from '@spraxium/core';
-import { ConfirmButtonHandler } from './confirm.handler';
-import { SelectItemHandler } from './select-item.handler';
+```typescript filename="src/modules/moderation/moderation.module.ts"
+import { Module } from '@spraxium/common';
+import { ConfirmButtonHandler } from './components/confirm.handler';
+import { CancelButtonHandler } from './components/cancel.handler';
+import { UserBanButtonHandler } from './components/user-ban.handler';
 
 @Module({
-  handlers: [ConfirmButtonHandler, SelectItemHandler],
+  handlers: [ConfirmButtonHandler, CancelButtonHandler, UserBanButtonHandler],
 })
-export class ButtonsModule {}
+export class ModerationModule {}
 ```
+
+## Botões dinâmicos
+
+Botões estáticos usam um _customId_ fixo, conhecido já na definição da classe. Botões dinâmicos viram essa lógica de cabeça para baixo: o rótulo, o estilo e os dados carregados pelo botão passam a ser calculados a cada renderização, a partir de um payload qualquer. O framework gera o ID automaticamente e embute nele uma referência para o payload armazenado. Quando o usuário clica, o handler recupera esse payload original no store.
+
+O sistema de botões dinâmicos tem três peças: a classe com _@DynamicButton_, que define o componente e sua lógica de renderização; a classe com _@DynamicButtonHandler_, que trata o clique; e o store de payload, que faz a ponte entre uma ponta e outra.
+
+### Como definir um botão dinâmico
+
+Uma classe de botão dinâmico usa _@DynamicButton_ e precisa expor um método estático `render(item)` que retorne um `ButtonRenderConfig`. O _baseId_ da configuração funciona como prefixo no matching das interações recebidas, e o framework acrescenta automaticamente a referência do payload. O _payloadTtl_ é opcional e representa o tempo de vida em segundos. Quando esse tempo expira, cliques posteriores deixam de chegar ao handler. O padrão é 600 segundos, ou 10 minutos.
+
+<CodeTabs>
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/buttons/book-buy.button.ts"
+import { DynamicButton } from '@spraxium/components';
+import type { ButtonRenderConfig } from '@spraxium/components';
+
+interface Book {
+  id: string;
+  title: string;
+}
+
+@DynamicButton({ baseId: 'buy-book', payloadTtl: 300 })
+export class BuyBookButton {
+  static render(book: Book): ButtonRenderConfig {
+    return {
+      label: `Buy "${book.title}"`,
+      style: 'success',
+    };
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/buttons/book-buy.handler.ts"
+import { DynamicButtonHandler, Ctx, ButtonPayload, PayloadRef } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { PayloadHandle } from '@spraxium/components';
+import { BuyBookButton } from './book-buy.button';
+
+interface Book {
+  id: string;
+  title: string;
+}
+
+@DynamicButtonHandler(BuyBookButton)
+export class BuyBookButtonHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonPayload() book: Book,
+    @PayloadRef() ref: PayloadHandle,
+  ): Promise<void> {
+    await ref.consume(); // one-shot; prevent double purchase
+    await this.orders.create(book.id, interaction.user.id);
+    await interaction.reply({ content: `Purchased "${book.title}"!`, flags: 'Ephemeral' });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+### Como renderizar um botão dinâmico
+
+Para renderizar um único botão dinâmico em uma action row, chame `ButtonService.build` passando a classe do componente e o objeto de payload. O serviço chama `render(item)`, grava o payload no store com TTL e devolve um _ActionRowBuilder_ com o custom ID gerado já embutido.
+
+```typescript filename="src/commands/shop.command-handler.ts"
+import { SlashCommandHandler, Ctx } from '@spraxium/common';
+import { ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { BuyBookButton } from '../components/buttons/book-buy.button';
+import { ShopCommand } from './shop.command';
+
+@SlashCommandHandler(ShopCommand)
+export class ShopCommandHandler {
+  constructor(private readonly buttons: ButtonService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const book = await this.catalog.getBook('978-0-7432-7356-5');
+    const row = this.buttons.build(BuyBookButton, book);
+
+    await interaction.reply({
+      content: `Found **${book.title}**`,
+      components: [row],
+    });
+  }
+}
+```
+
+Para combinar múltiplos botões dinâmicos de tipos diferentes na mesma linha, use `ButtonService.buildMixedRow`. Ele recebe um array de entradas `{ button, items }` e retorna um único `ActionRowBuilder` junto a um array plano de todos os refs de payload - um por botão store-encoded, na ordem de declaração. Botões inline-encoded não produzem nenhum ref.
+
+```typescript filename="src/commands/open-ticket.command-handler.ts"
+import { Ctx, SlashCommandHandler, SlashStringOption } from '@spraxium/common';
+import { ButtonService } from '@spraxium/components';
+import { type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { OpenTicketCommand } from '../commands/open-ticket.command';
+import { AssignTicketButton } from '../components/assign-ticket-button.component';
+import { CloseTicketButton } from '../components/close-ticket-button.component';
+import { TicketsRepository } from '../tickets.repository';
+
+@SlashCommandHandler(OpenTicketCommand)
+export class OpenTicketHandler {
+  constructor(
+    private readonly buttons: ButtonService,
+    private readonly tickets: TicketsRepository,
+  ) {}
+
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashStringOption('subject') subject: string,
+  ): Promise<void> {
+    const ticket = await this.tickets.create({
+      subject,
+      openedBy: interaction.user.id,
+    });
+
+    // buildMixedRow renderiza os dois botões em uma linha e coleta todos os refs do store.
+    // AssignTicketButton é store-encoded (payload persistido, ref rastreado para revogação).
+    // CloseTicketButton é inline-encoded (id do ticket no customId, sem ref).
+    const [row, refs] = await this.buttons.buildMixedRow([
+      { button: AssignTicketButton, items: [ticket] },
+      { button: CloseTicketButton, items: [ticket] },
+    ]);
+
+    // Persista cada ref para poder revogá-lo quando o ticket for fechado externamente.
+    await Promise.all(refs.map((ref) => this.tickets.addAssignRef(ticket.id, ref)));
+
+    await interaction.reply({
+      content: [
+        `## 🎫 Ticket \`${ticket.id}\``,
+        `**Subject:** ${ticket.subject}`,
+        `**Opened by:** <@${ticket.openedBy}>`,
+      ].join('\n'),
+      components: [row],
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+```
+
+### Decorators de parâmetro em handlers dinâmicos
+
+Handlers de botão dinâmico aceitam três decorators de parâmetro dentro do método `handle()`.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Injeta</TableCell>
+      <TableCell header>Observações</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@Ctx()*</TableCell>
+      <TableCell>ButtonInteraction</TableCell>
+      <TableCell>O objeto bruto de interação do discord.js.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ButtonPayload()*</TableCell>
+      <TableCell>O payload armazenado durante a renderização</TableCell>
+      <TableCell>Tipa o parâmetro com o mesmo tipo usado no método de render. O framework desserializa o valor salvo para você.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@PayloadRef()*</TableCell>
+      <TableCell>PayloadHandle</TableCell>
+      <TableCell>Um handle para controlar o ciclo de vida. Chame o consume do ref com await para apagar o payload de forma definitiva e impedir que cliques seguintes reexecutem o handler.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="tip">
+  _@ButtonPayload()_ e _@PayloadRef()_ funcionam de forma independente. Você
+  pode usar um, o outro, ou os dois juntos. Use @PayloadRef() sozinho quando
+  só precisar consumir o payload. Combine os dois quando precisar dos dados e,
+  ao mesmo tempo, quiser bloquear uma segunda execução.
+</Callout>
+
+### Referência de configuração do botão dinâmico
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Obrigatório</TableCell>
+      <TableCell header>Descrição</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*baseId*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Prefixo usado na geração dos custom IDs. Precisa ser único entre todos os botões dinâmicos do bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*payloadTtl*</TableCell>
+      <TableCell>number, em segundos</TableCell>
+      <TableCell>Não</TableCell>
+      <TableCell>Tempo até o payload expirar no store. Cliques após esse prazo não chegam ao handler. O padrão é 600, ou 10 minutos.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Registro no módulo
+
+Handlers de botão dinâmico seguem exatamente a mesma regra de registro dos handlers estáticos. Registre só a classe do handler no array _handlers_ do módulo. A classe do componente decorada com _@DynamicButton_ serve apenas como metadado e não precisa aparecer em módulo nenhum.
+
+```typescript filename="src/modules/shop/shop.module.ts"
+import { Module } from '@spraxium/common';
+import { BuyBookButtonHandler } from './components/book-buy.handler';
+
+@Module({
+  handlers: [BuyBookButtonHandler],
+})
+export class ShopModule {}
+```
+
+<Callout tone="tip">
+  _@DynamicStringSelect_ segue a mesma ideia para menus de seleção: você define
+  uma classe com *@DynamicStringSelect*, expõe um método estático render(items)
+  que retorna um SelectRenderConfig e cria um handler com *@DynamicSelectHandler*.
+  Nesse caso, use *@SelectPayload()* no lugar de *@ButtonPayload()* para injetar
+  o payload salvo.
+</Callout>
+
+### Codificação de parâmetros inline
+
+Por padrão, os botões dinâmicos armazenam seu payload em um store do lado do servidor com TTL e embutem apenas uma referência opaca no custom ID. Essa é a escolha certa para objetos grandes ou complexos.
+
+Para dados pequenos e primitivos - como o ID de um único registro de banco de dados - você pode usar `encoding: 'inline'` em vez disso. O framework codifica os parâmetros diretamente na string do custom ID, eliminando qualquer dependência do store de payload e do TTL completamente. Os dados vivem na mensagem do Discord enquanto essa mensagem existir.
+
+<Callout tone="warning">
+  O Discord impõe um limite rígido de **100 caracteres** em custom IDs. O
+  framework mede a string codificada no momento da renderização e lança
+  `DynamicButtonInlinePayloadTooLargeError` se o resultado ultrapassar esse
+  limite. Mantenha os parâmetros inline pequenos: um ou dois IDs curtos ou
+  flags. Use a codificação baseada em store para qualquer coisa maior.
+</Callout>
+
+<CodeTabs>
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/buttons/approve-suggestion.button.ts"
+import { DynamicButton } from '@spraxium/components';
+import type { ButtonRenderConfig } from '@spraxium/components';
+
+interface Suggestion {
+  id: number;
+  userId: string;
+}
+
+@DynamicButton({ baseId: 'approve-suggestion', encoding: 'inline' })
+export class ApproveSuggestionButton {
+  static render(s: Suggestion): ButtonRenderConfig {
+    return {
+      label: 'Approve',
+      style: 'success',
+      params: { id: s.id },
+    };
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/buttons/approve-suggestion.handler.ts"
+import { DynamicButtonHandler, Ctx, ButtonParams } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { ApproveSuggestionButton } from './approve-suggestion.button';
+
+@DynamicButtonHandler(ApproveSuggestionButton)
+export class ApproveSuggestionHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonParams() params: { id: number },
+  ): Promise<void> {
+    const suggestion = await this.db.suggestions.findById(params.id);
+    await interaction.reply({ content: `Sugestão #${params.id} aprovada!`, flags: 'Ephemeral' });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Note que `@ButtonParams()` substitui `@ButtonPayload()` para botões com codificação inline. Usar `@ButtonPayload()` ou `@PayloadRef()` em um handler inline causa um erro no bootstrap. O tipo de `params` é inferido do campo `params` retornado por `render()`, então o TypeScript conhece o formato sem nenhum casting manual.
+
+O custom ID codificado para o exemplo acima tem a aparência `approve-suggestion~id=42`. Os valores são codificados em URL para lidar com caracteres especiais. Números e booleanos são convertidos de volta aos seus tipos originais na decodificação.
+
+### Revogando payloads externamente
+
+Quando o payload de um botão dinâmico vive no store, o handler pode consumi-lo com `ref.consume()` depois de tratar o clique. Mas alguns fluxos precisam revogar um payload antes de qualquer clique ocorrer - por exemplo, fechar um ticket via slash command deveria invalidar imediatamente os botões de aprovar/rejeitar no canal do admin.
+
+Injete `ButtonPayloadService` para revogar um ou mais refs de payload a partir de qualquer serviço, handler de comando ou listener.
+
+**Armazenando os refs no momento da renderização**
+
+`ButtonService.buildMixedRow` retorna uma tupla `[ActionRowBuilder, string[]]`. O array de refs contém uma entrada por botão store-encoded na ordem de declaração. Botões inline-encoded não produzem nenhum ref. Salve cada ref no banco de dados para poder revogá-lo depois:
+
+```typescript filename="src/repositories/tickets.repository.ts"
+interface TicketRecord {
+  id: string;
+  subject: string;
+  openedBy: string;
+  assignRefs: string[]; // refs de payload para todos os botões store-encoded
+  status: 'open' | 'closed';
+}
+
+export class TicketsRepository {
+  async create(data: Pick<TicketRecord, 'subject' | 'openedBy'>): Promise<TicketRecord> {
+    // INSERT INTO tickets (...)
+    return { id: 'ticket-uuid', assignRefs: [], status: 'open', ...data };
+  }
+
+  async addAssignRef(ticketId: string, ref: string): Promise<void> {
+    // UPDATE tickets SET assign_refs = JSON_ARRAY_APPEND(assign_refs, '$', ?) WHERE id = ?
+  }
+
+  async findOpenById(ticketId: string): Promise<TicketRecord | null> {
+    // SELECT ... WHERE id = ? AND status = 'open'
+    return null;
+  }
+}
+```
+
+Depois, quando o ticket for fechado de fora de um handler, carregue o registro e revogue todos os refs:
+
+```typescript filename="src/commands/close-ticket.command-handler.ts"
+const ticket = await this.tickets.findOpenById(ticketId);
+
+if (ticket?.assignRefs.length) {
+  await this.payloads.revokeMany(ticket.assignRefs);
+}
+```
+
+**Revogando quando o fluxo termina externamente**
+
+```typescript filename="src/commands/close-ticket.command-handler.ts"
+import { SlashCommandHandler, Ctx, SlashStringOption } from '@spraxium/common';
+import { ButtonPayloadService } from '@spraxium/components';
+import { type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { CloseTicketCommand } from '../commands/close-ticket.command';
+import { TicketsRepository } from '../tickets.repository';
+
+@SlashCommandHandler(CloseTicketCommand)
+export class CloseTicketHandler {
+  constructor(
+    private readonly payloads: ButtonPayloadService,
+    private readonly tickets: TicketsRepository,
+  ) {}
+
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashStringOption('ticket-id') ticketId: string,
+  ): Promise<void> {
+    const ticket = await this.tickets.findOpenById(ticketId);
+
+    if (!ticket) {
+      return interaction.reply({ content: 'Ticket não encontrado ou já fechado.', flags: MessageFlags.Ephemeral });
+    }
+
+    // Revogar todos os refs de botões store-encoded - qualquer clique posterior receberá
+    // a mensagem de expiração configurada em vez de chegar ao handler.
+    if (ticket.assignRefs.length) {
+      await this.payloads.revokeMany(ticket.assignRefs);
+    }
+
+    await this.tickets.close(ticketId);
+    await interaction.reply({ content: `Ticket \`${ticketId}\` fechado.`, flags: MessageFlags.Ephemeral });
+  }
+}
+```
+
+**Referência da API de `ButtonPayloadService`**
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Assinatura</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*revoke*</TableCell>
+      <TableCell>`revoke(ref: string): Promise\<void\>`</TableCell>
+      <TableCell>Apaga um único payload do store. Após a revogação, qualquer clique em um botão que carregue esse ref recebe a mensagem de expiração. Resolve em silêncio se o ref não existir mais.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*revokeMany*</TableCell>
+      <TableCell>`revokeMany(refs: string[]): Promise\<void\>`</TableCell>
+      <TableCell>Revogação em lote. Útil para limpar múltiplos botões de uma vez, como todos os botões de ação de um ticket resolvido. Refs ausentes são ignorados em silêncio.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
 
 ## Próxima página
 

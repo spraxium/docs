@@ -1,23 +1,45 @@
 ---
-title: Visão Geral de Listeners
+title: Visão Geral dos Listeners
 description: |
-  Listeners reagem a eventos do Discord como mensagens, entrada de membros e prontidão do client.
-  Aprenda o modelo de listeners, como eles se conectam a eventos e como registrá-los em módulos.
+  Listeners reagem a eventos do Discord, como mensagens, entradas de membros e prontidão do client.
+  Entenda o modelo de listener, como ele se conecta aos eventos e como é registrado nos módulos.
 order: 1
 category: Listeners
+keywords:
+  - spraxium listeners overview
+  - visão geral dos listeners no spraxium
+  - listeners listeners overview guia
+  - listeners overview bot discord
+  - listeners overview typescript
+  - documentacao spraxium listeners
+  - visão geral dos listeners listeners
+  - spraxium visão geral dos listeners
+faq:
+  - question: "O que \"Visão Geral dos Listeners\" cobre no Spraxium?"
+    answer: "Listeners reagem a eventos do Discord, como mensagens, entradas de membros e prontidão do client. Entenda o modelo de listener, como ele se conecta aos eventos e como é registrado nos módulos."
+  - question: "Quando devo usar \"Visão Geral dos Listeners\"?"
+    answer: "Use esta pagina quando voce estiver implementando listeners overview dentro da area de Listeners do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão Geral dos Listeners\"?"
+    answer: "Continue nas paginas relacionadas de Listeners para conectar este conceito com implementacao pratica."
 ---
 
 ## O que é um listener
 
-Um listener é uma classe que reage a eventos do Discord. Quando algo acontece no Discord, como um usuário enviando uma mensagem, um membro entrando em um servidor, ou o bot terminando seu login, o Discord.js dispara um evento. Uma classe listener no Spraxium captura esse evento e roda seu código em resposta. Sem listeners, seu bot não conseguiria responder a nada que acontece fora de comandos explícitos.
+Listener é uma classe que reage a eventos do Discord. Quando algo acontece, como uma pessoa enviar mensagem, um membro entrar no servidor ou o bot terminar o login, o Discord.js dispara um evento. No Spraxium, a classe de listener captura esse evento e executa o seu código em resposta. Sem listeners, o bot ficaria cego para tudo que acontece fora de comandos explícitos.
 
-A diferença chave entre listeners e comandos é o que os aciona. Comandos sao acionados por um usuário digitando um slash command ou um prefix command. Listeners sao acionados por eventos do Discord que acontecem em background, como mensagens sendo enviadas, membros entrando ou saindo, reações sendo adicionadas, ou o client ficando pronto. Alguns desses eventos envolvem interações de usuário que podem receber respostas, e outros sao eventos de background que acontecem silenciosamente.
+A principal diferença entre listeners e comandos está no gatilho. Comandos são disparados quando alguém executa um slash command ou um comando prefixado. Listeners são disparados por eventos de fundo do Discord, como envio de mensagens, entrada ou saída de membros, reações adicionadas ou o client ficando pronto. Alguns desses eventos permitem resposta ao usuário. Outros acontecem silenciosamente, sem qualquer reply.
 
-Listeners no Spraxium não sao callbacks crus. Sao classes completas gerenciadas pelo container de injeção de dependencia, registradas em módulos e conectadas ao client do Discord automaticamente durante o bootstrap. Isso significa que suas classes listener podem receber serviços injetados, participar do pipeline de guards pra eventos suportados e se beneficiar do mesmo tratamento de exceptions que comandos usam.
+No Spraxium, listeners não são callbacks soltos. Eles são classes completas, gerenciadas pelo container de injeção de dependência, registradas em módulos e ligadas automaticamente ao cliente do Discord durante o bootstrap. Isso significa que um listener pode receber serviços por injeção, participar do pipeline de guards quando o evento suporta isso e aproveitar o mesmo tratamento de exceções usado pelos comandos.
 
-## Um exemplo básico de listener
+## Quando listener é a ferramenta certa
 
-Aqui estao dois listeners que mostram os dois modos de binding. O primeiro usa _@Once_ pra reagir ao _ClientReady_ uma única vez quando o bot conecta. O segundo usa _@On_ pra reagir a todo evento _MessageCreate_ durante toda a vida do bot. Juntos, eles cobrem os dois padrões mais comuns que você vai usar.
+Use um listener quando a ação nasce de um evento do Discord, e não de um comando pedido diretamente por alguém. Bons exemplos incluem fluxos de boas-vindas quando um membro entra, analytics em _MessageCreate_, atualização de cache ao mudar cargos ou tarefas de inicialização ligadas ao evento _ClientReady_.
+
+Se a ação deve acontecer porque o usuário pediu aquilo explicitamente, prefira um slash command, comando prefixado, handler de botão, select ou modal. Isso mantém bem separadas as rotas dirigidas por evento e as rotas dirigidas por intenção explícita do usuário.
+
+## Exemplo básico de listener
+
+Aqui estão dois listeners mostrando os dois modos de binding. O primeiro usa _@Once_ para reagir a _ClientReady_ uma única vez quando o bot conecta. O segundo usa _@On_ para reagir a todo evento _MessageCreate_ ao longo de toda a vida do processo. Juntos, eles cobrem os dois padrões mais comuns do dia a dia.
 
 <CodeTabs>
   <Tab label="Ready (Once)" language="typescript">
@@ -58,11 +80,11 @@ export class MessageCreateListener {
   </Tab>
 </CodeTabs>
 
-Note que o parâmetro do método recebe o payload do evento do Discord.js diretamente. Pra _ClientReady_, o payload e o objeto _Client_. Pra _MessageCreate_, o payload e o objeto _Message_. Cada evento do Discord tem seu próprio tipo de payload, e seu método recebe o que o Discord.js fornece pra aquele evento específico.
+Repare que o parâmetro do método recebe diretamente o payload do evento vindo do Discord.js. Em _ClientReady_, esse payload é o objeto _Client_. Em _MessageCreate_, ele é um _Message_. Cada evento do Discord tem seu próprio tipo de payload, e o seu método recebe exatamente o que o Discord.js fornece naquele evento.
 
 ## Registrando listeners em um módulo
 
-Listeners não se ativam apenas por existirem no seu código fonte. Você precisa registrá-los no array _listeners_ de um módulo pra que o framework saiba sobre eles e possa conecta-los ao client do Discord durante o bootstrap. Sem esse registro, sua classe listener sera completamente ignorada.
+Listeners não passam a funcionar só porque existem no código-fonte. Você precisa registrá-los no array _listeners_ de um módulo para que o framework saiba da existência deles e consiga ligá-los ao cliente do Discord durante o bootstrap. Sem esse registro, a classe de listener é simplesmente ignorada.
 
 ```typescript filename="src/events/events.module.ts"
 import { Module } from '@spraxium/common';
@@ -75,13 +97,13 @@ import { MessageCreateListener } from './listeners/message-create.listener';
 export class EventsModule {}
 ```
 
-O módulo em si deve ser importado pelo seu módulo raiz ou outro módulo na cadeia de imports. O framework processa módulos durante o bootstrap, resolve os arrays de listeners, instancia cada classe listener através do container de DI e então os conecta ao client do Discord. Se um listener depende de um serviço, esse serviço deve estar disponível no escopo de providers do módulo ou exportado de um módulo importado, assim como qualquer outra dependencia injetável.
+O próprio módulo precisa ser importado pelo módulo raiz ou por outro módulo dentro da cadeia de imports. Durante o bootstrap, o framework processa os módulos, resolve seus arrays de listeners, instancia cada classe pelo container de DI e só então cria os bindings no cliente do Discord. Se um listener depender de um serviço, esse serviço precisa estar no escopo de providers do módulo ou exportado por um módulo importado, como acontece com qualquer dependência injetável.
 
-## Como o bootstrap conecta listeners
+## Como o bootstrap conecta os listeners
 
-O processo de bootstrap trata listeners em uma sequencia específica que importa pra entender quando seu listener fica ativo. Primeiro, o framework le o array _listeners_ de cada módulo. Segundo, instancia cada classe listener pelo container de DI, resolvendo dependencias de construtor. Terceiro, o _ListenerRegistry_ interno escaneia cada instancia procurando métodos decorados com _@On_ ou _@Once_ e os agrupa por nome de evento. Quarto, o _ListenerBinder_ pega esses grupos e chama o método _on_ ou _once_ do client Discord.js pra criar os bindings reais. Por fim, quando um evento do Discord dispara, o _ListenerInvoker_ chama cada handler registrado pra aquele evento.
+O bootstrap lida com listeners em uma sequência específica, e essa ordem ajuda a entender quando o seu listener fica realmente ativo. Primeiro, o framework lê o array _listeners_ de cada módulo. Depois, instancia cada classe com o container de DI, resolvendo dependências de construtor. Em seguida, o _ListenerRegistry_ interno varre as instâncias em busca de métodos decorados com _@On_ ou _@Once_ e agrupa tudo por nome de evento. Depois disso, o _ListenerBinder_ pega esses grupos e chama os métodos _on_ ou _once_ do cliente do Discord.js para criar os bindings reais. Por fim, quando um evento do Discord dispara, o _ListenerInvoker_ chama cada handler registrado para aquele evento.
 
-<FolderStructure title="Layout típico de módulo de listeners">
+<FolderStructure title="Estrutura típica de módulo de listeners">
   <Folder name="src" open>
     <Folder name="modules" open>
       <Folder name="events" open>
@@ -96,14 +118,23 @@ O processo de bootstrap trata listeners em uma sequencia específica que importa
   </Folder>
 </FolderStructure>
 
-Essa estrutura mantem todas as classes listener em uma pasta dedicada e o arquivo de módulo na raiz de events. Conforme seu bot cresce, você pode adicionar mais arquivos de listener sem mudar a estrutura de pastas. Cada listener trata um evento, e o arquivo de módulo e o único lugar que declara quais listeners estao ativos.
+Essa organização mantém todas as classes de listener em uma pasta dedicada e o arquivo do módulo na raiz da área de eventos. Conforme o bot cresce, você pode adicionar mais arquivos sem precisar reorganizar a estrutura toda. Cada listener trata um único evento, e o módulo vira o ponto central que declara o que está ativo.
+
+## Erros comuns para evitar
+
+1. Colocar lógica de negócio pesada dentro do listener, em vez de delegar para um serviço.
+2. Esquecer os gateway intents exigidos e achar que o binding do listener está quebrado.
+3. Registrar a classe do listener, mas não importar o módulo dono dela para o grafo ativo.
+4. Passar objetos inteiros do Discord.js para serviços quando só alguns IDs já resolveriam.
 
 <Callout tone="info" title="Uma classe por evento">
-  Cada classe listener é vinculada a exatamente um evento do Discord através do
-  decorator Listener. Se você precisa ouvir múltiplos eventos, crie classes
-  listener separadas pra cada um. Isso mantem cada classe focada e fácil de
-  encontrar ao debugar.
+  Cada classe de listener é vinculada a exatamente um evento do Discord por
+  meio do decorator Listener. Se você precisar ouvir vários eventos, crie uma
+  classe separada para cada um. Isso mantém a classe focada e fácil de localizar
+  quando surgir um bug.
 </Callout>
+
+Essa separação fica valiosa muito rápido em bots maiores. A camada de eventos continua fácil de inspecionar, e a lógica de domínio segue reaproveitável em outros pontos de entrada, como comandos, rotas HTTP ou jobs agendados.
 
 ## Próxima página
 

@@ -1,66 +1,78 @@
 ---
-title: Signal Client para Emissores de Serviço
+title: Signal Client para emissores de serviço
 description: |
-  Use o Signal Client para publicar eventos confiáveis e assinados com HMAC no runtime do seu bot.
-  Aprenda o contrato do construtor, rotação de pool de webhooks, estrategias de rate-limit e padrões práticos de emissão.
+  Use o Signal Client para publicar eventos confiáveis, assinados com HMAC, no runtime do seu bot.
+  Aprenda o contrato do construtor, a rotação do pool de webhooks, estratégias para rate limit e padrões práticos de emissão.
 order: 1
 category: "@spraxium/signal-client"
+keywords:
+  - spraxium signal client basics
+  - signal client para emissores de serviço no spraxium
+  - "@spraxium/signal client signal client basics guia"
+  - signal client basics bot discord
+  - signal client basics typescript
+  - documentacao spraxium @spraxium/signal client
+  - signal client para emissores de serviço @spraxium/signal client
+  - spraxium signal client para emissores de serviço
+faq:
+  - question: "O que \"Signal Client para emissores de serviço\" cobre no Spraxium?"
+    answer: "Use o Signal Client para publicar eventos confiáveis, assinados com HMAC, no runtime do seu bot. Aprenda o contrato do construtor, a rotação do pool de webhooks, estratégias para rate limit e padrões práticos de emissão."
+  - question: "Quando devo usar \"Signal Client para emissores de serviço\"?"
+    answer: "Use esta pagina quando voce estiver implementando signal client basics dentro da area de @spraxium/signal client do seu bot."
+  - question: "Qual o proximo passo depois de \"Signal Client para emissores de serviço\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/signal client para conectar este conceito com implementacao pratica."
 ---
 
 ## Papel do emissor
 
-O _Signal Client_ existe para publicar eventos de serviços externos em uma fronteira de integração orientada ao bot. Mesmo quando o emissor e um endpoint de API, um worker cron ou uma Server Action do Next.js, o objetivo operacional e sempre o mesmo: acionar comportamento do bot de forma controlada e auditável. O pacote cuida da construção de envelope, assinatura HMAC, rotação de webhooks e absorção de rate-limit para que o código produtor foque na lógica de negócio.
+_Signal Client_ existe para publicar eventos de serviços externos em uma fronteira de integração orientada a bots. Mesmo quando o emissor é um endpoint de API, um cron worker ou uma Server Action em Next.js, o objetivo operacional é sempre o mesmo: influenciar o comportamento do bot de forma controlada e auditável. O pacote cuida da construção do envelope, da assinatura HMAC, da rotação de webhooks e da absorção de rate limit para que o código produtor continue focado na lógica de negócio.
 
-Essa perspectiva evita que times transformem o client em uma ferramenta de mensageria generica. O client e mais valioso quando seus serviços precisam de uma forma segura e consistente de notificar domínios do bot sobre mudanças de estado sem se acoplar a internals do gateway Discord.
+Essa perspectiva evita que a equipe transforme o client em uma ferramenta genérica de envio de mensagens. O client é mais valioso quando seus serviços precisam de uma forma segura e consistente de avisar domínios do bot sobre mudanças de estado sem acoplamento aos internals do gateway do Discord.
 
 ## Contrato do construtor
 
-O _SignalClient_ recebe um único objeto _SignalClientConfig_ e um _FallbackStore_ customizado opcional. O construtor cria um _SignalEnvelopeBuilder_ interno para assinatura HMAC, um _WebhookPool_ para entrega round-robin e, quando habilitado, um _FallbackWorker_ que inicia imediatamente. Todo campo além de `webhookUrls` e `hmacSecret` possui um default sensato, então uma configuração mínima só requer esses dois valores.
+_SignalClient_ recebe um único objeto _SignalClientConfig_ e, opcionalmente, um _FallbackStore_ customizado. O construtor cria internamente um _SignalEnvelopeBuilder_ para assinatura HMAC, um _WebhookPool_ para entrega em round-robin e, quando habilitado, um _FallbackWorker_ que é iniciado imediatamente. Todo campo além de `webhookUrls` e `hmacSecret` possui um valor padrão sensato, então uma configuração mínima precisa apenas desses dois valores.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Campo</TableCell>
       <TableCell header>Tipo</TableCell>
-      <TableCell header>Default</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*webhookUrls*</TableCell>
-      <TableCell>`string[]`</TableCell>
+      <TableCell>string[]</TableCell>
       <TableCell>obrigatório</TableCell>
       <TableCell>
-        Uma ou mais URLs de webhook Discord apontando para o canal privado de
-        signal. O pool rotaciona entre elas em ordem round-robin.
+        Uma ou mais URLs de webhook do Discord apontando para o canal privado de signal. O pool alterna entre elas em round-robin.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*hmacSecret*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>obrigatório</TableCell>
       <TableCell>
-        Segredo compartilhado HMAC-SHA256. Deve corresponder ao *hmacSecret*
-        configurado em *@spraxium/signal* no lado do bot.
+        Segredo compartilhado HMAC-SHA256. Precisa coincidir com o *hmacSecret* configurado em *@spraxium/signal* no lado do bot.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*rateLimitStrategy*</TableCell>
-      <TableCell>`'skip' | 'wait'`</TableCell>
-      <TableCell>`'skip'`</TableCell>
+      <TableCell>skip | wait</TableCell>
+      <TableCell>skip</TableCell>
       <TableCell>
-        Comportamento quando todos os webhooks estão rate-limited
-        simultaneamente. Veja a seção de estrategias abaixo.
+        Comportamento quando todos os webhooks ficam limitados ao mesmo tempo. Veja a seção de estratégias abaixo.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*fallback*</TableCell>
-      <TableCell>`FallbackConfig`</TableCell>
-      <TableCell>`undefined`</TableCell>
+      <TableCell>FallbackConfig</TableCell>
+      <TableCell>undefined</TableCell>
       <TableCell>
-        Habilita sistema persistente de retry por fallback. Coberto na página de
-        confiabilidade.
+        Habilita um sistema persistente de retry por fallback. Ele é detalhado na página de confiabilidade.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -79,13 +91,13 @@ const client = new SignalClient({
 });
 ```
 
-O segredo compartilhado em `hmacSecret` deve corresponder exatamente a configuração bot-side. Se os valores divergirem, o bot rejeita todo envelope na verificação HMAC (regra R10) e nenhuma execução de listener acontece.
+O segredo compartilhado em `hmacSecret` precisa coincidir exatamente com a configuração do lado do bot. Se os valores divergirem, o bot rejeita todo envelope na verificação HMAC, regra R10, e nenhum listener será executado.
 
-## Construção e assinatura de envelope
+## Construção e assinatura do envelope
 
-Toda chamada a _send_ delega internamente ao _SignalEnvelopeBuilder_, que produz um envelope completo e criptograficamente assinado. O builder gera um UUID aleatorio como nonce, captura o timestamp atual como _sentAt_ e computa a assinatura HMAC-SHA256 sobre a concatenação `nonce.sentAt.JSON.stringify(payload)`. Essa formula e idêntica a usada por _@spraxium/signal_ no lado receptor, então ambos os lados concordam no contrato de assinatura sem nenhuma negociação adicional.
+Toda chamada de _send_ delega internamente para _SignalEnvelopeBuilder_, que produz um envelope completo e assinado criptograficamente. O builder gera um UUID aleatório como nonce, captura o timestamp atual como _sentAt_ e calcula a assinatura HMAC-SHA256 sobre a concatenação `nonce.sentAt.JSON.stringify(payload)`. Essa fórmula é idêntica à usada por _@spraxium/signal_ no lado receptor, então as duas pontas concordam com o contrato de assinatura sem qualquer negociação adicional.
 
-O envelope resultante sempre carrega versão de protocolo `1`, o nome do evento, o guild ID alvo e o payload junto com os campos criptograficos. O código produtor nunca precisa interagir com o builder diretamente porque _send_ encapsula todo o fluxo.
+O envelope resultante sempre carrega a versão `1` do protocolo, o nome do evento, o guild ID de destino e o payload, além dos campos criptográficos. O código produtor nunca precisa interagir diretamente com o builder, porque _send_ encapsula esse fluxo inteiro.
 
 <Table>
   <TableHead>
@@ -98,45 +110,45 @@ O envelope resultante sempre carrega versão de protocolo `1`, o nome do evento,
   <TableBody>
     <TableRow>
       <TableCell>*v*</TableCell>
-      <TableCell>`1`</TableCell>
-      <TableCell>Versão de protocolo fixa.</TableCell>
+      <TableCell>1</TableCell>
+      <TableCell>Versão do protocolo fixada no código.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*event*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Primeiro argumento de *send*.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*guildId*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Segundo argumento de *send*.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*nonce*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>UUID aleatorio gerado por `crypto.randomUUID()`.</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>UUID aleatório gerado pela função de UUID do runtime.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*sentAt*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>Timestamp Unix em milissegundos via `Date.now()`.</TableCell>
+      <TableCell>number</TableCell>
+      <TableCell>Timestamp Unix em milissegundos capturado no momento do envio.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*signature*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Digest hex HMAC-SHA256 de `nonce.sentAt.JSON.stringify(payload)`.</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Digest hexadecimal HMAC-SHA256 do nonce, timestamp e payload serializado.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*payload*</TableCell>
-      <TableCell>`Record<string, unknown>`</TableCell>
-      <TableCell>Terceiro argumento de *send*, default e `{}`.</TableCell>
+      <TableCell>Record&lt;string, unknown&gt;</TableCell>
+      <TableCell>Terceiro argumento de *send*, com objeto vazio como padrão.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## O método send
 
-_send_ e a API primaria. Ele aceita um nome de evento, um guild ID, um payload opcional e _SendOptions_ opcionais. O fluxo interno constrói o envelope, escolhe o próximo webhook disponível do pool e entrega via HTTP POST. Se o webhook retornar 429, o pool o marca como rate-limited e tenta imediatamente o próximo candidato. Quando todos os webhooks estão esgotados, o comportamento depende da _rateLimitStrategy_ configurada.
+_send_ é a API principal. Ele recebe um nome de evento, um guild ID, um payload opcional e _SendOptions_ também opcionais. O fluxo interno monta o envelope, escolhe o próximo webhook disponível do pool e entrega via POST HTTP. Se o webhook responder com 429, o pool o marca como limitado e tenta imediatamente o próximo candidato. Quando todos os webhooks se esgotam, o comportamento passa a depender da configuração em _rateLimitStrategy_.
 
 ```typescript filename="emit-event.ts"
 await client.send('billing.status.changed', guildId, {
@@ -145,34 +157,32 @@ await client.send('billing.status.changed', guildId, {
 });
 ```
 
-A interface _SendOptions_ expõe dois campos opcionais. O campo _webhookIndex_ força entrega por um webhook específico, ignorando a rotação round-robin. O campo _skipFallback_ e usado internamente pelo _FallbackWorker_ para evitar loops de re-enqueue durante tentativas de retry.
+A interface _SendOptions_ expõe dois campos opcionais. O campo _webhookIndex_ força a entrega por um webhook específico, ignorando a rotação round-robin. O campo _skipFallback_ é usado internamente pelo _FallbackWorker_ para evitar loops de reenfileiramento durante tentativas de retry.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Opção</TableCell>
       <TableCell header>Tipo</TableCell>
-      <TableCell header>Default</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*webhookIndex*</TableCell>
-      <TableCell>`number | undefined`</TableCell>
-      <TableCell>`undefined`</TableCell>
+      <TableCell>number | undefined</TableCell>
+      <TableCell>undefined</TableCell>
       <TableCell>
-        Força um índice zero-based específico de webhook. Lança `RangeError` se
-        fora dos limites.
+        Força um índice de webhook específico, baseado em zero. Lança RangeError se sair dos limites.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*skipFallback*</TableCell>
-      <TableCell>`boolean | undefined`</TableCell>
-      <TableCell>`undefined`</TableCell>
+      <TableCell>boolean | undefined</TableCell>
+      <TableCell>undefined</TableCell>
       <TableCell>
-        Quando `true`, falhas não são enfileiradas no store de fallback. Usado
-        internamente pelo sistema de retry.
+        Quando verdadeiro, falhas não são reenfileiradas no fallback store. Uso interno do sistema de retry.
       </TableCell>
     </TableRow>
   </TableBody>
@@ -180,48 +190,48 @@ A interface _SendOptions_ expõe dois campos opcionais. O campo _webhookIndex_ f
 
 ## Rotação do pool de webhooks
 
-O _WebhookPool_ distribui envios entre webhooks configurados usando um cursor round-robin. Quando um webhook retorna HTTP 429, ele e marcado como rate-limited pela duração especificada no header `Retry-After`, e o pool automaticamente o ignora ate o cooldown expirar. Adicionar múltiplas URLs de webhook melhora significativamente a resiliencia em bursts porque o client sempre tem endpoints alternativos para tentar.
+_WebhookPool_ distribui os envios entre os webhooks configurados usando um cursor round-robin. Quando um webhook responde com HTTP 429, ele é marcado como limitado pelo período indicado no cabeçalho `Retry-After`, e o pool passa a ignorá-lo automaticamente até o fim do cooldown. Adicionar múltiplas URLs de webhook melhora bastante a resiliência em picos, porque o client sempre tem endpoints alternativos para tentar.
 
-O pool expõe varios métodos de inspeção úteis para monitoramento e debug. Você pode acessar o pool a qualquer momento pela propriedade _pool_ na instância do client.
+O pool expõe vários métodos de inspeção úteis para monitoramento e depuração. Você pode acessar o pool a qualquer momento pela propriedade _pool_ da instância do client.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método / Propriedade</TableCell>
-      <TableCell header>Retorno</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Retorna</TableCell>
+      <TableCell header>Finalidade</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*next*</TableCell>
-      <TableCell>`{ url, index } | null`</TableCell>
-      <TableCell>Retorna o próximo webhook disponível em ordem round-robin. Retorna `null` quando todos estão rate-limited.</TableCell>
+      <TableCell>{ url, index } | null</TableCell>
+      <TableCell>Retorna o próximo webhook disponível em ordem round-robin. Retorna null quando todos estão limitados.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*get*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Retorna o webhook em um índice específico, ignorando verificações de rate-limit. Lança `RangeError` se fora dos limites.</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Retorna o webhook de um índice específico, sem checar rate limit. Lança RangeError se sair dos limites.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*markRateLimited*</TableCell>
-      <TableCell>`void`</TableCell>
-      <TableCell>Marca um webhook como rate-limited por uma duração em milissegundos. Chamado automaticamente em 429.</TableCell>
+      <TableCell>void</TableCell>
+      <TableCell>Marca um webhook como limitado por uma duração específica, em milissegundos. Chamado automaticamente em respostas 429.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*msUntilAvailable*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>Retorna milissegundos ate o webhook mais próximo ficar disponível. Retorna `0` quando pelo menos um esta pronto.</TableCell>
+      <TableCell>number</TableCell>
+      <TableCell>Retorna quantos milissegundos faltam até o webhook mais próximo ficar disponível. Retorna 0 quando ao menos um já está pronto.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*status*</TableCell>
-      <TableCell>`WebhookStatus[]`</TableCell>
+      <TableCell>WebhookStatus[]</TableCell>
       <TableCell>Snapshot somente leitura de cada webhook com *index*, *url*, *available* e *rateLimitedUntil*.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*size*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>Número total de webhooks no pool.</TableCell>
+      <TableCell>number</TableCell>
+      <TableCell>Total de webhooks no pool.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -236,58 +246,53 @@ for (const entry of poolStatus) {
 }
 ```
 
-## Estrategias de rate-limit
+## Estratégias de rate limit
 
-Quando todos os webhooks do pool estão rate-limited simultaneamente, o client precisa decidir o que fazer. O campo _rateLimitStrategy_ controla esse comportamento. Ambas as estrategias são escolhas válidas dependendo da arquitetura do seu serviço.
+Quando todos os webhooks do pool estão limitados ao mesmo tempo, o client precisa decidir o que fazer. O campo _rateLimitStrategy_ controla esse comportamento. As duas estratégias são válidas, dependendo da arquitetura do seu serviço.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Estrategia</TableCell>
+      <TableCell header>Estratégia</TableCell>
       <TableCell header>Comportamento</TableCell>
-      <TableCell header>Melhor cenário</TableCell>
+      <TableCell header>Cenário ideal</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`'skip'`</TableCell>
+      <TableCell>skip</TableCell>
       <TableCell>
-        Lança *AllWebhooksRateLimitedError* imediatamente. O erro inclui o
-        status completo do pool com timestamps de cooldown para que o chamador
-        decida quando tentar novamente.
+        Lança *AllWebhooksRateLimitedError* imediatamente. O erro inclui o status completo do pool com timestamps de cooldown para que o chamador decida quando tentar de novo.
       </TableCell>
       <TableCell>
-        Serviços que já possuem sua própria orquestração de retry ou
-        infraestrutura de fila.
+        Serviços que já possuem orquestração própria de retry ou infraestrutura de fila.
       </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'wait'`</TableCell>
+      <TableCell>wait</TableCell>
       <TableCell>
-        Espera ate o webhook mais próximo sair do cooldown (via
-        *msUntilAvailable*), depois tenta a entrega exatamente uma vez. Se a
-        nova tentativa também falhar, lança exceção.
+        Aguarda até o webhook com cooldown mais curto ficar disponível, por meio de *msUntilAvailable*, e tenta a entrega exatamente uma vez de novo. Se essa nova tentativa falhar, ele lança o erro.
       </TableCell>
       <TableCell>
-        Absorção de bursts curtos dentro do client sem lógica externa de retry.
+        Absorção de picos curtos dentro do próprio client, sem lógica externa de retry.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-O default e `'skip'` porque mantém o client não bloqueante. Para a maioria dos contextos de Server Action ou API handler onde breve latência e aceitavel, `'wait'` oferece melhor ergonomia absorvendo picos transientes de rate-limit de forma transparente.
+O padrão é `'skip'`, porque mantém o client não bloqueante. Na maioria dos contextos de Server Action ou handlers de API, em que uma pequena latência extra é aceitável, `'wait'` oferece ergonomia melhor ao absorver picos transitórios de rate limit de forma transparente.
 
 ## Tipos de erro
 
-O client expõe duas classes de erro que fornecem informação estruturada sobre falhas. Ambas estendem `Error` e carregam campos legíveis por maquina para tratamento programatico.
+O client expõe duas classes de erro que entregam informações estruturadas de falha. Ambas estendem `Error` e carregam campos legíveis por máquina para tratamento programático.
 
-_SignalClientError_ e lançado em respostas HTTP não-2xx e não-429. Ele expõe o _statusCode_ e o _body_ da resposta como propriedades, facilitando o log de falhas de transporte com contexto completo. Esse erro indica que o próprio endpoint do webhook teve um problema, não uma situação de rate-limit.
+_SignalClientError_ é lançado em respostas HTTP que não são 2xx nem 429. Ele expõe _statusCode_ e o _body_ da resposta como propriedades, o que facilita registrar falhas de transporte com contexto completo. Esse erro indica que o problema está no próprio endpoint de webhook, não em uma situação de rate limit.
 
-_AllWebhooksRateLimitedError_ estende _SignalClientError_ com `statusCode` de `429` e expõe um array _poolStatus_. Cada entrada no array e um snapshot _WebhookStatus_ com _index_, _url_, flag _available_ e timestamp _rateLimitedUntil_. Esse erro só e lançado na estrategia `'skip'` ou quando `'wait'` esgota sua única tentativa.
+_AllWebhooksRateLimitedError_ estende _SignalClientError_ com `statusCode` igual a `429` e expõe um array _poolStatus_. Cada entrada desse array é um snapshot de _WebhookStatus_ com _index_, _url_, a flag _available_ e o timestamp _rateLimitedUntil_. Esse erro só é lançado sob a estratégia `'skip'` ou quando `'wait'` esgota sua única nova tentativa.
 
-## Emissor prático: Server Actions do Next.js
+## Emissor prático: Server Actions no Next.js
 
-Um padrão comum em produção e um painel admin construido com Next.js onde uma Server Action atualiza dados de negócio e emite um evento Signal para o bot. Essa abordagem mantém mutações de UI e reações do bot fracamente acopladas enquanto preserva um único fluxo de operador. A Server Action cuida de autorização e persistencia dentro da sua aplicação web, e o _Signal Client_ cuida da entrega assíncrona no runtime do bot.
+Um padrão comum em produção é um painel administrativo feito em Next.js, no qual uma Server Action atualiza dados de negócio e emite um evento Signal para o bot. Essa abordagem mantém as mutações de UI e as reações do bot fracamente acopladas, preservando um único fluxo operacional para quem administra o sistema. A Server Action cuida de autorização e persistência dentro da sua aplicação web, e o _Signal Client_ cuida da entrega assíncrona para o runtime do bot.
 
 <CodeTabs>
   <Tab label="Server Action">
@@ -303,10 +308,10 @@ Um padrão comum em produção e um painel admin construido com Next.js onde uma
     });
 
     export async function updatePrefix(guildId: string, prefix: string) {
-      // persista no seu banco de dados primeiro
+      // persist in your database first
       await db.guilds.update(guildId, { prefix });
 
-      // depois emita o evento para o bot
+      // then emit the event for the bot
       await client.send('config.update', guildId, {
         prefix,
         source: 'admin-panel',
@@ -341,54 +346,54 @@ Um padrão comum em produção e um painel admin construido com Next.js onde uma
 
 ## Diretrizes de modelagem de eventos
 
-Prefira nomes orientados ao domínio que descrevam fatos de negócio em vez de ações de transporte. Um nome como _billing.status.changed_ e mais fácil de versionar e raciocinar do que labels orientadas a ação que vazam detalhes internos de implementação. Mantenha nomes de evento em formato lowercase, separados por ponto, para manter consistencia com as convenções usadas em todo o sistema Signal.
+Prefira nomes orientados ao domínio, que descrevam fatos de negócio em vez de ações de transporte. Um nome como _billing.status.changed_ é mais fácil de versionar e de entender do que rótulos voltados à ação, que acabam vazando detalhes internos de implementação. Mantenha nomes de evento em minúsculas e separados por ponto para seguir as convenções já usadas em todo o sistema do Signal.
 
-Payloads devem ser intencionalmente pequenos e estaveis. Inclua apenas campos que o bot realmente precisa para tomar decisões e evolua o schema com mudanças aditivas sempre que possivel. Remover ou renomear um campo existente e uma breaking change que requer coordenar deploys do emissor e listener simultaneamente.
+Os payloads devem ser intencionalmente pequenos e estáveis. Inclua apenas os campos de que o bot realmente precisa para decidir o que fazer e evolua o schema com mudanças aditivas sempre que possível. Remover ou renomear um campo existente é uma quebra de compatibilidade e exige coordenação entre as implantações do emissor e do listener.
 
-Use o filtro _events_ no _FallbackConfig_ para focar garantias de confiabilidade nos eventos mais críticos. Eventos que não aparecem na lista de filtro ainda são entregues pelo caminho normal, mas não serão enfileirados no store de fallback em caso de falha.
+Use o filtro _events_ em _FallbackConfig_ para concentrar as garantias de confiabilidade nos eventos mais críticos. Eventos que não aparecem nessa lista continuam sendo entregues pelo fluxo normal, mas não entram no fallback store quando ocorre falha.
 
 ## Passo a passo do fluxo de entrega
 
 <Steps>
-  <Step title="Construir o envelope assinado">
-    O método *send* delega ao *SignalEnvelopeBuilder*. O builder gera um nonce
-    via `crypto.randomUUID()`, captura o `Date.now()` atual como *sentAt*,
-    computa a assinatura HMAC-SHA256 e retorna um envelope completo com versão
-    de protocolo `1`.
+  <Step title="Monte o envelope assinado">
+    O método *send* delega para *SignalEnvelopeBuilder*. O builder gera um
+    nonce com `crypto.randomUUID()`, captura `Date.now()` como *sentAt*,
+    calcula a assinatura HMAC-SHA256 e devolve um envelope completo com a
+    versão `1` do protocolo.
   </Step>
-  <Step title="Selecionar o próximo webhook">
+  <Step title="Escolha o próximo webhook">
     *WebhookPool.next* retorna o próximo webhook disponível em ordem
-    round-robin. Se *SendOptions.webhookIndex* foi fornecido, o pool retorna
-    aquela entrada específica via *get*, ignorando a rotação. Se todos os
-    webhooks estão rate-limited e nenhum índice foi forcado, o fluxo pula para o
-    passo cinco.
+    round-robin. Se *SendOptions.webhookIndex* tiver sido informado, o pool
+    retorna essa entrada específica via *get*, sem passar pela rotação. Se
+    todos os webhooks estiverem limitados e nenhum índice tiver sido forçado, o
+    fluxo salta para a etapa cinco.
   </Step>
-  <Step title="Entregar via HTTP POST">
+  <Step title="Entregue via POST HTTP">
     O client envia uma requisição POST para a URL do webhook com o envelope
-    serializado em JSON dentro do campo content de mensagem Discord. Se a
-    resposta for 2xx, a entrega esta completa e o método retorna com sucesso.
+    serializado em JSON dentro do campo de conteúdo de mensagem do Discord. Se
+    a resposta for 2xx, a entrega termina com sucesso e o método retorna.
   </Step>
-  <Step title="Tratar respostas 429">
-    Quando o webhook retorna HTTP 429, o pool marca aquele índice como
-    rate-limited pela duração parseada do header `Retry-After` (default 1000
-    ms). O client tenta imediatamente o próximo webhook disponível. Essa rotação
-    continua ate que um webhook tenha sucesso ou todos estejam esgotados.
+  <Step title="Trate respostas 429">
+    Quando o webhook responde com HTTP 429, o pool marca aquele índice como
+    limitado pela duração extraída do cabeçalho `Retry-After`, usando 1000 ms
+    como padrão. O client tenta imediatamente o próximo webhook disponível. Essa
+    rotação continua até que um webhook funcione ou todos se esgotem.
   </Step>
-  <Step title="Aplicar estrategia de rate-limit">
-    Quando não restam webhooks, a *rateLimitStrategy* decide o resultado. Com
-    `'skip'`, um *AllWebhooksRateLimitedError* e lançado imediatamente. Com
-    `'wait'`, o client espera pelo cooldown mais próximo e tenta uma vez. Se o
-    fallback estiver habilitado e o erro for capturavel, o envelope e
-    enfileirado no store de fallback para retry posterior.
+  <Step title="Aplique a estratégia de rate limit">
+    Quando não resta nenhum webhook, *rateLimitStrategy* decide o resultado. Em
+    `'skip'`, um *AllWebhooksRateLimitedError* é lançado na hora. Em `'wait'`,
+    o client dorme até o cooldown mais curto terminar e tenta uma vez de novo.
+    Se o fallback estiver habilitado e o erro puder ser capturado, o envelope é
+    enfileirado no fallback store para novo processamento posterior.
   </Step>
 </Steps>
 
-## Quando este modelo não e a ferramenta certa
+## Quando esse modelo é a ferramenta errada
 
-Se você precisa de confirmação sincrona imediata da lógica do bot dentro do mesmo ciclo de vida da requisição, Signal geralmente não e o contrato certo. Chamadas diretas de serviço continuam mais simples e mais fáceis de rastrear para comunicação in-process dentro de uma única fronteira de serviço. Signal e projetado para entrega de eventos assíncrona e fire-and-forget onde o produtor não precisa de resposta do consumidor.
+Se você precisa de uma confirmação síncrona imediata da lógica do bot dentro do mesmo ciclo da requisição, Signal normalmente não é o contrato certo. Chamadas diretas de serviço continuam mais simples e fáceis de rastrear para comunicação in-process dentro da mesma fronteira de serviço. O Signal foi desenhado para entrega assíncrona de eventos no estilo fire-and-forget, em que o produtor não precisa de resposta do consumidor.
 
-Da mesma forma, se seus eventos requerem garantias estritas de ordenação, uma fila dedicada como RabbitMQ ou Redis Streams e uma escolha melhor. Signal entrega mensagens tao rápido quanto o pool de webhooks permite, e a ordenação de retry após falhas e best-effort em vez de estritamente sequencial.
+Da mesma forma, se seus eventos exigem garantias rígidas de ordenação, uma fila dedicada, como RabbitMQ ou Redis Streams, é mais adequada. O Signal entrega mensagens tão rápido quanto o pool de webhooks permite, e a ordem dos retries depois de falhas é best-effort, não estritamente sequencial.
 
 ## Próxima página
 
-Continue com [Entrega e Confiabilidade](/signal-client-reliability).
+Continue com [Entrega e confiabilidade](/signal-client-reliability).

@@ -1,35 +1,35 @@
 ---
 title: Comandos y Handlers
 description: |
-  El decorator @PrefixCommand define la estructura mientras @PrefixCommandHandler contiene la lógica de ejecución.
-  Aprende comandos simples, árboles de subcomandos y registro de módulos para prefix commands.
+  El decorador @PrefixCommand define la estructura mientras @PrefixCommandHandler contiene la lógica de ejecución.
+  Aprende comandos simples, árboles de subcomandos y registro en módulos para comandos con prefijo.
 order: 2
 category: Prefix Commands
 ---
 
-## Separando estructura de ejecución
+## Separar estructura de ejecución
 
-En Spraxium, los prefix commands utilizan un patrón de dos clases. El decorator _@PrefixCommand_ marca una clase como definición de comando que describe el nombre, aliases, schema de argumentos y metadatos. El decorator _@PrefixCommandHandler_ marca una clase separada que contiene el método _handle_ con la lógica de ejecución real. Esta separación mantiene el contrato del comando estable mientras te permite evolucionar el comportamiento del handler independientemente.
+En Spraxium, los comandos con prefijo usan un patrón de dos clases. El decorador _@PrefixCommand_ marca una clase como definición de comando que describe el nombre, los alias, el esquema de argumentos y los metadatos. El decorador _@PrefixCommandHandler_ marca una clase separada que contiene el método _handle_ con la lógica real de ejecución. Esta separación mantiene estable el contrato del comando mientras te permite evolucionar el comportamiento del handler de forma independiente.
 
-La clase de comando actúa como un contenedor de metadatos. Declara cómo se llama el comando, qué argumentos espera y cómo aparece en la salida de help. La clase de handler es donde inyectas servicios, interactúas con Discord y produces respuestas. Esta división también habilita múltiples handlers para el mismo comando a través del mecanismo de enrutamiento de subcomandos, donde cada subcomando recibe su propio handler dedicado.
+La clase de comando actúa como contenedor de metadatos. Declara cómo se llama el comando, qué argumentos espera y cómo aparece en la salida de ayuda. La clase handler es donde inyectas servicios, interactúas con Discord y generas respuestas. Esta división también habilita múltiples handlers para el mismo comando mediante el mecanismo de enrutamiento de subcomandos, donde cada subcomando obtiene su propio handler enfocado.
 
-Ambas clases deben registrarse en el mismo módulo. Las clases de comando van en el array _commands_ y las clases de handler van en el array _handlers_. Si solo se registran comandos, nada se ejecuta porque no hay handler que llamar. Si solo se registran handlers, no hay schema de comando para que el registry indexe, así que el parser no puede resolver el nombre del comando.
+Ambas clases deben registrarse en el mismo módulo. Las clases de comando van en el arreglo _commands_ y las clases handler van en el arreglo _handlers_. Si solo se registran comandos, nada se ejecuta porque no hay handler que llamar. Si solo se registran handlers, no hay esquema de comando para que el registro lo indexe, así que el parser no puede resolver el nombre del comando.
 
 ## Un comando simple
 
-El prefix command más simple necesita una clase de comando con un schema de argumentos y una clase de handler con un método _handle_. La clase de comando usa decorators de método _@PrefixArg_ en un método _build_ para declarar argumentos posicionales. La clase de handler usa decorators de parámetro _@PrefixArg_ en el método _handle_ para recibir los valores parseados.
+El comando con prefijo más simple necesita una clase de comando con esquema de argumentos y una clase handler con un método _handle_. La clase de comando usa decoradores de método _@PrefixArg_ sobre un método _build_ para declarar argumentos posicionales. La clase handler usa decoradores de parámetro _@PrefixArg_ sobre el método _handle_ para recibir los valores parseados.
 
 <CodeTabs>
-  <Tab label="Comando" language="typescript">
+  <Tab label="Command" language="typescript">
 ```typescript filename="src/modules/fun/commands/roll.command.ts"
 import { PrefixArg, PrefixCommand } from '@spraxium/common';
 
 @PrefixCommand({
   name: 'roll',
   aliases: ['r', 'dice'],
-  description: 'Lanza uno o más dados.',
-  category: 'Diversión',
-  usage: '!roll [caras] [cantidad]',
+  description: 'Roll one or more dice.',
+  category: 'Fun',
+  usage: '!roll [sides] [count]',
   cooldown: 3,
 })
 export class RollCommand {
@@ -66,36 +66,36 @@ export class RollHandler {
   </Tab>
 </CodeTabs>
 
-Los decorators de método _@PrefixArg_ en la clase de comando definen el schema de argumentos. Se apilan de arriba hacia abajo para determinar el orden posicional: el primer decorator se convierte en la posición 0, el segundo en la posición 1, y así sucesivamente. En el handler, los decorators de parámetro _@PrefixArg('nombre')_ inyectan el valor parseado por nombre. El decorator _@Ctx_ inyecta el objeto _Message_ crudo.
+Los decoradores de método _@PrefixArg_ en la clase de comando definen el esquema de argumentos. Se apilan de arriba hacia abajo para determinar el orden posicional: el primer decorador se convierte en la posición 0, el segundo en la posición 1, y así sucesivamente. En el handler, los decoradores de parámetro _@PrefixArg('name')_ inyectan el valor parseado por nombre. El decorador _@Ctx_ inyecta el objeto _Message_ sin procesar.
 
 ## Enrutamiento de subcomandos
 
-Para familias de comandos como `!mod warn`, `!mod kick` y `!mod ban`, usa _@PrefixSubcommand_ para definir cada ruta en la clase de comando y conectar cada ruta a un handler dedicado vía _@PrefixCommandHandler_ con la opción _subcommand_. El primer token argv después del nombre del comando se compara con los nombres de subcomandos registrados, y el framework enruta automáticamente.
+Para familias de comandos como `!mod warn`, `!mod kick` y `!mod ban`, usa _@PrefixSubcommand_ para definir cada ruta en la clase de comando y conecta cada ruta con un handler dedicado mediante _@PrefixCommandHandler_ con una opción _subcommand_. El primer token de argv después del nombre del comando se compara con los nombres de subcomandos registrados, y el framework enruta automáticamente.
 
 <CodeTabs>
-  <Tab label="Comando" language="typescript">
+  <Tab label="Command" language="typescript">
 ```typescript filename="src/modules/moderation/commands/mod.command.ts"
 import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
 
 @PrefixCommand({
   name: 'mod',
   aliases: ['m'],
-  description: 'Comandos de moderación.',
-  category: 'Moderación',
-  usage: '!mod <warn|kick|ban> <usuario> [motivo]',
+  description: 'Moderation commands.',
+  category: 'Moderation',
+  usage: '!mod <warn|kick|ban> <user> [reason]',
 })
 export class ModCommand {
-  @PrefixSubcommand({ name: 'warn', description: 'Advertir a un usuario' })
+  @PrefixSubcommand({ name: 'warn', description: 'Warn a user' })
   @PrefixArg.User('target')
   @PrefixArg.Rest('reason', { required: false })
   warn() {}
 
-  @PrefixSubcommand({ name: 'kick', description: 'Expulsar a un usuario' })
+  @PrefixSubcommand({ name: 'kick', description: 'Kick a user' })
   @PrefixArg.User('target')
   @PrefixArg.Rest('reason', { required: false })
   kick() {}
 
-  @PrefixSubcommand({ name: 'ban', description: 'Banear a un usuario' })
+  @PrefixSubcommand({ name: 'ban', description: 'Ban a user' })
   @PrefixArg.User('target')
   @PrefixArg.Rest('reason', { required: false })
   ban() {}
@@ -103,7 +103,7 @@ export class ModCommand {
 
 ````
   </Tab>
-  <Tab label="Handler Warn" language="typescript">
+  <Tab label="Warn Handler" language="typescript">
 ```typescript filename="src/modules/moderation/handlers/mod-warn-command.handler.ts"
 import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
 import type { Message } from 'discord.js';
@@ -118,8 +118,8 @@ export class ModWarnHandler {
     @PrefixArg('target') userId: string,
     @PrefixArg('reason') reason: string | undefined,
   ): Promise<void> {
-    const text = reason ?? 'Sin motivo proporcionado';
-    await message.reply(`Advertencia para <@${userId}>. Motivo: ${text}`);
+    const text = reason ?? 'No reason provided';
+    await message.reply(`Warning <@${userId}>. Reason: ${text}`);
   }
 }
 ````
@@ -127,36 +127,36 @@ export class ModWarnHandler {
   </Tab>
 </CodeTabs>
 
-Cada método de subcomando en la clase de comando define su propio schema de argumentos. El subcomando _warn_ espera una mención de usuario seguida de texto rest opcional, mientras que _kick_ y _ban_ siguen el mismo formato. Cada subcomando recibe su propia clase de handler, lo que significa que puedes aplicar guards diferentes, inyectar servicios distintos y manejar errores independientemente por subcomando.
+Cada método de subcomando en la clase de comando define su propio esquema de argumentos. El subcomando _warn_ espera una mención de usuario seguida de texto libre opcional, mientras que _kick_ y _ban_ siguen la misma forma. Cada subcomando obtiene su propia clase handler, lo que significa que puedes aplicar guards distintos, inyectar servicios distintos y manejar errores de forma independiente por subcomando.
 
-## Configuración del @PrefixCommand
+## Configuración de @PrefixCommand
 
-El decorator _@PrefixCommand_ acepta un objeto de configuración que controla cómo aparece el comando en la salida de help, cómo se activa y qué límites operacionales tiene. Todos los campos excepto _name_ son opcionales, pero proporcionar _description_, _usage_ y _category_ mejora significativamente la salida de cualquier implementación de comando help.
+El decorador _@PrefixCommand_ acepta un objeto de configuración que controla cómo aparece el comando en la salida de ayuda, cómo se activa y qué límites operativos tiene. Todos los campos excepto _name_ son opcionales, pero proporcionar _description_, _usage_ y _category_ mejora notablemente la salida de cualquier implementación de comando de ayuda.
 
 <DropdownGroup>
-  <Dropdown title="name (string, obligatorio)">
-    Es el activador principal que los usuarios escriben después del prefijo. Cuando un usuario envía `!ping`, el parser elimina el prefijo, lee `ping` y busca un comando registrado con ese nombre. Cada comando debe tener un nombre único; si dos comandos comparten el mismo nombre, el último registrado sobrescribe al anterior.
+  <Dropdown title="name (string, required)">
+    El disparador principal del comando que los usuarios escriben después del prefijo. Cuando un usuario envía `!ping`, el parser elimina el prefijo, lee `ping` y busca un comando registrado con ese nombre. Cada comando debe tener un nombre único; si dos comandos comparten el mismo nombre, el último registrado ocultará al primero.
   </Dropdown>
   <Dropdown title="aliases (string[])">
-    Son nombres alternativos de activación que resuelven al mismo comando y handler. Definir `aliases: ['p', 'latency']` hace que `!p` y `!latency` funcionen igual que `!ping`. Los aliases comparten el mismo pool de cooldown que el nombre principal, así que un usuario en cooldown por `!ping` también queda bloqueado para `!p`.
+    Nombres de activación alternativos que resuelven al mismo comando y handler. Definir `aliases: ['p', 'latency']` significa que `!p` y `!latency` funcionan igual que `!ping`. Los alias comparten el mismo pool de cooldown que el nombre principal, así que si un usuario está en cooldown por `!ping` también queda bloqueado para usar `!p`.
   </Dropdown>
   <Dropdown title="description (string)">
-    Es una línea corta que describe qué hace el comando y se usa en la salida de help. El framework no la muestra automáticamente; está disponible a través de *getCommandInfo* para que tu propio handler de help la formatee. Mantener descripciones cortas y consistentes mejora la calidad de los embeds de ayuda.
+    Una línea breve que describe qué hace el comando, usada en la salida del comando de ayuda. El framework no la muestra automáticamente; está disponible mediante el método *getCommandInfo* del dispatcher para que tu propio handler de ayuda le dé formato. Mantener descripciones concisas y consistentes entre comandos mejora la calidad de los embeds de ayuda del bot.
   </Dropdown>
   <Dropdown title="usage (string)">
-    Es una cadena legible que muestra el formato esperado de invocación, por ejemplo `!ban <usuario> [motivo]`. El framework la guarda en metadatos y la devuelve en *getCommandInfo*, pero no la valida ni la parsea automáticamente. Úsala en embeds de help y en mensajes de *ArgumentException* para mostrar la sintaxis correcta cuando falle el parsing.
+    Un string legible para humanos que muestra el formato de invocación esperado, como `!ban <user> [reason]`. El framework lo guarda en los metadatos del comando y lo devuelve como parte de *getCommandInfo*, pero no lo parsea ni valida automáticamente. Úsalo en embeds de ayuda y en mensajes de *ArgumentException* para que los usuarios conozcan la sintaxis correcta cuando falle el parsing.
   </Dropdown>
   <Dropdown title="category (string)">
-    Es una etiqueta para agrupar comandos en la salida de help. Los comandos de la misma categoría suelen mostrarse juntos en embeds de ayuda. El framework no impone categorías ni asigna comportamientos especiales a partir de ellas, son metadatos puros para tu handler de help.
+    Una etiqueta de agrupación para organizar comandos en la salida de ayuda. Los comandos de la misma categoría suelen mostrarse juntos en embeds de ayuda. El framework no aplica categorías ni asigna comportamiento especial a partir de ellas; son metadatos puros que tu handler de ayuda lee desde *getCommandInfo*.
   </Dropdown>
   <Dropdown title="cooldown (number)">
-    Define un cooldown por comando en segundos y sobrescribe el *defaultCooldown* global de *PrefixConfig*. Cuando un usuario ejecuta el comando, el framework registra el timestamp y bloquea ejecuciones posteriores hasta que expire el cooldown. Definir `cooldown: 0` desactiva el cooldown para ese comando, aunque exista uno global.
+    Un cooldown por comando en segundos que sobrescribe el *defaultCooldown* global de *PrefixConfig*. Cuando un usuario ejecuta el comando, el framework registra la marca de tiempo y bloquea ejecuciones posteriores hasta que expire el cooldown. Definir `cooldown: 0` desactiva el cooldown para ese comando sin importar el valor global.
   </Dropdown>
 </DropdownGroup>
 
-## Registro en el módulo
+## Registro en módulo
 
-Tanto las clases de comando como las de handler deben registrarse en un módulo para que el framework las descubra durante el bootstrap. La clase de comando va en el array _commands_ y la clase de handler va en el array _handlers_. El framework procesa ambos arrays durante la carga del módulo, registra los metadatos del comando en el _PrefixRegistry_ y conecta las instancias de handler a través del contenedor de DI.
+Tanto las clases de comando como las clases handler deben registrarse en un módulo para que el framework las descubra durante el bootstrap. La clase de comando va en el arreglo _commands_ y la clase handler va en el arreglo _handlers_. El framework procesa ambos arreglos durante la carga del módulo, registra los metadatos de comando en el _PrefixRegistry_ y conecta las instancias handler mediante el contenedor DI.
 
 ```typescript filename="src/modules/moderation/moderation.module.ts"
 import { Module } from '@spraxium/common';

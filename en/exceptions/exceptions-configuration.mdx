@@ -5,11 +5,29 @@ description: |
   Understand class-to-layout mapping, default fallback behavior, and unhandled error logging strategy.
 order: 2
 category: Exceptions
+keywords:
+  - spraxium exceptions configuration
+  - config and fallback in spraxium
+  - exceptions exceptions configuration guide
+  - exceptions configuration discord bot
+  - exceptions configuration typescript
+  - spraxium exceptions documentation
+  - config and fallback exceptions
+  - spraxium config and fallback
+faq:
+  - question: "What does \"Config and Fallback\" cover in Spraxium?"
+    answer: "Configure exceptions in the central config file to centralize runtime error policy across your entire bot. Understand class-to-layout mapping, default fallback behavior, and unhandled error logging strategy."
+  - question: "When should I use \"Config and Fallback\"?"
+    answer: "Use this page when you are implementing exceptions configuration in the Exceptions area of your bot architecture."
+  - question: "What should I read after \"Config and Fallback\"?"
+    answer: "Continue with related Exceptions pages to connect this concept with practical implementation details."
 ---
 
 ## Why configure exceptions in core
 
 Central exception configuration keeps teams from handling the same failure category in different ways across modules. By defining policy in _spraxium.config.ts_, runtime behavior stays coherent even when multiple features and teams evolve in parallel, because every exception follows the same resolution rules regardless of where it originates. This also reduces refactor risk significantly, since changing the fallback strategy or updating a layout mapping requires touching one policy location instead of hunting through dozens of command and listener files scattered across the project.
+
+This page is about *policy*, not implementation. The goal is to decide how the application should respond when an exception escapes a handler, which layout should render it, and how much should be logged for operators.
 
 ## Minimal configuration
 
@@ -60,7 +78,7 @@ export default defineConfig({
 
 ## Configuration keys reference
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
       <TableCell header>Key</TableCell>
@@ -70,22 +88,28 @@ export default defineConfig({
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`exceptions.layouts`</TableCell>
-      <TableCell>`ExceptionLayoutMap`</TableCell>
+      <TableCell>*exceptions.layouts*</TableCell>
+      <TableCell>ExceptionLayoutMap</TableCell>
       <TableCell>Map exception class names to layout classes</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`exceptions.layouts.default`</TableCell>
-      <TableCell>`ExceptionLayoutClass`</TableCell>
+      <TableCell>*exceptions.layouts.default*</TableCell>
+      <TableCell>ExceptionLayoutClass</TableCell>
       <TableCell>Global fallback when no specific mapping exists</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`exceptions.logUnhandled`</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>*exceptions.logUnhandled*</TableCell>
+      <TableCell>boolean</TableCell>
       <TableCell>Controls logging for unknown thrown errors</TableCell>
     </TableRow>
   </TableBody>
 </Table>
+
+## When to map a dedicated layout
+
+Add a dedicated layout mapping when a failure category needs its own tone, guidance, or structure. Permission denials, cooldowns, invalid arguments, and business-rule exceptions are the common examples because the response should tell the user what happened and what to do next.
+
+Do not create a custom layout for every exception class by default. A good default layout plus a small number of deliberate mappings usually stays easier to maintain than a huge map of narrowly different responses.
 
 ## Layout resolution order
 
@@ -106,6 +130,12 @@ Layout selection follows a stable order that determines which layout renders the
 ## Environment strategy
 
 A common team baseline is to keep the unhandled logging option set to true in staging and production while preserving friendly layouts in all environments. This keeps diagnostics strong for operations without leaking internal details to users, because layout communicates with users while logging communicates with the team responsible for monitoring and incident response.
+
+One practical policy split looks like this:
+
+1. Local development: friendly layouts, unhandled logging on, fast iteration.
+2. Staging: friendly layouts, unhandled logging on, parity with production behavior.
+3. Production: friendly layouts, unhandled logging on, class mappings only for important user-facing failure families.
 
 ## Next page
 

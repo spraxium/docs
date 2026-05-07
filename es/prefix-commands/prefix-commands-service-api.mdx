@@ -1,27 +1,27 @@
 ---
-title: API de Prefijos vía Services
+title: API de Prefijos vía Servicios
 description: |
-  Gestiona prefijos por servidor en runtime inyectando PrefixDispatcher en services y lifecycle hooks.
-  Aprende cada método de la API con ejemplos aislados de lectura, escritura, eliminación y recarga.
+  Gestiona prefijos por guild en runtime inyectando PrefixDispatcher en servicios y hooks de ciclo de vida.
+  Aprende cada método de la API con ejemplos aislados para operaciones de lectura, escritura, eliminación y recarga.
 order: 5
 category: Prefix Commands
 ---
 
-## Por qué mantener la lógica de runtime en services
+## Por qué mantener la lógica de runtime en servicios
 
-_PrefixConfig_ gestiona política global e hidratación en el boot, pero las reglas de dominio para leer, escribir y auditar prefijos por servidor pertenecen a services dedicados. Mezclar lógica de runtime en el config crea un cuello de botella de mantenimiento que se vuelve más difícil de testear conforme el sistema crece. La separación también facilita cambiar backends de almacenamiento o agregar trazabilidad sin tocar la capa de configuración.
+_PrefixConfig_ gestiona la política global y la hidratación en el arranque, pero las reglas de dominio para leer, escribir y auditar prefijos por guild pertenecen a servicios dedicados. Mezclar lógica de runtime en config crea un cuello de botella de mantenimiento que se vuelve más difícil de testear a medida que el sistema escala. Mantenerlo separado también facilita cambiar backends de almacenamiento o añadir trazas de auditoría sin tocar la capa de configuración.
 
-El punto de entrada para todas las operaciones de prefijo en runtime es _PrefixDispatcher_, que expone _guildPrefixes_ como instancia de _PrefixGuildManager_. Inyectar _PrefixDispatcher_ en un service da control total sobre el estado por servidor sin dependencia directa de los internos del config. Todo lo que sigue opera sobre ese único punto de inyección.
+El punto de entrada para todas las operaciones de prefijos en runtime es _PrefixDispatcher_, que expone _guildPrefixes_ como una instancia de _PrefixGuildManager_. Inyectar _PrefixDispatcher_ en un servicio te da control total sobre el estado por guild sin depender directamente de los detalles internos de config. Todo lo siguiente opera sobre ese único punto de inyección.
 
-- _PrefixConfig_ gestiona política global, flags y provider de boot. Evita meter queries, autorización o mutaciones de runtime en esta capa.
-- Los services concentran CRUD por servidor, coordinación de persistencia y auditoría. Evita reimplementar bootstrap o reglas internas del parser.
-- Los repositorios se enfocan en lectura y escritura de estado en storage. Evita colocar lógica de respuesta Discord u orquestación de handlers allí.
+- _PrefixConfig_ gestiona la política global de prefijos, flags de funcionalidades y el provider en arranque. Mantén consultas, lógica de autorización y mutaciones de runtime fuera de config.
+- Los servicios son dueños de las operaciones CRUD por guild, la coordinación de persistencia y la lógica de auditoría. Evita reimplementar bootstrap o comportamiento del parser dentro de un servicio.
+- Los repositorios leen y escriben estado de prefijos en el almacenamiento. Mantén la lógica de respuesta de Discord y la orquestación de handlers separadas de la capa de repositorio.
 
 ## getGuildPrefix
 
-_getGuildPrefix_ retorna el array de strings de prefijo activos para un servidor, o `undefined` si no existe sobrescritura. Es el método de lectura principal que se usa al mostrar el prefijo actual al usuario o construir un embed de ayuda. Como el resultado proviene del estado en memoria, la llamada es síncrona y no tiene costo de I/O.
+_getGuildPrefix_ devuelve el arreglo de strings de prefijo activos para una guild dada, o `undefined` si no existe override. Este es el método principal de lectura que usas antes de mostrar el prefijo actual a un usuario o construir un embed de ayuda. Como el resultado proviene del estado en memoria, la llamada es síncrona y no tiene costo de I/O.
 
-Usa este método en métodos de service de solo lectura y constructores de embeds, no directamente en handlers. Encapsular la lectura en un método de service permite añadir lógica de fallback, wrappers de caché o telemetría sin cambiar los puntos de llamada. El patrón de abajo retorna un array vacío en lugar de `undefined` para simplificar a los consumidores.
+Úsalo en métodos de servicio de solo lectura y en constructores de embeds, no directamente en handlers. Encapsular la lectura en un método de servicio te permite añadir lógica de fallback, wrappers de caché o telemetría sin cambiar los call sites. El patrón de abajo devuelve un arreglo vacío en lugar de `undefined` para simplificar a los consumidores.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -39,9 +39,9 @@ export class GuildPrefixService {
 
 ## hasGuildPrefix
 
-_hasGuildPrefix_ retorna un `boolean` que indica si un servidor tiene una sobrescritura de prefijo activa en memoria. Úsalo cuando solo necesites bifurcar por existencia, sin inspeccionar el valor del prefijo. Es más eficiente que llamar _getGuildPrefix_ y verificar `undefined` porque la intención queda explícita y puede optimizarse de forma independiente.
+_hasGuildPrefix_ devuelve un `boolean` que indica si una guild tiene un override de prefijo activo en memoria. Usa este método cuando solo necesites bifurcar por existencia, sin inspeccionar el valor del prefijo en sí. Es más barato que llamar _getGuildPrefix_ y comprobar `undefined` porque la intención es explícita y puede optimizarse de forma independiente.
 
-Un caso de uso frecuente es en guards que deben aplicar comportamiento distinto para servidores con prefijo personalizado versus servidores que usan el valor global por defecto. El guard puede inyectar el service, llamar _hasGuildPrefix_ y hacer short-circuit según el resultado. Evita usar este método como atajo para saltarse operaciones normales de CRUD.
+Un caso de uso común está en guards que deben aplicar comportamiento distinto para guilds con prefijo personalizado frente a guilds que usan el valor global por defecto. El guard puede inyectar el servicio, llamar a _hasGuildPrefix_ y hacer short-circuit según corresponda. Evita usar este método como atajo para saltarte operaciones CRUD normales.
 
 ```typescript filename="src/modules/prefix/guards/custom-prefix.guard.ts"
 import { CanActivate, ExecutionContext, Injectable } from '@spraxium/common';
@@ -61,9 +61,9 @@ export class CustomPrefixGuard implements CanActivate {
 
 ## setGuildPrefix
 
-_setGuildPrefix_ crea o reemplaza completamente la sobrescritura de prefijo de un servidor. El tercer argumento acepta un objeto de metadata opcional para guardar campos de auditoría como el ID del actor y la marca de tiempo. Llámalo cuando un usuario o administrador actualice el prefijo a través de un comando o endpoint de API.
+_setGuildPrefix_ crea o reemplaza por completo el override de prefijo para una guild. El tercer argumento acepta un objeto opcional de metadatos para guardar campos de auditoría como el ID del actor y la marca de tiempo. Llámalo cuando un usuario o administrador actualiza el prefijo mediante un comando o endpoint de API.
 
-Siempre persiste el nuevo valor en la base de datos antes de llamar a _setGuildPrefix_ en memoria. Si la escritura en base de datos falla después de la mutación en memoria, el estado en memoria diverge del estado durable y la sincronización se pierde hasta el próximo reload. El patrón persist-first que se muestra abajo mantiene ambas capas consistentes ante fallos parciales.
+Persiste siempre el nuevo valor en tu base de datos antes de llamar a _setGuildPrefix_ en memoria. Si la escritura en base de datos falla después de la mutación en memoria, el estado en memoria diverge del estado duradero y se pierde la sincronización hasta la siguiente recarga. El patrón persist-first de abajo mantiene ambas capas consistentes ante fallos parciales.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -94,9 +94,9 @@ export class GuildPrefixService {
 
 ## updateGuildPrefix
 
-_updateGuildPrefix_ aplica un merge parcial sobre la entrada existente en lugar de una sustitución completa. Úsalo cuando quieras cambiar solo el valor del prefijo manteniendo los campos de metadata intactos, o cuando quieras actualizar metadata sin modificar el prefijo. Se comporta igual que _setGuildPrefix_ si no existe ninguna entrada para el servidor.
+_updateGuildPrefix_ parchea la entrada existente con una fusión parcial en lugar de un reemplazo completo. Úsalo cuando quieras cambiar solo el valor del prefijo y conservar los campos de metadatos existentes, o cuando quieras actualizar metadatos sin cambiar el prefijo. Se comporta igual que _setGuildPrefix_ si no existe ninguna entrada para la guild.
 
-Este método es útil en escenarios como un panel de administración que envía actualizaciones por campo en lugar de reenviar todo el registro. Si tu capa de almacenamiento también soporta actualizaciones parciales, combina ambas llamadas para mantener la base de datos y el estado en memoria consistentes con la misma semántica.
+Este método es útil para escenarios como un panel de administración que envía actualizaciones por campo en lugar de reenviar todo el registro. Si tu capa de almacenamiento también soporta actualizaciones parciales, empareja ambas llamadas para mantener la base de datos y el estado en memoria consistentes con la misma semántica.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -130,9 +130,9 @@ export class GuildPrefixService {
 
 ## removeGuildPrefix
 
-_removeGuildPrefix_ elimina la sobrescritura en memoria de un servidor y retorna `true` si existía una entrada o `false` si el servidor no tenía prefijo personalizado. Tras la eliminación, el parser vuelve al prefijo global definido en _PrefixConfig_ para ese servidor. Úsalo cuando un administrador restablezca el servidor al comportamiento por defecto.
+_removeGuildPrefix_ elimina el override en memoria para una guild y devuelve `true` si existía una entrada o `false` si la guild no tenía prefijo personalizado. Tras eliminarlo, el parser vuelve al prefijo global definido en _PrefixConfig_ para esa guild. Úsalo cuando un administrador de guild restablece su servidor al comportamiento por defecto.
 
-Sigue el patrón persist-first aquí también: elimina de la base de datos antes de llamar a _removeGuildPrefix_ en memoria. Esto garantiza que un reinicio del proceso no rehidrate la entrada eliminada desde el provider. El ejemplo de abajo retorna un boolean al llamador para que el handler pueda confirmar si la eliminación realmente ocurrió.
+Sigue aquí también el patrón persist-first: elimina en la base de datos antes de llamar a _removeGuildPrefix_ en memoria. Esto garantiza que un reinicio del proceso no vuelva a hidratar la entrada eliminada desde el provider. El ejemplo de abajo devuelve un booleano al caller para que el handler pueda confirmar si realmente ocurrió una eliminación.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -155,9 +155,9 @@ export class GuildPrefixService {
 
 ## getAllGuildIds
 
-_getAllGuildIds_ retorna un array con todos los IDs de servidor que actualmente tienen una sobrescritura de prefijo en memoria. Úsalo en dashboards administrativos, jobs de sincronización o endpoints de diagnóstico que necesiten enumerar o iterar sobre servidores configurados. El resultado refleja el estado en memoria en tiempo real, por lo que puede diferir de la base de datos durante un reload parcialmente completado.
+_getAllGuildIds_ devuelve un arreglo con cada ID de guild que actualmente tiene un override de prefijo en memoria. Úsalo en paneles administrativos, jobs de sincronización o endpoints de diagnóstico que necesiten enumerar o iterar sobre guilds configuradas. El resultado refleja el estado vivo en memoria, por lo que puede diferir de la base de datos durante una recarga parcialmente completada.
 
-Un patrón frecuente es llamar a _getAllGuildIds_ en un job programado que cruza memoria con registros de la base de datos y repara cualquier desfase. También puedes usarlo para construir una lista paginada para una API de gestión sin realizar escaneos amplios en la base. Mantén la llamada dentro de la capa de service para que los consumidores no dependan directamente del dispatcher.
+Un patrón común es llamar _getAllGuildIds_ en un job programado que cruce memoria contra registros de base de datos y repare cualquier drift. También puedes usarlo para construir una lista paginada para una API de gestión sin ejecutar escaneos amplios en base de datos. Mantén la llamada dentro de la capa de servicio para que los consumidores no dependan directamente del dispatcher.
 
 ```typescript filename="src/modules/prefix/services/guild-prefix.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -167,17 +167,17 @@ import { PrefixDispatcher } from '@spraxium/core';
 export class GuildPrefixService {
   constructor(private readonly dispatcher: PrefixDispatcher) {}
 
-  listarServidoresConfigurados(): string[] {
+  listConfiguredGuilds(): string[] {
     return this.dispatcher.guildPrefixes.getAllGuildIds();
   }
 }
 ```
 
-## loadFromProvider: lifecycle hook onReady
+## loadFromProvider: hook de ciclo de vida onReady
 
-_loadFromProvider_ acepta una función provider asíncrona, la espera y reemplaza todas las entradas de prefijo por servidor en memoria con el resultado. Como ejecuta I/O en lote y está estrechamente ligado a la disponibilidad de datos, pertenece a un lifecycle hook y no a un método de service genérico. Colocarlo en un service requeriría que el llamador supiera cuándo invocarlo o arriesgaría múltiples recargas completas concurrentes.
+_loadFromProvider_ acepta una función provider asíncrona, la espera y reemplaza todas las entradas de prefijo por guild en memoria con el resultado. Como realiza I/O masivo y está intrínsecamente ligado a disponibilidad de datos, pertenece a un hook de ciclo de vida en lugar de un método de servicio de propósito general. Ejecutarlo desde un servicio requeriría que un caller supiera cuándo invocarlo o arriesgar múltiples recargas completas concurrentes.
 
-El hook _onReady_ de _SpraxiumOnReady_ se ejecuta una vez después de que el cliente Discord hace login y está listo, que es exactamente el momento en que los datos iniciales deben cargarse en memoria. Implementa el hook en una clase de service dedicada, inyecta _PrefixDispatcher_ junto con el repositorio y llama a _loadFromProvider_ allí. También puedes llamar a _loadFromProvider_ desde un job programado cuando necesites una re-sincronización controlada tras cambios masivos en la base de datos.
+El hook _onReady_ de _SpraxiumOnReady_ se ejecuta una vez después de que el cliente de Discord inicia sesión y está listo, que es exactamente cuando los datos iniciales deberían cargarse en memoria. Implementa el hook en una clase de servicio dedicada, inyecta _PrefixDispatcher_ junto a tu repositorio y llama ahí a _loadFromProvider_. También puedes llamar _loadFromProvider_ desde un job programado cuando necesites una resincronización controlada después de cambios masivos en base de datos.
 
 ```typescript filename="src/modules/prefix/prefix-prefetch.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -210,21 +210,21 @@ export class PrefixPrefetchService implements SpraxiumOnReady {
 ```
 
 <Callout tone="info">
-  Registra *PrefixPrefetchService* en un módulo para que *SpraxiumOnReady* sea
-  invocado automáticamente. El framework llama a *onReady* en todo injectable
-  que lo implemente, por lo que no se requiere configuración adicional más allá
-  de la declaración en el módulo.
+  Registra *PrefixPrefetchService* en un módulo para que *SpraxiumOnReady* se
+  llame automáticamente. El framework invoca *onReady* en todo inyectable que lo
+  implemente, así que no se requiere cableado extra más allá de la declaración
+  del módulo.
 </Callout>
 
 ## Checklist de producción
 
-Una implementación robusta debe mantener en sincronía el estado en memoria y el estado persistido ante cualquier fallo intermedio. También necesita contexto de auditoría suficiente para soporte y flujos de moderación. Esta lista te ayuda a validar esas garantías antes de publicar.
+Una implementación robusta debe mantener alineados el estado en memoria y el estado persistido ante condiciones de fallo. También necesita suficiente contexto de auditoría para flujos de soporte y moderación. Esta checklist ayuda a validar esas garantías antes del release.
 
-- **Persistir antes de mutar memoria**: escribe en la base de datos antes de llamar métodos de escritura en el dispatcher para evitar divergencias.
-- **Encapsular writes del dispatcher en un service**: centraliza reglas de negocio y validaciones en un punto único.
-- **Registrar metadata de auditoría en cada escritura**: conserva actor y timestamp para trazabilidad operativa.
-- **Usar onReady para la carga inicial**: garantiza que el estado esté disponible antes de ejecutar comandos.
-- **Programar recargas seguras**: reconcilia memoria y storage tras migraciones o importaciones masivas.
+- **Persist before mutating memory**: escribe en tu base de datos antes de llamar a cualquier método de mutación en memoria para evitar divergencia de estado ante fallos parciales.
+- **Wrap dispatcher writes in a service**: centraliza reglas de negocio y validación en una única clase de servicio para simplificar pruebas y cambios futuros.
+- **Store audit metadata on every write**: registra el ID del actor y la marca de tiempo para que los flujos de moderación y soporte puedan rastrear cuándo cambió un prefijo.
+- **Use _onReady_ for initial load**: llama a _loadFromProvider_ desde un hook de ciclo de vida después de que el cliente de Discord esté listo para garantizar que los datos estén disponibles antes de ejecutar comandos.
+- **Schedule safe reload routines**: reconcilia el estado en memoria con la base de datos después de migraciones o importaciones masivas para cerrar cualquier ventana de drift.
 
 ## Siguiente página
 

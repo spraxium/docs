@@ -5,6 +5,21 @@ description: |
   Learn the job types, runtime lifecycle, and how the scheduler integrates with the framework.
 order: 1
 category: Schedule
+keywords:
+  - spraxium schedule overview
+  - schedule overview in spraxium
+  - schedule schedule overview guide
+  - schedule overview discord bot
+  - schedule overview typescript
+  - spraxium schedule documentation
+  - schedule overview schedule
+faq:
+  - question: "What does \"Schedule Overview\" cover in Spraxium?"
+    answer: "The schedule module runs background jobs using cron expressions, intervals, and timeouts. Learn the job types, runtime lifecycle, and how the scheduler integrates with the framework."
+  - question: "When should I use \"Schedule Overview\"?"
+    answer: "Use this page when you are implementing schedule overview in the Schedule area of your bot architecture."
+  - question: "What should I read after \"Schedule Overview\"?"
+    answer: "Continue with related Schedule pages to connect this concept with practical implementation details."
 ---
 
 ## What the schedule module solves
@@ -14,6 +29,12 @@ Most Discord bots need to run tasks on a timer. Clearing expired warnings, synci
 The module supports four job types that cover different timing patterns. Cron jobs run on calendar-based schedules using standard cron expressions. Intervals repeat at fixed millisecond offsets. Timeouts fire once after a delay. After-online jobs fire once after the bot has fully connected to Discord. Together, these four types handle every common scheduling scenario.
 
 The schedule module is a separate package (`@spraxium/schedule`) that plugs into the framework through the standard module system. It scans your providers for decorated methods at boot time, registers them in a central registry, and manages their lifecycle automatically. You do not need to manually start or stop timers.
+
+## When scheduling is the right tool
+
+Use the schedule module when work should happen because of time, not because of a user action or Discord event. Cleanup jobs, refresh cycles, reminders, periodic syncs, and post-startup tasks are the usual fit.
+
+If a task should only happen after a user explicitly asks for it, keep that logic in a command or interaction handler instead of forcing it into a scheduled job. Time-based automation and user-invoked flows are easier to maintain when they stay separate.
 
 ## Job types at a glance
 
@@ -94,11 +115,17 @@ export default defineSchedule({
 });
 ```
 
-<Callout type="info">
+<Callout tone="info">
   The schedule module uses the *MemoryDriver* by default, which stores job state
   in memory. For distributed bots running multiple shards or processes, switch
   to the *RedisScheduleDriver* to prevent duplicate executions.
 </Callout>
+
+## Operational guidance
+
+Scheduled jobs should be written with idempotency in mind. If a process restarts or a distributed driver retries coordination, a well-designed job should be safe to run twice without corrupting state.
+
+It is also a good habit to give important jobs explicit names through decorator options. Named jobs are easier to inspect, pause, resume, or trigger manually through the schedule service later.
 
 ## Project structure
 

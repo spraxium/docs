@@ -1,122 +1,160 @@
 ---
-title: Configuração e Setup de Módulo Único
+title: Configuração e Setup com Módulo Único
 description: |
-  Configure @spraxium/http com um modelo único de ownership global e startup previsível.
-  Mantenha metadata HTTP no AppModule e registre o plugin por uma única entrada de configuração.
+  Configure @spraxium/http com um modelo global único de controle e comportamento de inicialização previsível.
+  Mantenha os metadados HTTP ligados ao AppModule e registre o plugin por uma única entrada de configuração.
 order: 2
 category: "@spraxium/http"
+keywords:
+  - spraxium http config and single module
+  - configuração e setup com módulo único no spraxium
+  - "@spraxium/http http config and single module guia"
+  - http config and single module bot discord
+  - http config and single module typescript
+  - documentacao spraxium @spraxium/http
+  - configuração e setup com módulo único @spraxium/http
+  - spraxium configuração e setup com módulo único
+faq:
+  - question: "O que \"Configuração e Setup com Módulo Único\" cobre no Spraxium?"
+    answer: "Configure @spraxium/http com um modelo global único de controle e comportamento de inicialização previsível. Mantenha os metadados HTTP ligados ao AppModule e registre o plugin por uma única entrada de configuração."
+  - question: "Quando devo usar \"Configuração e Setup com Módulo Único\"?"
+    answer: "Use esta pagina quando voce estiver implementando http config and single module dentro da area de @spraxium/http do seu bot."
+  - question: "Qual o proximo passo depois de \"Configuração e Setup com Módulo Único\"?"
+    answer: "Continue nas paginas relacionadas de @spraxium/http para conectar este conceito com implementacao pratica."
 ---
 
-## Ownership de configuração primeiro
+## Controle da configuração em primeiro lugar
 
-A decisão arquitetural mais importante é onde a metadata vive. O _HttpServer_ lê metadata do _HttpClientModule_ a partir da classe referenciada em `defineHttp({ module })`, então essa classe se torna a dona única de toda declaração de controller, service, guard e middleware na superfície HTTP. Usar o AppModule como essa classe mantém ownership explícito e previne drift silencioso de configuração quando equipes refatoram módulos.
+A decisão arquitetural mais importante é onde os metadados vivem. O _HttpServer_ lê os metadados de _HttpClientModule_ a partir da classe referenciada em `defineHttp({ module })`, então essa classe se torna a dona única de toda declaração de controller, service, guard e middleware da superfície HTTP. Usar AppModule como essa classe deixa o controle explícito e evita desvio silencioso de configuração quando a equipe refatora módulos.
 
-<Callout tone="warning" title="Não é necessário wrapper local de módulo HTTP">
-  Evite criar um AppHttpModule separado apenas para hospedar metadata do
+<Callout tone="warning" title="Não é preciso um módulo wrapper local para HTTP">
+  Evite criar um AppHttpModule separado apenas para hospedar os metadados de
   *HttpClientModule*. Mantenha *HttpClientModule* no AppModule, importe
-  *HttpModule* no AppModule e referencie AppModule no *defineHttp*. Um segundo
-  módulo com seu próprio *HttpClientModule* é silenciosamente ignorado pelo
-  servidor porque apenas a referência raiz é resolvida.
+  *HttpModule* no AppModule e referencie AppModule em *defineHttp*. Um segundo
+  módulo com seu próprio *HttpClientModule* é ignorado silenciosamente pelo
+  servidor, porque só a referência raiz é resolvida.
 </Callout>
 
-Esse modelo elimina ambiguidade de ownership. Ciclo de vida do servidor, guards, middleware e registro de rotas apontam para uma única classe raiz e uma única entrada de plugin. Quando você adiciona um novo controller ou altera o stack de guards, a mudança é visível em um lugar e afeta toda a superfície da API sem precisar tocar em arquivos de configuração.
+Esse modelo elimina ambiguidade de controle. Ciclo de vida do servidor, guards, middleware e registro de rotas apontam todos para uma única classe raiz e uma única entrada de plugin. Quando você adiciona um novo controller ou altera a pilha de guards, a mudança fica visível em um só lugar e passa a valer em toda a superfície da API sem mexer nos arquivos de configuração.
 
-## Contrato HttpConfig
+## HttpConfig contract
 
-_HttpConfig_ é a interface que o _defineHttp()_ aceita e que o _ConfigStore_ entrega ao _HttpServer_ no boot. Cada campo mapeia para um comportamento específico de runtime, então entender o contrato previne surpresas durante o deploy.
+_HttpConfig_ é a interface que _defineHttp()_ aceita e que _ConfigStore_ entrega ao _HttpServer_ no boot. Cada campo se mapeia para um comportamento específico de runtime, então entender esse contrato evita surpresas na implantação.
 
 <DropdownGroup>
 <Dropdown title="enabled: boolean">
-  Liga ou desliga o servidor HTTP no nível do processo. Quando `false`, o *HttpServer.onBoot()* retorna imediatamente sem fazer bind de porta, registrar rotas ou criar bridge. Use flags condicionais por ambiente para desativar o servidor em contextos onde exposição HTTP não é desejada.
+  Liga ou desliga o servidor HTTP no nível do processo. Quando está como `false`, *HttpServer.onBoot()* retorna imediatamente sem fazer bind de porta, registrar rotas ou criar bridge. Use flags sensíveis ao ambiente para desativar o servidor em contextos onde a exposição HTTP não é necessária.
 </Dropdown>
 
 <Dropdown title="host: string">
-  O endereço de interface de rede ao qual o servidor faz bind no startup.
-  Default é `0.0.0.0`, que escuta em todas as interfaces e torna o servidor
-  acessível por qualquer rede. Use `127.0.0.1` em desenvolvimento para
-  restringir o acesso ao localhost e evitar exposição acidental na rede local.
+  O endereço da interface de rede em que o servidor faz bind ao iniciar. O
+  padrão é `0.0.0.0`, que escuta em todas as interfaces e torna o servidor
+  acessível de qualquer rede. Use `127.0.0.1` em desenvolvimento para restringir
+  o acesso ao localhost e evitar exposição acidental na rede local.
 </Dropdown>
 
 <Dropdown title="port: number">
-  O número de porta TCP para o listener Hono. Default é `3000`. Leia esse valor
-  de uma variável de ambiente para evitar números de porta hardcoded em
-  manifestos de deployment.
+  O número da porta TCP do listener Hono. O padrão é `3000`. Leia esse valor de
+  uma variável de ambiente para evitar portas fixas em manifests de implantação
+  e garanta que a porta não esteja em uso antes de iniciar o servidor.
 </Dropdown>
 
 <Dropdown title="apiKey: string">
-  O valor secreto para o *ApiKeyGuard* embutido. Quando esse campo não está
-  vazio, o *HttpServer* cria e registra o *ApiKeyGuard* automaticamente para que
-  toda request precise incluir um header `x-api-key` correspondente. Nenhuma
+  O valor secreto do *ApiKeyGuard* embutido. Quando esse campo não está vazio,
+  *HttpServer* cria e registra *ApiKeyGuard* automaticamente, então toda
+  requisição precisa incluir um header `x-api-key` correspondente. Nenhuma
   declaração manual em *@HttpClientModule({guards})* é necessária para esse
   guard.
 </Dropdown>
 
 <Dropdown title="rateLimit?: RateLimitConfig">
-  Um objeto opcional `{ windowMs, max }` que serve como fonte de verdade em nível de config para a política de rate limiting. Esse campo não ativa o rate limiting por si só; você ainda precisa instanciar o *RateLimitMiddleware* com esses valores e registrá-lo em *@HttpClientModule({ middleware })* ou *middlewareProviders*. Use esse campo para manter os números de limite co-localizados com as outras configurações do servidor.
+  Um objeto opcional `{ windowMs, max }` que funciona como fonte de verdade em
+  nível de configuração para a política de rate limit. Esse campo não ativa rate
+  limit sozinho; você ainda precisa instanciar *RateLimitMiddleware* com esses
+  valores e registrá-lo em *@HttpClientModule({ middleware })* ou em
+  *middlewareProviders*. Use esse campo para manter os números do rate limit ao
+  lado do restante da configuração do servidor.
 </Dropdown>
 
 <Dropdown title="security?: SecurityConfig">
   Controla a camada automática de segurança com cinco subcampos opcionais:
-  *cors*, *headers*, *bodyLimit*, *trustedProxies* e *hidePoweredBy*. Quando
-  omitido, *SECURITY_DEFAULTS* se aplicam a todos os subcampos. Definir um
-  subcampo individual como `false` desabilita aquela camada sem afetar as
-  demais.
+  *cors*, *headers*, *bodyLimit*, *trustedProxies* e *hidePoweredBy*. Quando é
+  omitido por completo, *SECURITY_DEFAULTS* se aplica a todos os subcampos.
+  Definir qualquer subcampo individual como `false` desativa aquela camada sem
+  afetar as demais.
 </Dropdown>
 
 <Dropdown title="sharding: boolean">
-  Seleciona o caminho de startup e a implementação de bridge para a topologia do
-  bot. Quando `false`, o servidor inicia durante o *onBoot* e exige um *Client*
-  do Discord injetado para criar um *DirectBotBridge*. Quando `true`, o startup
-  é adiado para um hook do *ParentHookRegistry* e um *ShardingManager* é usado
-  para criar um *ShardedBotBridge*.
+  Seleciona o caminho de inicialização e a implementação de bridge para a
+  topologia do bot. Quando está como `false`, o servidor inicia durante
+  *onBoot* e exige um *Client* do Discord injetado para criar um
+  *DirectBotBridge*. Quando está como `true`, a inicialização é adiada para um
+  hook de *ParentHookRegistry* e um *ShardingManager* é usado para criar um
+  *ShardedBotBridge*.
 </Dropdown>
 
 <Dropdown title="module?: Constructor">
-  A classe decorada com *@HttpClientModule*, que se torna a dona única de metadata para todos os controllers, services, guards e declarações de middleware. O *HttpServer* lê essa referência de classe no boot para descobrir a superfície HTTP completa. Usar o AppModule previne drift silencioso de configuração quando equipes refatoram limites de módulos.
+  A classe decorada com *@HttpClientModule*, que se torna a dona única dos
+  metadados de todas as declarações de controllers, services, guards e
+  middleware. *HttpServer* lê essa referência de classe no boot para descobrir a
+  superfície HTTP completa. Usar AppModule evita desvio silencioso de
+  configuração quando a equipe refatora fronteiras de módulo.
 </Dropdown>
 </DropdownGroup>
 
-## Subestrutura SecurityConfig
+## Subestrutura de SecurityConfig
 
-O campo _security_ aceita um objeto _SecurityConfig_ com quatro subcampos opcionais. Cada subcampo controla uma camada do stack de hardening e pode ser definido como `false` para desabilitá-lo completamente. Quando um subcampo é omitido, a package aplica _SECURITY_DEFAULTS_ automaticamente.
+O campo _security_ aceita um objeto _SecurityConfig_ com quatro subcampos opcionais. Cada subcampo controla uma camada da pilha de hardening e pode ser definido como `false` para desativá-la por completo. Quando um subcampo é omitido, o pacote aplica _SECURITY_DEFAULTS_ automaticamente.
 
 <DropdownGroup>
-<Dropdown title="hidePoweredBy: boolean (padrão true)">
-  Remove os headers `X-Powered-By` e `Server` de toda resposta, impedindo que frameworks e versões de runtime sejam identificados por atacantes. Deve permanecer ativado em produção, pois não há desvantagem em não anunciar o stack do servidor. O default é `true`.
+<Dropdown title="hidePoweredBy: boolean (default true)">
+  Remove os headers de resposta `X-Powered-By` e `Server` de toda resposta. Isso
+  evita fingerprinting de framework e runtime, que atacantes usam para
+  identificar vulnerabilidades conhecidas em versões específicas de software. O
+  padrão é `true` e ele deve permanecer habilitado em produção, a menos que haja
+  um motivo operacional explícito para expor a pilha do servidor.
 </Dropdown>
 
 <Dropdown title="headers?: SecurityHeadersConfig">
-  Ativa o *SecurityHeadersMiddleware*, que aplica todos os defaults de header do
-  *SECURITY_DEFAULTS*. Campos individuais como *frameOptions*, *hstsMaxAge*,
-  *contentSecurityPolicy*, *referrerPolicy*, *noSniff*, *xssProtection*,
-  *permissionsPolicy* e outros podem ser sobrescritos ou desabilitados. Definir
-  esse subcampo como `false` desabilita todos os headers de segurança de uma
-  vez.
+  Ativa *SecurityHeadersMiddleware*, que envolve o *secureHeaders* do Hono e
+  aplica todos os headers padrão de *SECURITY_DEFAULTS*. Campos individuais como
+  *frameOptions*, *hstsMaxAge*, *contentSecurityPolicy*, *referrerPolicy*,
+  *noSniff*, *xssProtection*, *permissionsPolicy*, *crossOriginOpenerPolicy*,
+  *crossOriginResourcePolicy*, *crossDomainPolicies*, *dnsPrefetchControl* e
+  *downloadOptions* podem ser sobrescritos ou desativados. Definir esse
+  subcampo como `false` desativa todos os headers de segurança de uma vez.
 </Dropdown>
 
 <Dropdown title="cors?: CorsConfig">
-  Ativa o *CorsMiddleware*, que gerencia requisições preflight `OPTIONS` e os
-  headers `Access-Control-*`. Configurado via *origins*, *methods*,
-  *allowedHeaders*, *exposedHeaders*, *credentials* e *maxAge* para cache de
-  preflight em segundos. Definir esse subcampo como `false` desabilita o
-  middleware de CORS inteiramente.
+  Ativa *CorsMiddleware*, que envolve o *cors* do Hono e trata requisições
+  preflight `OPTIONS` junto com os headers `Access-Control-*`. A configuração é
+  feita por *origins* (array de strings ou `'*'`), *methods*, *allowedHeaders*,
+  *exposedHeaders*, *credentials* e *maxAge* para cache de preflight em
+  segundos. Definir esse subcampo como `false` desativa totalmente o middleware
+  de CORS.
 </Dropdown>
 
 <Dropdown title="bodyLimit?: BodyLimitConfig">
-  Ativa o *BodyLimitMiddleware*, que rejeita payloads acima de *maxSize* bytes
-  com status 413. O *maxSize* padrão é 102400 (100 KB), adequado para a maioria
-  dos endpoints que aceitam JSON. Defina como `false` somente em endpoints que
-  lidam com uploads grandes e possuem validação própria de tamanho.
+  Ativa *BodyLimitMiddleware*, que envolve o *bodyLimit* do Hono e rejeita
+  payloads que ultrapassam *maxSize* bytes com status 413. O *maxSize* padrão é
+  102400 (100 KB). Definir esse subcampo como `false` desativa a checagem de
+  limite de body, algo apropriado apenas para endpoints que lidam com uploads
+  grandes e já fazem sua própria validação de tamanho.
 </Dropdown>
 
 <Dropdown title="trustedProxies?: TrustedProxyConfig">
-  Declara os IPs de proxy ou ranges CIDR cujos headers `x-forwarded-for` devem ser confiados para identificar o IP real do cliente. O default é `['127.0.0.1', '::1']` quando omitido. Esse campo não aplica comportamento de proxy automaticamente; ele documenta o modelo de confiança pretendido para uso com *RateLimitMiddleware* e logs de auditoria que dependem de identificação de IP.
+  Declara os IPs de proxy ou intervalos CIDR cujos headers `x-forwarded-for`
+  devem ser confiáveis ao determinar o IP real do cliente. O padrão, quando
+  omitido, é `['127.0.0.1', '::1']`. Esse campo não impõe automaticamente o
+  comportamento de proxy; ele documenta o modelo de confiança pretendido para
+  uso ao lado de *RateLimitMiddleware* e de logs de auditoria que dependem da
+  identificação do IP do cliente.
 </Dropdown>
 </DropdownGroup>
 
-## Split recomendado de integração
+## Separação de integração recomendada
 
-Mantenha a chamada _defineHttp_ em um arquivo de config dedicado para que decisões de rede e segurança fiquem visíveis sem precisar rolar pelos decorators do módulo. O arquivo de config importa o AppModule, e `spraxium.config.ts` importa o arquivo de config. Esse padrão de três arquivos dá a cada responsabilidade um local estável: o arquivo de config controla infraestrutura, o módulo controla metadata, e o config raiz controla registro de plugins.
+Mantenha a chamada de _defineHttp_ em um arquivo de configuração dedicado para que decisões de rede e segurança fiquem visíveis sem precisar percorrer decorators de módulo. O arquivo de configuração importa AppModule, e `spraxium.config.ts` importa esse arquivo. Esse padrão de três arquivos dá um lugar estável para cada responsabilidade: o arquivo de configuração controla a infraestrutura, o módulo controla os metadados e a configuração raiz controla o registro do plugin.
 
 <CodeTabs defaultIndex={0}>
   <Tab label="config/http.config.ts" language="typescript">
@@ -161,13 +199,13 @@ import { GuildHttpController } from './http/controllers/guild-http.controller';
 import { GuildHttpService } from './http/services/guild-http.service';
 
 @HttpClientModule({
-controllers: [GuildHttpController],
-services: [GuildHttpService],
-middleware: [new LoggerMiddleware()],
+  controllers: [GuildHttpController],
+  services: [GuildHttpService],
+  middleware: [new LoggerMiddleware()],
 })
 @Module({
-imports: [HttpModule],
-providers: [GuildHttpController, GuildHttpService],
+  imports: [HttpModule],
+  providers: [GuildHttpController, GuildHttpService],
 })
 export class AppModule {}
 
@@ -186,114 +224,130 @@ export default defineConfig(() => ({
   </Tab>
 </CodeTabs>
 
-## Shape de metadata do HttpClientModule
+## Estrutura dos metadados de HttpClientModule
 
-_@HttpClientModule_ é um decorator de classe que armazena metadata consumida pelo _HttpServer_ durante o registro de rotas. Cada campo controla uma fase diferente do pipeline de startup.
+_@HttpClientModule_ é um decorator de classe que armazena metadados consumidos por _HttpServer_ durante o registro de rotas. Cada campo controla uma fase diferente do pipeline de inicialização.
 
 <DropdownGroup>
 <Dropdown title="controllers: Array<Constructor>">
-  Um array de classes de controller decoradas com *@HttpController*. Cada classe é instanciada pelo *RouteRegistry* com dependências resolvidas via DI, e o *RouteBuilder* registra seus métodos de rota decorados como handlers Hono no startup. Todos os controllers que devem ser acessíveis em runtime precisam constar neste array.
+  Um array de classes de controller decoradas com *@HttpController*. Cada classe
+  é instanciada por *RouteRegistry* com dependências resolvidas pela DI, e
+  *RouteBuilder* faz o binding dos métodos de rota decorados como handlers Hono
+  durante a inicialização do servidor. Todo controller que precisa estar
+  acessível em runtime deve aparecer nesse array.
 </Dropdown>
 
 <Dropdown title="services: Array<Constructor>">
-  Um array de classes de service resolvidas antes dos controllers via ordenação
-  topológica. Cada instância de service é adicionada ao mapa de dependências
-  para que controllers e outros services a recebam como parâmetro de construtor
-  automaticamente. Dependências circulares entre services declarados são
-  detectadas no startup e produzem um erro explícito com os nomes das classes
-  envolvidas.
+  Um array de classes de service resolvidas antes dos controllers por meio de
+  ordenação topológica. Cada instância de service é adicionada ao mapa de
+  dependências para que controllers e outros services a recebam automaticamente
+  como parâmetro de construtor. Dependências circulares entre services
+  declarados são detectadas na inicialização e produzem um erro explícito com a
+  lista das classes envolvidas.
 </Dropdown>
 
 <Dropdown title="guards: Array<Constructor<HttpGuard>>">
-  Um array de tokens de classe de guard que o *RouteRegistry* resolve via DI e o *GuardExecutor* executa sequencialmente em cada request após o stack de middleware de segurança. Um único retorno `false` encerra a request com `{ ok: false, error: 'Unauthorized' }` no status 401. O array `guards` é para guards customizados com dependências de DI; o *ApiKeyGuard* é registrado automaticamente via o campo `apiKey` do *defineHttp*.
+  Um array de tokens de classe de guard que *RouteRegistry* resolve por DI e que
+  *GuardExecutor* executa em sequência em toda requisição depois da pilha de
+  middleware de segurança. Um único retorno `false` interrompe a execução e
+  devolve `{ ok: false, error: 'Unauthorized' }` com status 401. O array
+  `guards` serve para guards customizados com dependências de DI; *ApiKeyGuard*
+  é registrado automaticamente pelo campo `apiKey` em *defineHttp*.
 </Dropdown>
 
 <Dropdown title="middleware: Array<HttpMiddleware>">
-  Um array de objetos *HttpMiddleware* pré-instanciados registrados como
-  middleware global do Hono no path `'*'`. Essas instâncias executam após o
-  stack automático de segurança e antes da execução dos guards, aplicando-se
-  incondicionalmente a toda request. Use este array para preocupações
-  transversais como logging de request com *LoggerMiddleware*.
+  Um array de objetos *HttpMiddleware* já instanciados, registrados como
+  middleware global do Hono no caminho `'*'`. Essas instâncias rodam depois da
+  pilha automática de segurança e antes da execução dos guards, aplicando-se sem
+  condição a toda requisição. Use esse array para preocupações transversais,
+  como log de requisição com *LoggerMiddleware*.
 </Dropdown>
 
 <Dropdown title="middlewareProviders: Map<Constructor, HttpMiddleware>">
-  Um mapa de tokens de construtor para instâncias concretas de *HttpMiddleware* usado para binding de middleware em nível de rota. O *RouteBuilder* resolve referências de *@HttpUseMiddleware* através deste mapa no startup, inserindo a instância antes do handler de rota na chain do Hono. Entradas não referenciadas por nenhum decorator *@HttpUseMiddleware* são registradas mas nunca executam.
+  Um mapa de tokens de construtor para instâncias concretas de *HttpMiddleware*,
+  usado no binding de middleware em nível de rota. *RouteBuilder* resolve
+  referências de *@HttpUseMiddleware* por esse mapa durante a inicialização,
+  inserindo a instância antes do handler da rota na cadeia do Hono. Entradas não
+  referenciadas por nenhum decorator *@HttpUseMiddleware* ficam registradas, mas
+  nunca executam.
 </Dropdown>
 </DropdownGroup>
 
-A divisão entre _middleware_ e _middlewareProviders_ dá ownership claro entre política global de pipeline e declarações em nível de rota. Middleware global roda em cada request incondicionalmente. Middleware de rota roda apenas em endpoints decorados com _@UseMiddleware_ e é resolvido de forma lazy a partir do mapa de providers, então classes de middleware não referenciadas nunca executam.
+A separação entre _middleware_ e _middlewareProviders_ deixa claro o limite entre política global de pipeline e declarações em nível de rota. Middleware global roda em toda requisição sem condição. Middleware de rota roda apenas em endpoints decorados com _@HttpUseMiddleware_ e é resolvido sob demanda a partir do mapa de providers, então classes de middleware não referenciadas nunca são executadas.
 
 ## Sequência de setup
 
 <Steps>
-  <Step title="Extrair configuração do plugin em arquivo dedicado">
-    Mantenha a chamada *defineHttp* em `config/http.config.ts` para que binding
-    de rede, política de segurança e modo de sharding fiquem visíveis em um
-    lugar. Isso também mantém `spraxium.config.ts` focado no registro de plugins
-    em vez de detalhes de implementação. Variáveis de ambiente para host, porta
-    e API key devem ser lidas aqui.
+  <Step title="Extraia a configuração do plugin para um arquivo dedicado">
+    Mantenha a chamada de *defineHttp* em `config/http.config.ts` para que bind
+    de rede, política de segurança e modo sharded fiquem visíveis em um só lugar.
+    Isso também mantém `spraxium.config.ts` focado no registro do plugin, e não
+    em detalhes de implementação. Variáveis de ambiente para host, porta e API
+    key devem ser lidas aqui.
   </Step>
-  <Step title="Apontar module para a raiz real de composição">
-    Defina `module: AppModule` no *defineHttp* para que o *HttpServer* leia
-    metadata da mesma classe que controla o grafo de módulos. Criar um
-    HttpAppModule separado leva a drift porque mudanças no AppModule não
-    propagam para a fonte de metadata HTTP automaticamente.
+  <Step title="Aponte o módulo para sua composição raiz real">
+    Defina `module: AppModule` em *defineHttp* para que *HttpServer* leia os
+    metadados da mesma classe que controla o grafo de módulos. Criar um
+    HttpAppModule separado leva a desvio, porque mudanças no AppModule não se
+    propagam automaticamente para a fonte de metadados HTTP.
   </Step>
-  <Step title="Importar HttpModule uma única vez no AppModule">
-    O *HttpModule* é global e deve aparecer uma vez nos imports do módulo raiz.
-    Isso garante um único dono de ciclo de vida para startup e shutdown gracioso
-    do servidor. Importá-lo em múltiplos módulos não causa erros mas não traz
-    benefício.
+  <Step title="Importe HttpModule uma vez no AppModule">
+    *HttpModule* é global e deve aparecer uma vez nas importações do módulo
+    raiz. Isso garante um único responsável pelo ciclo de vida da inicialização
+    e do desligamento gracioso do servidor. Importá-lo em vários módulos não
+    causa erro, mas também não traz benefício.
   </Step>
-  <Step title="Registrar guards e middleware no HttpClientModule">
-    Declare guards e middleware globais como instâncias na metadata do
-    *@HttpClientModule*. Guards executam sequencialmente para cada request.
-    Instâncias de middleware rodam após o stack de segurança. Middleware de rota
-    vai em *middlewareProviders* e é ativado por endpoint com
-    *@HttpUseMiddleware*.
+  <Step title="Registre guards e middleware em HttpClientModule">
+    Declare classes de guard customizadas no array *@HttpClientModule({guards})*
+    para proteção global. O framework resolve cada classe de guard por DI na
+    inicialização. Instâncias de middleware vão em *middleware* e rodam depois
+    da pilha de segurança. Middleware em nível de rota vai em
+    *middlewareProviders* e é ativado por endpoint com *@HttpUseMiddleware*.
   </Step>
-  <Step title="Registrar uma única entrada de plugin HTTP no defineConfig">
-    Mantenha uma única entrada de plugin HTTP dentro de `defineConfig({plugins}
-    )`. Entradas múltiplas criam ownership ambíguo e registro de rotas instável
-    porque o *ConfigStore* retorna apenas uma config para o key *defineHttp*.
+  <Step title="Registre uma única entrada de plugin HTTP em defineConfig">
+    Mantenha uma única entrada de plugin HTTP dentro de `defineConfig({plugins})`.
+    Entradas múltiplas levam a controle ambíguo e registro instável de rotas,
+    porque *ConfigStore* devolve apenas uma configuração para a chave
+    *defineHttp*.
   </Step>
 </Steps>
 
-## Comportamento de startup por modo
+## Comportamento de inicialização por modo
 
-<Table variant="striped">
+<Table>
   <TableHead>
     <TableRow>
-      <TableCell header="Modo">Modo</TableCell>
-      <TableCell header="Quando inicia">Quando inicia</TableCell>
-      <TableCell header="Requisito de Client">Requisito de Client</TableCell>
-      <TableCell header="Implementação de bridge">
+      <TableCell header>Modo</TableCell>
+      <TableCell header>Quando inicia</TableCell>
+      <TableCell header>Exigência de client</TableCell>
+      <TableCell header>
         Implementação de bridge
       </TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>Direto (`sharding: false`)</TableCell>
+      <TableCell>Direto, com *sharding: false*</TableCell>
       <TableCell>
-        Durante o hook *onBoot*, após o *Client* do Discord estar pronto.
+        Durante o hook de ciclo de vida *onBoot*, depois que o *Client* do
+        Discord estiver pronto.
       </TableCell>
       <TableCell>
-        Obrigatório. Se ausente, o servidor registra um erro e pula o startup.
+        Obrigatório. Se faltar, o servidor registra erro e pula a inicialização.
       </TableCell>
       <TableCell>
-        *DirectBotBridge*: acessa cache de guilds e API do Discord através da
-        instância do client diretamente.
+        *DirectBotBridge*: acessa o cache de guilds e a API do Discord
+        diretamente pela instância do client.
       </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Sharded (`sharding: true`)</TableCell>
+      <TableCell>Sharded, com *sharding: true*</TableCell>
       <TableCell>
         Via *ParentHookRegistry* quando o processo pai cria o *ShardingManager*.
       </TableCell>
       <TableCell>
-        Não necessário. O *ShardingManager* substitui o client para interações
-        com o bot.
+        Não é obrigatório. O *ShardingManager* substitui o client nas
+        interações com o bot.
       </TableCell>
       <TableCell>
         *ShardedBotBridge*: usa `manager.broadcastEval()` para executar
@@ -303,8 +357,8 @@ A divisão entre _middleware_ e _middlewareProviders_ dá ownership claro entre 
   </TableBody>
 </Table>
 
-No modo direto, o servidor tem acesso imediato ao _Client_ do Discord e pode injetá-lo no mapa de DI junto com _BotBridge_. Controllers que precisam do client diretamente (para funcionalidades não cobertas pelo bridge) podem declará-lo como parâmetro de construtor. No modo sharded, o client não está disponível no processo HTTP, então controllers devem usar _BotBridge_ exclusivamente para interações com o Discord.
+No modo direto, o servidor tem acesso imediato ao _Client_ do Discord e pode injetá-lo no mapa de DI ao lado de _BotBridge_. Controllers que precisarem do client diretamente, em recursos não cobertos pelo bridge, podem declará-lo como parâmetro de construtor. No modo sharded, o client não está disponível no processo HTTP, então os controllers precisam usar _BotBridge_ de forma exclusiva nas interações com o Discord.
 
-## Próxima página
+## Next page
 
 Continue com [Arquitetura de Pastas HTTP](/guide/http-folder-architecture).

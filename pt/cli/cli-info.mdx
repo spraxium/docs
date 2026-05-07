@@ -1,57 +1,110 @@
 ---
-title: CLI Info
+title: Informações da CLI
 description: |
-  Detalhamento do comando de diagnóstico spraxium info.
-  Aprenda quando usar saída humana ou JSON para troubleshooting e suporte.
+  Guia detalhado para o comando de diagnóstico spraxium info.
+  Saiba quando usar a saída legível para humanos ou JSON em fluxos de troubleshooting.
 order: 6
 category: CLI
+keywords:
+  - spraxium cli info
+  - informações da cli no spraxium
+  - cli cli info guia
+  - cli info bot discord
+  - cli info typescript
+  - documentacao spraxium cli
+  - informações da cli cli
+  - spraxium informações da cli
+faq:
+  - question: "O que \"Informações da CLI\" cobre no Spraxium?"
+    answer: "Guia detalhado para o comando de diagnóstico spraxium info. Saiba quando usar a saída legível para humanos ou JSON em fluxos de troubleshooting."
+  - question: "Quando devo usar \"Informações da CLI\"?"
+    answer: "Use esta pagina quando voce estiver implementando cli info dentro da area de CLI do seu bot."
+  - question: "Qual o proximo passo depois de \"Informações da CLI\"?"
+    answer: "Continue nas paginas relacionadas de CLI para conectar este conceito com implementacao pratica."
 ---
 
 ## Quando usar
 
-Use `spraxium info` para coletar contexto técnico de ambiente antes de abrir issue ou investigar bug.
+Use _spraxium info_ sempre que precisar de um retrato rápido de diagnóstico da máquina e do projeto atuais. Ele é especialmente útil antes de abrir issues, depois de upgrades, quando a CI se comporta de forma diferente do desenvolvimento local ou quando você precisa confirmar exatamente quais pacotes do Spraxium um projeto está usando.
 
 ```bash filename="terminal"
 spraxium info
 spraxium info --json
 ```
 
+Se você só precisa de uma checagem rápida para leitura humana, a saída padrão no terminal já basta. Se o resultado for para um ticket, script ou artefato de CI, prefira o modo JSON, assim o relatório completo pode ser copiado e analisado sem perder detalhes.
+
 ## O que o relatório inclui
 
-O comando monta um relatório com a versão da CLI, nome do projeto detectado, versão do Node, sistema operacional e runtime path. Também captura o package manager preferencial e as versões detectadas de npm, pnpm, yarn e bun. Por fim, varre o projeto e workspace em busca de todos os pacotes `@spraxium/*` instalados e lista cada versão.
+O comando monta um relatório com a versão da CLI, o nome de projeto detectado, a versão do Node, o sistema operacional e o caminho do runtime. Ele também captura o gerenciador de pacotes preferido e as versões detectadas de npm, pnpm, yarn e bun. Por fim, percorre o projeto e o workspace em busca de todos os pacotes `@spraxium/*` instalados e lista a versão de cada um.
 
-## Formatos de saída
+Essa combinação importa porque a maioria das perguntas de troubleshooting começa com uma destas incertezas:
+
+1. Qual versão da CLI está realmente em execução?
+2. A máquina está usando o runtime do Node esperado?
+3. O projeto está no gerenciador de pacotes que o time espera?
+4. Os pacotes do framework estão alinhados ou há algum atrasado em relação aos demais?
+
+_spraxium info_ responde a essas perguntas de uma vez, em vez de obrigar você a levantar tudo manualmente.
+
+## Como ler o relatório
+
+<Steps>
+  <Step title="Verifique o runtime primeiro">
+    Comece pela versão do Node, sistema operacional e caminho do runtime. Se uma
+    máquina falha e outra funciona, este costuma ser o lugar mais rápido para
+    encontrar uma diferença de ambiente.
+  </Step>
+  <Step title="Verifique o gerenciador de pacotes em seguida">
+    Confirme se o projeto está usando pnpm, npm, yarn ou bun. Problemas de
+    resolução de dependências e drift de lockfile costumam começar aqui.
+  </Step>
+  <Step title="Verifique o alinhamento dos pacotes Spraxium">
+    Compare as versões encontradas de *@spraxium/*. Versões misturadas são uma
+    fonte comum de comportamentos estranhos do framework depois de upgrades parciais.
+  </Step>
+</Steps>
+
+## Modos de saída
 
 <DropdownGroup>
-<Dropdown title="Legível por humano (spraxium info)">
-  Exibe um resumo formatado diretamente no terminal. Use para inspeção visual rápida antes de abrir um issue ou durante uma sessão de debugging onde você precisa de uma visão geral rápida do ambiente.
+<Dropdown title="Legível por humanos (spraxium info)">
+  Imprime um resumo formatado diretamente no terminal. Use para uma inspeção visual rápida antes de abrir uma issue ou durante uma sessão de depuração em que você só precisa de uma visão geral do ambiente.
 </Dropdown>
 
 <Dropdown title="JSON (spraxium info --json)">
-  Exibe o relatório completo como `JSON.stringify(report, null, 2)`. Use em scripts de automação, pipelines de CI que persistem o relatório como artifact de build, ou quando você precisa analisar campos específicos programaticamente.
+  Emite o relatório completo como `JSON.stringify(report, null, 2)`. Use em scripts de automação, pipelines de CI que armazenam o relatório como artefato de build ou quando você precisar analisar campos específicos programaticamente.
 </Dropdown>
 </DropdownGroup>
 
-## Onde e para quem usar
+<Callout tone="info" title="Prefira JSON ao compartilhar diagnósticos">
+  A saída padrão é mais fácil de ler no terminal. A saída JSON é melhor quando o
+  relatório será colado em uma issue, armazenado em CI ou comparado entre
+  máquinas.
+</Callout>
 
-- Suporte interno: pedir contexto mínimo para reproduzir problema.
-- Bug report público: anexar informações ao issue.
-- Diagnóstico em CI: persistir relatório em artifact.
+## Onde e quem deve usar
 
-## Template rápido para issue
+- Suporte interno: pedir o contexto mínimo de quem reporta.
+- Relatórios públicos de bug: anexar diagnósticos em templates de issue.
+- Depuração em CI: persistir o relatório como artefato de build.
+
+Usuários avançados também se beneficiam disso depois de upgrades de dependência. Se um workspace de repente se comportar de forma diferente depois de atualizar pacotes, _spraxium info_ é a maneira mais rápida de confirmar se as versões resolvidas correspondem ao que você pretendia instalar.
+
+## Modelo rápido de issue
 
 ```text
-Resumo do problema:
-Passos para reproduzir:
-Resultado esperado:
-Resultado atual:
-Saída de `spraxium info --json`:
+Problem summary:
+Reproduction steps:
+Expected result:
+Actual result:
+Output from `spraxium info --json`:
 ```
 
-## Próxima categoria
+## Hábito útil
 
-Depois desta categoria, siga para [Configuration: Core Fields](/guide/config-core-fields).
+Se o seu time dá suporte a múltiplos bots ou ambientes, inclua _spraxium info --json_ no template padrão de relatório de bugs. Esse pequeno hábito elimina bastante ida e volta antes mesmo de a depuração real começar.
 
-## Próximo estudo
+## Próxima página
 
-Continue com [Configuration: Core Fields](/guide/config-core-fields).
+Continue com [Configuração: Campos Principais](/guide/config-core-fields).

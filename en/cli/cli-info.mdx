@@ -5,20 +5,64 @@ description: |
   Learn when to use human-readable output or JSON in troubleshooting workflows.
 order: 6
 category: CLI
+keywords:
+  - spraxium cli info
+  - cli info in spraxium
+  - cli cli info guide
+  - cli info discord bot
+  - cli info typescript
+  - spraxium cli documentation
+  - cli info cli
+faq:
+  - question: "What does \"CLI Info\" cover in Spraxium?"
+    answer: "Detailed guide for the diagnostic command spraxium info. Learn when to use human-readable output or JSON in troubleshooting workflows."
+  - question: "When should I use \"CLI Info\"?"
+    answer: "Use this page when you are implementing cli info in the CLI area of your bot architecture."
+  - question: "What should I read after \"CLI Info\"?"
+    answer: "Continue with related CLI pages to connect this concept with practical implementation details."
 ---
 
 ## When to use
 
-Use `spraxium info` to collect environment context before opening issues or investigating bugs.
+Use _spraxium info_ whenever you need a fast diagnostic snapshot of the current machine and project. It is especially useful before opening issues, after upgrades, when CI behaves differently from local development, or when you need to confirm exactly which Spraxium packages a project is running.
 
 ```bash filename="terminal"
 spraxium info
 spraxium info --json
 ```
 
+If you only need a quick human check, the default terminal output is enough. If the output is going into a ticket, script, or CI artifact, prefer the JSON mode so the full report can be copied and parsed without losing detail.
+
 ## What the report includes
 
 The command builds a report with the CLI version, detected project name, Node version, operating system, and runtime path. It also captures the preferred package manager and the detected versions of npm, pnpm, yarn, and bun. Finally it scans the project and workspace for all installed `@spraxium/*` packages and lists each version.
+
+That combination matters because most troubleshooting questions start with one of these unknowns:
+
+1. Which CLI version is actually running?
+2. Is the machine using the expected Node runtime?
+3. Is the project on the package manager the team expects?
+4. Are framework packages aligned, or is one package lagging behind the others?
+
+_spraxium info_ answers those questions in one pass instead of forcing you to gather them manually.
+
+## How to read the report
+
+<Steps>
+  <Step title="Check runtime first">
+    Start with Node version, OS, and runtime path. If one machine fails and
+    another succeeds, this is usually the fastest place to spot an environment
+    mismatch.
+  </Step>
+  <Step title="Check package manager next">
+    Confirm whether the project is using pnpm, npm, yarn, or bun. Dependency
+    resolution issues and lockfile drift often start here.
+  </Step>
+  <Step title="Check Spraxium package alignment">
+    Compare the discovered *@spraxium/* package versions. Mixed versions are a
+    common source of confusing framework behavior after partial upgrades.
+  </Step>
+</Steps>
 
 ## Output modes
 
@@ -32,11 +76,19 @@ The command builds a report with the CLI version, detected project name, Node ve
 </Dropdown>
 </DropdownGroup>
 
+<Callout tone="info" title="Prefer JSON when sharing diagnostics">
+  The default output is easier to read in a terminal. The JSON output is better
+  when the report will be pasted into an issue, stored in CI, or compared across
+  machines.
+</Callout>
+
 ## Where and who should use it
 
 - Internal support: request minimum context from reporters.
 - Public bug reports: attach diagnostics in issue templates.
 - CI debugging: persist report as build artifact.
+
+Advanced users also benefit from it after dependency upgrades. If a workspace suddenly behaves differently after bumping packages, _spraxium info_ is the fastest way to confirm whether the resolved versions match what you intended to install.
 
 ## Quick issue template
 
@@ -48,6 +100,10 @@ Actual result:
 Output from `spraxium info --json`:
 ```
 
-## Next study
+## Practical habit
+
+If your team supports multiple bots or environments, make _spraxium info --json_ part of the default bug-report template. That small habit removes a lot of back-and-forth before real debugging can even begin.
+
+## Next page
 
 Continue with [Configuration: Core Fields](/guide/config-core-fields).

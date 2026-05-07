@@ -2,22 +2,38 @@
 title: Visão Geral dos Componentes
 description: |
   Entenda a arquitetura por trás dos componentes interativos do Discord no Spraxium.
-  Aprenda o modelo baseado em decorators, separação de handlers, flow context, ciclo de vida do dispatcher e padrões compartilhados entre botões, selects, modais e embeds.
+  Aprenda o modelo baseado em decorators, a separação entre componente e handler, o contexto de fluxo, o ciclo de vida do dispatcher e os padrões compartilhados entre botões, selects, modais e embeds.
 order: 1
 category: Components
+keywords:
+  - spraxium components overview
+  - visão geral dos componentes no spraxium
+  - components components overview guia
+  - components overview bot discord
+  - components overview typescript
+  - documentacao spraxium components
+  - visão geral dos componentes components
+  - spraxium visão geral dos componentes
+faq:
+  - question: "O que \"Visão Geral dos Componentes\" cobre no Spraxium?"
+    answer: "Entenda a arquitetura por trás dos componentes interativos do Discord no Spraxium. Aprenda o modelo baseado em decorators, a separação entre componente e handler, o contexto de fluxo, o ciclo de vida do dispatcher e os padrões compartilhados entre botões, selects, modais e embeds."
+  - question: "Quando devo usar \"Visão Geral dos Componentes\"?"
+    answer: "Use esta pagina quando voce estiver implementando components overview dentro da area de Components do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão Geral dos Componentes\"?"
+    answer: "Continue nas paginas relacionadas de Components para conectar este conceito com implementacao pratica."
 ---
 
 ## O que são componentes
 
-O pacote _@spraxium/components_ fornece um sistema baseado em decorators para construir elementos interativos da interface do Discord. Botões, menus de seleção, modais e embeds são todos definidos como classes decoradas, conectados através de metadados e despachados automaticamente quando os usuários interagem com seu bot. O pacote também inclui um sistema de _flow context_ que encadeia dados de estado entre interações de múltiplas etapas sem gerenciamento manual de estado.
+O pacote _@spraxium/components_ oferece um sistema orientado por decorators para montar elementos interativos de interface no Discord. Botões, menus de seleção, modais e embeds são definidos como classes decoradas, conectados por metadados e despachados automaticamente quando alguém interage com o bot. O pacote também traz um sistema de contexto de fluxo, que transporta dados com estado entre interações em várias etapas sem exigir gerenciamento manual de estado.
 
-Diferente dos construtores brutos do discord.js, onde você constrói cada objeto imperativamente, os componentes do Spraxium usam decorators de classe para declarar a aparência de um componente, decorators de handler separados para definir o que acontece quando um usuário interage, e serviços injetáveis para renderizar componentes em tempo de execução. Essa separação mantém as definições de componentes reutilizáveis, os handlers testáveis e a renderização desacoplada da lógica de negócio.
+Em vez de trabalhar com builders crus do discord.js e montar tudo de forma imperativa, o Spraxium usa decorators de classe para declarar a aparência do componente, decorators separados para definir o que acontece na interação e serviços injetáveis para renderizar tudo em runtime. Essa separação deixa a definição reaproveitável, facilita testes nos handlers e mantém a lógica de negócio isolada da renderização.
 
-O pacote oferece cinco famílias de componentes: botões (estáticos, link e dinâmicos), menus de seleção (string, user, role, mentionable, channel), modais (com 11 tipos de campos, validação e cache), embeds (declarativos baseados em schema) e containers v2 (blocos de layout composíveis). Cada família segue o mesmo padrão decorator-handler-service, então aprender uma transfere diretamente para as outras.
+O pacote vem com cinco famílias de componentes: botões, incluindo versões estáticas, de link e dinâmicas; menus de seleção, como string, user, role, mentionable e channel; modais, com 11 tipos de campo, validação e cache; embeds declarativos guiados por schema; e containers v2 para composição de layout. Todas seguem o mesmo padrão de decorator, handler e service, então o que você aprende em uma área se reaproveita direto nas outras.
 
 ## Configuração do plugin
 
-O módulo lê sua configuração a partir de uma entrada de plugin produzida por _defineComponents_. Essa fábrica aceita um objeto _ComponentsConfig_ que controla o armazenamento de contexto, mensagens de erro e comportamento por componente. O registro segue o mesmo padrão de todo plugin Spraxium: chame a fábrica, adicione o resultado ao array _plugins_ em `spraxium.config.ts`.
+O módulo lê sua configuração a partir de uma entrada de plugin criada por _defineComponents_. Essa factory recebe um objeto _ComponentsConfig_ que controla armazenamento de contexto, mensagens de erro e comportamentos específicos do sistema de componentes. O registro segue o mesmo padrão dos outros plugins do Spraxium: você chama a factory e adiciona o resultado ao array _plugins_ em `spraxium.config.ts`.
 
 ```typescript filename="config/components.config.ts"
 import { defineComponents } from '@spraxium/components';
@@ -34,7 +50,7 @@ export const componentsPlugin = defineComponents({
 });
 ```
 
-O campo _context.storage_ seleciona o backend de persistência para flow contexts. Quatro adaptadores estão disponíveis: `'memory'` para desenvolvimento, `'filesystem'` para bots de instância única, `'redis'` para implantações multi-instância e `'sqlite'` para persistência leve. O campo _defaultTtl_ define a expiração em segundos para contextos que não especificam seu próprio TTL.
+O campo _context.storage_ escolhe o backend usado para persistir os contextos de fluxo. Existem quatro adapters prontos: *memory* para desenvolvimento, *filesystem* para bots de instância única, *redis* para ambientes com múltiplas instâncias e *sqlite* para persistência leve. Já o _defaultTtl_ define, em segundos, o tempo de expiração dos contextos que não especificarem um TTL próprio.
 
 <Table>
   <TableHead>
@@ -48,217 +64,266 @@ O campo _context.storage_ seleciona o backend de persistência para flow context
   <TableBody>
     <TableRow>
       <TableCell>*context.storage*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>`'memory'`</TableCell>
+      <TableCell>*memory*, *filesystem*, *redis* ou *sqlite*</TableCell>
+      <TableCell>*memory*</TableCell>
       <TableCell>
-        Backend de armazenamento para flow contexts. Aceita `'memory'`,
-        `'filesystem'`, `'redis'` ou `'sqlite'`.
+        Backend de persistência do contexto de fluxo. *memory* é volátil, os
+        demais sobrevivem a reinícios.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*context.defaultTtl*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`300`</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>300</TableCell>
       <TableCell>
-        Tempo de vida padrão em segundos para contexts que não especificam TTL
-        individual.
+        Tempo padrão de vida, em segundos, para contextos que não definem um
+        TTL específico.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*errorMessages.expired*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Mensagem padrão em inglês</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Mensagem interna em inglês</TableCell>
       <TableCell>
-        Mensagem enviada quando um usuário interage com um componente cujo
-        contexto expirou.
+        Texto de resposta quando alguém clica em um componente cujo contexto já
+        expirou.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*errorMessages.restricted*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Mensagem padrão em inglês</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Mensagem interna em inglês</TableCell>
       <TableCell>
-        Mensagem enviada quando um usuário restrito tenta interagir com um
-        componente protegido.
+        Texto de resposta quando um usuário sem permissão tenta usar o
+        componente.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Padrão decorator-handler
+## O padrão decorator-handler
 
-Todo componente interativo segue um padrão de duas classes. A primeira classe define a aparência e os metadados do componente. A segunda classe define o que acontece quando o componente é acionado. Um decorator de handler conecta a classe do handler à classe do componente, criando uma ligação tipada que o dispatcher resolve em tempo de execução.
+Todo componente interativo no Spraxium segue uma arquitetura de duas classes: uma define como o componente se parece, e a outra define o que acontece quando alguém interage com ele. Essa separação existe porque componentes do Discord são renderizados uma vez, mas podem ser clicados ou submetidos várias vezes, por pessoas diferentes. Quando a definição visual fica separada da lógica, o componente vira algo reaproveitável e o handler pode ser testado de forma isolada.
 
-Essa separação significa que a mesma definição de componente pode ter handlers diferentes em módulos diferentes, ou que um handler pode ser trocado sem alterar a aparência do componente. O dispatcher despacha interações para handlers com base nos metadados armazenados pelo decorator, não por referência direta de classe.
+A classe do componente recebe um decorator como _@Button_, _@StringSelect_ ou _@ModalComponent_, responsável por guardar metadados de aparência e identidade. A classe do handler recebe o decorator correspondente, como _@ButtonHandler_, _@StringSelectHandler_ ou _@ModalHandler_, apontando para a classe do componente. Em runtime, o dispatcher lê os dois lados, encontra o handler certo para a interação recebida e chama o método _handle_ com os parâmetros injetados.
 
 <CodeTabs>
-<Tab label="Componente">
-```typescript filename="src/components/confirm.button.ts"
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/confirm-btn.component.ts"
 import { Button } from '@spraxium/components';
 
 @Button({
-  customId: 'confirm-action',
+  customId: 'confirm_action',
   label: 'Confirm',
   style: 'success',
 })
 export class ConfirmButton {}
 
 ````
-</Tab>
-<Tab label="Handler">
-```typescript filename="src/components/confirm.handler.ts"
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/confirm-btn.handler.ts"
 import { ButtonHandler, Ctx } from '@spraxium/components';
 import type { ButtonInteraction } from 'discord.js';
-import { ConfirmButton } from './confirm.button';
+import { ConfirmButton } from './confirm-btn.component';
 
 @ButtonHandler(ConfirmButton)
 export class ConfirmButtonHandler {
   async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
-    await interaction.reply({ content: 'Action confirmed.', ephemeral: true });
+    await interaction.reply({ content: 'Action confirmed.', flags: 'Ephemeral' });
   }
 }
 ````
 
-</Tab>
+  </Tab>
 </CodeTabs>
 
-## Registro de módulo
+## Ligação com o módulo
 
-Handlers de componentes devem ser registrados no array _handlers_ de um módulo de feature. Classes de componentes decoradas com _@Button_, _@StringSelect_, _@ModalComponent_ ou similares são metadados puros e nunca são registradas em nenhum módulo. O dispatcher lê os metadados delas diretamente da referência da classe armazenada dentro do decorator do handler. Você pode agrupar handlers relacionados em um único módulo de feature ou separá-los quando estiverem associados a comandos distintos.
+_ComponentsModule_ é um módulo global que fornece todos os serviços de componente, como _ButtonService_, _SelectService_, _ModalService_, _EmbedService_, _V2Service_ e _ContextService_. Você não precisa importá-lo diretamente. Basta adicionar as classes de handler ao array _handlers_ do módulo da sua feature, e os serviços passam a ficar injetáveis automaticamente. Já as classes decoradas com _@Button_, _@StringSelect_, _@ModalComponent_ ou _@Embed_ existem apenas como metadados e nunca entram em módulo nenhum.
 
-```typescript filename="src/components/components.module.ts"
-import { Module } from '@spraxium/core';
-import { ConfirmButtonHandler } from './confirm.handler';
+```typescript filename="src/modules/settings/settings.module.ts"
+import { Module } from '@spraxium/common';
+import { ConfirmButtonHandler } from './components/confirm-btn.handler';
 
 @Module({
   handlers: [ConfirmButtonHandler],
 })
-export class ConfirmModule {}
+export class SettingsModule {}
 ```
 
-## Ciclo de vida do bootstrap
+Só a classe do handler vai para o array _handlers_. A configuração do componente fica salva como metadado de construtor por meio de `Reflect.defineMetadata`. O dispatcher lê esse metadado direto da referência da classe vinculada ao decorator do handler, então não existe necessidade de instanciar a classe do componente via DI.
 
-O sistema de componentes inicializa durante a fase de boot do Spraxium, após todos os módulos terem sido carregados e os providers resolvidos. O processo ocorre em quatro etapas que conectam metadados de decorators com o sistema de eventos do discord.js.
+## Ciclo de vida no bootstrap
 
 <Steps>
-<Step title="Escaneamento de instâncias">
-O *ComponentsModule* registra um scanner de instâncias que coleta todos os providers e handlers instanciados de todos os módulos. Cada instância é adicionada a um buffer *pendingInstances* que aguarda processamento pelo dispatcher. O scanner executa durante a fase de resolução do módulo.
-</Step>
-
-<Step title="Processamento do dispatcher">
-  O *ComponentLifecycle* chama `dispatcher.processPending()`. O
-  *ComponentDispatcher* percorre as instâncias pendentes, lê os metadados de
-  decorator de cada uma e delega para o sub-despachador apropriado:
-  *ButtonDispatcher*, *SelectDispatcher* ou *ModalDispatcher*. Cada
-  sub-despachador registra os metadados em seus próprios mapas internos de
-  *customId* para handler.
-</Step>
-
-<Step title="Inicialização do contexto">
-  O lifecycle inicializa o adaptador de armazenamento de contexto com base no
-  campo *context.storage* da configuração. O adaptador selecionado é injetado no
-  *ContextService*, que se torna disponível para todos os providers em todo o
-  aplicativo graças ao escopo *@Global()* do módulo.
-</Step>
-
-<Step title="Vinculação ao client">
-Se algum handler tiver sido registrado, o lifecycle chama `dispatcher.bind(client)`. Isso registra um listener no evento *interactionCreate* que roteia interações de botão, select e modal para o handler correspondente com base na correspondência de *customId*. Se nenhum handler for encontrado, o listener é omitido para evitar overhead.
-</Step>
+  <Step title="Varredura de instâncias">
+    Quando o loader de módulos instancia providers e handlers, um scanner
+    registrado por *ComponentsModule* empurra cada instância para um buffer
+    chamado *pendingInstances*. Isso acontece durante a fase normal de injeção
+    de dependência, antes de qualquer hook de ciclo de vida disparar. O scanner
+    coleta todas as classes, e a filtragem específica de componentes fica para a
+    etapa seguinte.
+  </Step>
+  <Step title="Leitura da configuração">
+    O hook *ComponentLifecycle.onBoot* lê a configuração do plugin a partir do
+    *ConfigStore* usando a factory *defineComponents*. Quando a configuração
+    existe, ele aplica a config no dispatcher e inicializa o adapter de
+    armazenamento de contexto com o TTL definido.
+  </Step>
+  <Step title="Registro dos handlers">
+    O dispatcher esvazia o buffer *pendingInstances* e verifica cada classe em
+    busca de metadados de handler. Classes decoradas com *@ButtonHandler*,
+    *@SelectHandler* ou *@ModalHandler* são registradas em seus respectivos
+    sub-dispatchers. Cada sub-dispatcher lê o metadado do componente vinculado
+    para extrair o *customId* ou o *prefix* usado no roteamento.
+  </Step>
+  <Step title="Binding de eventos">
+    Se ao menos um handler tiver sido registrado, o dispatcher anexa um listener
+    ao evento *interactionCreate* do cliente do Discord. Quando uma interação
+    chega, o dispatcher interpreta o *customId*, identifica o sub-dispatcher
+    correto, resolve o contexto de fluxo se ele existir e invoca o método
+    *handle* com os parâmetros injetados.
+  </Step>
 </Steps>
 
 ## Anatomia do custom ID
 
-O _customId_ é a chave que conecta os componentes renderizados aos handlers registrados. O Spraxium usa um formato estruturado que codifica tanto a identidade do componente quanto os dados opcionais de contexto em uma única string, limitada a 100 caracteres pelo Discord.
+Todo componente interativo do Discord carrega uma string _customId_ para que a interação seja identificada depois. No Spraxium, esse valor segue um formato estruturado que codifica a identidade do componente e, opcionalmente, a referência do contexto de fluxo. O caractere til (`~`) separa o ID base do ID do contexto.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Padrão</TableCell>
       <TableCell header>Exemplo</TableCell>
-      <TableCell header>Caso de uso</TableCell>
+      <TableCell header>Significado</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>Estático</TableCell>
-      <TableCell>`confirm-action`</TableCell>
+      <TableCell>Botão estático</TableCell>
+      <TableCell>*confirm_action*</TableCell>
+      <TableCell>ID fixo, comparado por igualdade exata.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Estático com contexto</TableCell>
+      <TableCell>*confirm_action~a1b2c3*</TableCell>
       <TableCell>
-        Botões e selects fixos que não carregam dados de runtime.
+        ID estático mais o UUID do contexto após o til. O contexto é resolvido
+        antes do handler.
       </TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>Com contexto</TableCell>
-      <TableCell>`confirm-action~uuid-abc`</TableCell>
+      <TableCell>Botão dinâmico</TableCell>
+      <TableCell>*user_ban:12345*</TableCell>
       <TableCell>
-        Componente estático com um flow context anexado via separador til.
-      </TableCell>
-    </TableRow>
-    <TableRow>
-      <TableCell>Dinâmico</TableCell>
-      <TableCell>`item:42`</TableCell>
-      <TableCell>
-        Componentes dinâmicos onde o prefixo identifica o handler e o sufixo
-        carrega dados.
+        Prefixo, dois-pontos e sufixo de dados. O matching acontece pelo
+        prefixo, e os dados são extraídos para o handler.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Dinâmico com contexto</TableCell>
-      <TableCell>`item:42~uuid-abc`</TableCell>
-      <TableCell>
-        Combina dados de runtime do componente dinâmico com um flow context.
-      </TableCell>
+      <TableCell>*user_ban:12345~a1b2c3*</TableCell>
+      <TableCell>Prefixo dinâmico mais dados e UUID do contexto.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
+O helper _splitCustomId_ interpreta esses formatos internamente. Quando encontra um til, o dispatcher extrai o ID do contexto, busca o _SpraxiumContext_ no adapter configurado, verifica expiração e restrições de usuário e injeta o resultado pelo decorator de parâmetro _@FlowContext_.
+
 ## Injeção de parâmetros
 
-Handlers recebem dados através de decorators de parâmetro no método _handle_. O dispatcher resolve cada decorator antes de invocar o handler, injetando a interação, valores selecionados, dados de contexto ou campos de modal. Essa abordagem mantém a assinatura do handler explícita e cada parâmetro tipado.
+Os métodos _handle_ dos handlers recebem seus argumentos por meio de decorators de parâmetro. O dispatcher resolve cada parâmetro no momento da invocação com base nos metadados presos à assinatura do método. O comportamento é consistente em todos os tipos de componente, então os mesmos decorators aparecem em handlers de botão, select e modal.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Decorator</TableCell>
-      <TableCell header>Resolve para</TableCell>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Injeta</TableCell>
       <TableCell header>Disponível em</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*@Ctx()*</TableCell>
-      <TableCell>A interação bruta do discord.js</TableCell>
+      <TableCell>
+        O objeto bruto de interação do Discord, como *ButtonInteraction*,
+        *AnySelectMenuInteraction* ou *ModalSubmitInteraction*.
+      </TableCell>
       <TableCell>Todos os handlers</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@FlowContext()*</TableCell>
-      <TableCell>O objeto *SpraxiumContext* resolvido</TableCell>
-      <TableCell>Handlers com IDs baseados em contexto</TableCell>
+      <TableCell>
+        O objeto *SpraxiumContext* com *data* tipado e metadados. Só aparece
+        quando o componente foi renderizado com contexto.
+      </TableCell>
+      <TableCell>Todos os handlers</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@Selected()*</TableCell>
-      <TableCell>A primeira seleção como string</TableCell>
+      <TableCell>
+        A interação completa do select menu. Útil para acessar *values*, *user*,
+        *member* e outros dados específicos de selects.
+      </TableCell>
       <TableCell>Handlers de select</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@SelectedValues()*</TableCell>
-      <TableCell>Todas as seleções como `string[]`</TableCell>
-      <TableCell>Handlers de select com seleção múltipla</TableCell>
+      <TableCell>
+        O array de strings vindo de *interaction.values*. É um atalho prático
+        para handlers de string select.
+      </TableCell>
+      <TableCell>Handlers de select</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@Field(id)*</TableCell>
-      <TableCell>Valor de um campo específico do modal</TableCell>
+      <TableCell>
+        Um valor individual de campo de modal extraído pelo ID do campo.
+      </TableCell>
       <TableCell>Handlers de modal</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Renderização com serviços
+## Renderização dos componentes
 
-Cada família de componentes tem um serviço injetável que transforma os metadados de decorator em objetos do discord.js prontos para enviar. Os serviços são fornecidos pelo _ComponentsModule_ e disponíveis globalmente graças ao decorator _@Global()_. Você os injeta no construtor do seu comando ou handler e chama o método de build apropriado.
+Cada família de componentes tem um serviço injetável que lê os metadados dos decorators e produz builders do discord.js. Você injeta esse serviço em command handlers, listeners ou outros serviços e chama o método _build_ para gerar action rows prontas para responder mensagens.
 
-Os serviços de botão e select produzem action rows que podem ser anexadas à propriedade _components_ de uma resposta de interação. O serviço de modal produz objetos modais que são passados para _interaction.showModal()_. O serviço de embed produz instâncias de _EmbedBuilder_ que são passadas para a propriedade _embeds_ da resposta.
+```typescript filename="src/commands/settings.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ButtonService, ContextService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfirmButton } from '../components/confirm-btn.component';
+import { CancelButton } from '../components/cancel-btn.component';
+import { SettingsCommand } from './settings.command';
 
-Todos os serviços seguem uma API consistente: _build_ para renderização simples, _buildFor_ ou _rowWithContext_ quando o flow context está envolvido, e variantes de conveniência como _simple_ no serviço de embed.
+@SlashCommandHandler(SettingsCommand)
+export class SettingsCommandHandler {
+  constructor(
+    private readonly buttons: ButtonService,
+    private readonly context: ContextService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ctx = await this.context.create({ guildId: interaction.guildId });
+    const row = this.buttons.rowWithContext(ctx, ConfirmButton, CancelButton);
+
+    await interaction.reply({
+      content: 'Are you sure you want to reset settings?',
+      components: [row],
+    });
+  }
+}
+```
+
+O método _build_ aceita uma ou mais classes de componente e devolve um _ActionRowBuilder_. A variante _rowWithContext_ anexa um ID de contexto a cada botão da linha. Em selects, _SelectService.build_ cuida tanto de opções estáticas quanto dinâmicas. Em modais, _ModalService.build_ monta o modal completo a partir do schema descrito nos metadados.
+
+## Conceitos compartilhados entre as famílias
+
+Vários padrões de arquitetura se repetem entre botões, selects, modais e embeds. Quando você entende esses conceitos uma vez, consegue aplicar o mesmo raciocínio em qualquer tipo de componente sem reaprender a base do zero. A separação entre decorator e handler, a renderização guiada por metadados, o encadeamento de contexto e a injeção de parâmetros funcionam do mesmo jeito em todas as famílias.
+
+A documentação desta categoria cobre com mais detalhe botões, selects, embeds e o sistema de contexto. Já os modais têm uma categoria própria, porque o sistema de campos, a validação, o cache e a construção dinâmica de schema introduzem conceitos bem particulares de interações em formato de formulário.
 
 ## Próxima página
 

@@ -1,29 +1,51 @@
 ---
-title: "Visão Geral do Schedule"
+title: Visão geral do Schedule
 description: |
-  O módulo de schedule executa jobs em segundo plano usando expressões cron, intervalos e timeouts.
-  Aprenda os tipos de job, o ciclo de vida do runtime e como o scheduler se integra ao framework.
+  O módulo de schedule executa jobs em segundo plano com expressões cron, intervals e timeouts.
+  Entenda os tipos de job, o ciclo de vida em runtime e como o agendador se integra ao framework.
 order: 1
 category: Schedule
+keywords:
+  - spraxium schedule overview
+  - visão geral do schedule no spraxium
+  - schedule schedule overview guia
+  - schedule overview bot discord
+  - schedule overview typescript
+  - documentacao spraxium schedule
+  - visão geral do schedule schedule
+  - spraxium visão geral do schedule
+faq:
+  - question: "O que \"Visão geral do Schedule\" cobre no Spraxium?"
+    answer: "O módulo de schedule executa jobs em segundo plano com expressões cron, intervals e timeouts. Entenda os tipos de job, o ciclo de vida em runtime e como o agendador se integra ao framework."
+  - question: "Quando devo usar \"Visão geral do Schedule\"?"
+    answer: "Use esta pagina quando voce estiver implementando schedule overview dentro da area de Schedule do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão geral do Schedule\"?"
+    answer: "Continue nas paginas relacionadas de Schedule para conectar este conceito com implementacao pratica."
 ---
 
 ## O que o módulo de schedule resolve
 
-A maioria dos bots Discord precisa executar tarefas em timer. Limpar avisos expirados, sincronizar contagens de membros, postar resumos diários e rotacionar mensagens de status são operações que acontecem independentemente de input do usuário. O módulo de schedule fornece uma API orientada a decorators para definir esses jobs em segundo plano, permitindo declarar lógica de temporização junto aos métodos do serviço ao invés de gerenciar timers brutos.
+A maioria dos bots de Discord precisa executar tarefas com base em tempo. Limpar avisos expirados, sincronizar contagens de membros, publicar resumos diários e alternar mensagens de status são operações que acontecem independentemente da ação do usuário. O módulo de schedule oferece uma API orientada por decorators para definir esses jobs em segundo plano, para que você declare a lógica de tempo ao lado dos métodos do seu serviço em vez de gerenciar timers brutos.
 
-O módulo suporta quatro tipos de job que cobrem diferentes padrões de temporização. Jobs cron executam em agendamentos baseados em calendário usando expressões cron padrão. Intervalos repetem em offsets fixos de milissegundos. Timeouts disparam uma vez após um atraso. Jobs after-online disparam uma vez após o bot ter se conectado completamente ao Discord. Juntos, esses quatro tipos lidam com todos os cenários comuns de agendamento.
+O módulo oferece suporte a quatro tipos de job que cobrem padrões de agendamento diferentes. Jobs cron rodam em agendas baseadas em calendário usando expressões cron padrão. Intervals se repetem em intervalos fixos em milissegundos. Timeouts disparam uma vez após um atraso. Jobs after-online disparam uma vez depois que o bot se conecta totalmente ao Discord. Juntos, esses quatro tipos cobrem os cenários de agendamento mais comuns.
 
-O módulo de schedule é um pacote separado (`@spraxium/schedule`) que se conecta ao framework através do sistema padrão de módulos. Ele escaneia seus providers em busca de métodos decorados no momento do boot, os registra em um registry central e gerencia seu ciclo de vida automaticamente. Você não precisa iniciar ou parar timers manualmente.
+O módulo de schedule é um pacote separado (`@spraxium/schedule`) que se conecta ao framework por meio do sistema padrão de módulos. Ele analisa seus providers em busca de métodos decorados no boot, registra tudo em um registro central e gerencia o ciclo de vida automaticamente. Você não precisa iniciar nem parar timers manualmente.
+
+## Quando agendamento é a ferramenta certa
+
+Use o módulo de schedule quando o trabalho deve acontecer por causa do tempo, e não por causa de uma ação do usuário ou de um evento do Discord. Jobs de limpeza, ciclos de atualização, lembretes, sincronizações periódicas e tarefas após a inicialização costumam se encaixar muito bem aqui.
+
+Se uma tarefa só deve acontecer depois que o usuário pedir explicitamente, mantenha essa lógica em um command ou handler de interação em vez de forçá-la para dentro de um job agendado. Automação baseada em tempo e fluxos acionados pelo usuário ficam mais fáceis de manter quando permanecem separados.
 
 ## Tipos de job em resumo
 
-Cada tipo de job mapeia para um decorator que você coloca em um método dentro de um serviço injetável. O decorator indica ao scheduler quando e como executar aquele método. Todos os quatro decorators aceitam um objeto de opções para nomeação, desativação e controle de comportamento na inicialização.
+Cada tipo de job corresponde a um decorator que você aplica a um método dentro de um serviço injetável. O decorator informa ao scheduler quando e como executar aquele método. Os quatro decorators aceitam um objeto de opções para nomear, desabilitar e controlar o comportamento na inicialização.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Decorator</TableCell>
-      <TableCell header>Gatilho</TableCell>
+      <TableCell header>Disparo</TableCell>
       <TableCell header>Repete</TableCell>
       <TableCell header>Caso de uso</TableCell>
     </TableRow>
@@ -39,53 +61,54 @@ Cada tipo de job mapeia para um decorator que você coloca em um método dentro 
       <TableCell>*@Interval*</TableCell>
       <TableCell>Milissegundos fixos</TableCell>
       <TableCell>Sim</TableCell>
-      <TableCell>Polling, heartbeats, sincronizações periódicas</TableCell>
+      <TableCell>Polling, heartbeats e sincronizações periódicas</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@Timeout*</TableCell>
       <TableCell>Atraso em milissegundos</TableCell>
       <TableCell>Não</TableCell>
-      <TableCell>Inicialização única atrasada</TableCell>
+      <TableCell>Inicialização atrasada de execução única</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@AfterOnline*</TableCell>
-      <TableCell>Atraso após bot pronto</TableCell>
+      <TableCell>Atraso após o bot ficar ready</TableCell>
       <TableCell>Não</TableCell>
-      <TableCell>Tarefas de setup pós-conexão</TableCell>
+      <TableCell>Tarefas de setup após a conexão</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Ciclo de vida do runtime
+## Ciclo de vida em runtime
 
-O módulo de schedule opera em duas fases alinhadas com a sequência de boot do framework. Compreender essas fases ajuda a prever quando cada tipo de job começa a executar e por que _@AfterOnline_ existe como um decorator separado ao invés de ser uma variante de cron.
+O módulo de schedule opera em duas fases que acompanham a sequência de boot do framework. Entender essas fases ajuda você a prever quando cada tipo de job começa a executar e por que _@AfterOnline_ existe como um decorator separado, em vez de ser apenas uma variação de cron.
 
 <Steps>
   <Step title="Fase de boot">
-    No startup da aplicação, o framework escaneia todos os providers e registra
-    cada método decorado com *@Cron*, *@Interval* ou *@Timeout*. Jobs com
-    *runOnInit* habilitado executam imediatamente durante esta fase. Timers de
-    *@Interval* e *@Timeout* começam a contar a partir deste momento.
+    Na inicialização da aplicação, o framework analisa todos os providers e
+    registra cada método decorado com *@Cron*, *@Interval* ou *@Timeout*.
+    Jobs com *runOnInit* ativado executam imediatamente nessa fase. Os timers
+    de interval e timeout começam a contar a partir desse momento.
   </Step>
-  <Step title="Fase de ready">
-    Após o client Discord emitir seu evento *ready*, o framework registra os
-    jobs *@AfterOnline* e inicia seus timers de atraso. A separação existe
-    porque algumas tarefas precisam de uma conexão ativa com o Discord, como
-    buscar dados de servidores ou enviar mensagens de boas-vindas. Executá-las
-    durante o boot falharia porque o client não está conectado ainda.
+  <Step title="Fase ready">
+    Depois que o cliente do Discord emite o evento *ready*, o framework
+    registra todos os jobs *@AfterOnline* e inicia seus timers de atraso. Essa
+    separação existe porque algumas tarefas precisam de uma conexão ativa com o
+    Discord, como buscar dados de guild ou enviar mensagens de boas-vindas.
+    Executá-las durante o boot falharia, porque o client ainda não está
+    conectado.
   </Step>
   <Step title="Gerenciamento em runtime">
-    Uma vez que todos os jobs estão registrados, o *ScheduleService* fornece uma
-    API pública para pausar, retomar, destruir e acionar manualmente jobs por
+    Depois que todos os jobs são registrados, o *ScheduleService* oferece uma
+    API pública para pausar, retomar, destruir e disparar jobs manualmente pelo
     nome. Você pode injetar *ScheduleService* em qualquer provider para
-    controlar jobs programaticamente a partir de slash commands, prefix commands
-    ou endpoints HTTP.
+    controlar jobs de forma programática a partir de slash commands, prefix
+    commands ou endpoints HTTP.
   </Step>
 </Steps>
 
-## Configuração mínima
+## Setup mínimo
 
-Para usar o módulo de schedule, instale o pacote `@spraxium/schedule`, crie um arquivo de configuração usando _defineSchedule_ e registre o _ScheduleModule_ na sua aplicação. O módulo é global por padrão, então você só precisa registrá-lo uma vez. Qualquer provider em qualquer módulo pode então usar os decorators de schedule.
+Para usar o módulo de schedule, instale o pacote `@spraxium/schedule`, crie um arquivo de configuração com _defineSchedule_ e registre _ScheduleModule_ na sua aplicação. O módulo é global por padrão, então você só precisa registrá-lo uma vez. Depois disso, qualquer provider em qualquer módulo pode usar os decorators de schedule.
 
 ```typescript filename="config/schedule.config.ts"
 import { defineSchedule } from '@spraxium/schedule';
@@ -95,15 +118,21 @@ export default defineSchedule({
 });
 ```
 
-<Callout type="info">
-  O módulo de schedule usa o *MemoryDriver* por padrão, que armazena estado de
-  jobs em memória. Para bots distribuídos rodando múltiplos shards ou processos,
-  troque para o *RedisScheduleDriver* para prevenir execuções duplicadas.
+<Callout tone="info">
+  O módulo de schedule usa *MemoryDriver* por padrão, armazenando o estado dos
+  jobs em memória. Em bots distribuídos que executam vários shards ou
+  processos, troque para *RedisScheduleDriver* para evitar execuções duplicadas.
 </Callout>
+
+## Orientação operacional
+
+Jobs agendados devem ser escritos com idempotência em mente. Se um processo reiniciar ou um driver distribuído repetir a coordenação, um job bem projetado precisa ser seguro para executar duas vezes sem corromper o estado.
+
+Também é uma boa prática dar nomes explícitos aos jobs importantes por meio das opções do decorator. Jobs nomeados são mais fáceis de inspecionar, pausar, retomar ou disparar manualmente depois pelo serviço de schedule.
 
 ## Estrutura do projeto
 
-Um bot típico com tarefas agendadas as organiza como providers de serviço dentro de feature modules. Cada serviço agrupa jobs relacionados, e o arquivo de configuração fica no diretório config do projeto junto com configs de prefix e outros plugins.
+Um bot típico com tarefas agendadas organiza esses jobs como providers de serviço dentro de feature modules. Cada serviço agrupa jobs relacionados, e o arquivo de configuração fica no diretório `config` do projeto ao lado das configurações de prefix e dos outros plugins.
 
 <FolderStructure>
   <Folder name="config" open>
@@ -124,4 +153,4 @@ Um bot típico com tarefas agendadas as organiza como providers de serviço dent
 
 ## Próxima página
 
-Continue com [Decorators e Jobs](/guide/schedule-decorators-jobs).
+Continue em [Decorators e jobs](/guide/schedule-decorators-jobs).

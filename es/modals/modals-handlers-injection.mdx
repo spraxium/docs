@@ -1,0 +1,260 @@
+---
+title: Handlers e inyección de campos
+description: |
+  Procesa envíos de modal con @ModalHandler e inyecta valores de campo directamente en
+  parámetros de handle(). Aprende @ModalField, los diez decorators de campo tipados y @Ctx.
+order: 3
+category: Modals
+---
+
+## La clase handler
+
+Una clase handler es una clase independiente decorada con _@ModalHandler_ que contiene la lógica de envío de un modal. El decorator recibe la clase del componente modal como argumento, creando un vínculo de metadatos entre el esquema del componente y la lógica de envío. La clase handler es instanciada por el contenedor de DI durante la carga del módulo, así que los parámetros del constructor se resuelven automáticamente desde los providers del módulo.
+
+El handler debe exponer un método _handle_. Cuando llega un envío de modal cuyo `customId` coincide con el `id` del componente, el _ModalDispatcher_ llama a este método después de pasar el pipeline de guards. Los parámetros del método se rellenan desde metadatos: _@Ctx()_ inyecta el `ModalSubmitInteraction` crudo, y los decorators de campo inyectan el valor resuelto para cada campo nombrado.
+
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { FeedbackModal } from '../components/feedback.modal';
+
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('message') message: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    await ctx.reply({
+      content: `Thanks for your feedback on *${subject}*!`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+`ModalContext` se exporta desde `@spraxium/components` y es un alias directo de `ModalSubmitInteraction`. Usa el que mejor encaje con el estilo de imports de tu equipo; ambos son intercambiables.
+
+## El decorator @ModalHandler
+
+_@ModalHandler_ acepta la clase del componente modal como único argumento. No hay configuración de rutas; cada handler es dueño de exactamente un componente, identificado por el string `id` del componente.
+
+```typescript filename="src/modules/feedback/handlers/feedback.handler.ts"
+@ModalHandler(FeedbackModal)
+export class FeedbackHandler {
+  async handle(...): Promise<void> { ... }
+}
+```
+
+Spraxium lee el `id` del decorator _@ModalComponent_ en `FeedbackModal` y registra este handler bajo ese id. Cuando Discord envía una interacción `MODAL_SUBMIT`, el dispatcher empareja `customId` con el id registrado y llama a `handle`.
+
+## Inyección de parámetros con @Ctx y decorators de campo
+
+Los parámetros del método se resuelven por el dispatcher en tiempo de llamada. Dos categorías de decorators controlan qué recibe cada posición.
+
+**@Ctx()** inyecta el `ModalSubmitInteraction` crudo (alias `ModalContext`). Puede aparecer en cualquier posición y es el punto de entrada a toda la superficie de API de Discord para esa interacción: reply, deferReply, followUp y el manager `fields` crudo.
+
+**Decorators de campo** inyectan el valor enviado de un campo específico, identificado por el nombre de propiedad definido en la clase del componente modal. El genérico _@ModalField(fieldId)_ funciona para cualquier tipo de campo. Las variantes tipadas, documentadas en la siguiente sección, expresan explícitamente la intención del tipo de campo y deben preferirse cuando el tipo se conoce en tiempo de compilación.
+
+En la práctica, eso significa que la mayoría de handlers solo necesitan dos cosas: los valores de campo resueltos y el objeto de interacción para responder. Una vez inyectados, el cuerpo del método puede centrarse en persistencia, llamadas a servicios y flujo de respuesta.
+
+```typescript filename="src/modules/profile/handlers/profile.handler.ts"
+import { Ctx } from '@spraxium/common';
+import {
+  ModalCheckboxField,
+  ModalCheckboxGroupField,
+  ModalHandler,
+  ModalRadioGroupField,
+  ModalStringSelectField,
+  type ModalContext,
+} from '@spraxium/components';
+import { ProfileModal } from '../components/profile.modal';
+
+@ModalHandler(ProfileModal)
+export class ProfileHandler {
+  async handle(
+    @Ctx() ctx: ModalContext,
+    @ModalStringSelectField('role') role: string,
+    @ModalRadioGroupField('timezone') timezone: string | null,
+    @ModalCheckboxGroupField('notifications') notifications: string[],
+    @ModalCheckboxField('acceptedRules') acceptedRules: boolean,
+  ): Promise<void> {
+    if (!acceptedRules) {
+      await ctx.reply({ content: '❌ You must accept the rules.', flags: 'Ephemeral' });
+      return;
+    }
+    await ctx.reply({
+      content: [
+        '✅ Profile saved!',
+        `**Role:** ${role}`,
+        `**Timezone:** ${timezone ?? 'Not set'}`,
+        `**Notifications:** ${notifications.join(', ') || 'None'}`,
+      ].join('\n'),
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Decorators de campo tipados
+
+Se proporcionan diez decorators de parámetro tipados, cada uno correspondiente a un tipo de campo específico en la clase del componente modal. Usarlos hace explícito el tipo de campo esperado en el código del handler sin costo en runtime; todos los decorators tipados guardan los mismos metadatos `{ index, fieldId }` que el genérico _@ModalField_.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Tipo de campo del componente</TableCell>
+      <TableCell header>Tipo de TypeScript resuelto</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@ModalTextField(fieldId)*</TableCell>
+      <TableCell>*@ModalInput*</TableCell>
+      <TableCell>string</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalStringSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalSelect*</TableCell>
+      <TableCell>string | null (single) or string[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalUserSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalUserSelect*</TableCell>
+      <TableCell>User | null (single) or User[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRoleSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalRoleSelect*</TableCell>
+      <TableCell>Role | null (single) or Role[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalMentionableSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalMentionableSelect*</TableCell>
+      <TableCell>User | Role | null</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalChannelSelectField(fieldId)*</TableCell>
+      <TableCell>*@ModalChannelSelect*</TableCell>
+      <TableCell>GuildBasedChannel | null (single) or GuildBasedChannel[] (multi)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalRadioGroupField(fieldId)*</TableCell>
+      <TableCell>*@ModalRadioGroup*</TableCell>
+      <TableCell>string | null</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckboxGroupField(fieldId)*</TableCell>
+      <TableCell>*@ModalCheckboxGroup*</TableCell>
+      <TableCell>string[]</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalCheckboxField(fieldId)*</TableCell>
+      <TableCell>*@ModalCheckbox*</TableCell>
+      <TableCell>boolean</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ModalFileUploadField(fieldId)*</TableCell>
+      <TableCell>*@ModalFileUpload*</TableCell>
+      <TableCell>Attachment[]</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Todos los decorators tipados se importan desde `@spraxium/components` junto con `ModalHandler`.
+
+Elige el decorator tipado siempre que el tipo de campo ya sea conocido desde el esquema del componente. Comunica intención de inmediato en revisión de código y evita que la siguiente persona tenga que mapear mentalmente una llamada genérica _@ModalField_ de vuelta a la definición del componente.
+
+<Callout tone="info" title="Selects de valor único vs. múltiple">
+  Para campos select de string, user, role y channel, si el valor inyectado es
+  un único elemento o un arreglo depende de la configuración _maxValues_ del
+  campo en la clase componente. Cuando _maxValues_ es mayor que 1, el dispatcher
+  devuelve un arreglo; de lo contrario devuelve un valor único o `null`.
+</Callout>
+
+## Acceso a campos crudos mediante @Ctx
+
+Para campos que no tienen un decorator de campo equivalente, como campos `radio_group` accedidos fuera de la inyección o campos leídos condicionalmente, usa `@Ctx()` y llama directamente al método apropiado en `ctx.fields`.
+
+```typescript filename="src/modules/survey/handlers/survey.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { SurveyModal } from '../components/survey.modal';
+
+@ModalHandler(SurveyModal)
+export class SurveyHandler {
+  async handle(
+    @ModalTextField('feedback') feedback: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    // Read radio group values directly from the interaction
+    const rating = ctx.fields.getRadioGroup('rating') ?? 'N/A';
+    const tags = ctx.fields.getCheckboxGroup('tags');
+
+    await ctx.reply({
+      content: `Rating: ${rating}\nTags: ${tags.join(', ')}\nFeedback: ${feedback}`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Combinar servicios DI con inyección de campos
+
+Como las clases handler se instancian a través del contenedor de DI, cualquier provider del módulo puede inyectarse por constructor. Este es el patrón estándar para acceder a bases de datos, APIs externas o servicios de aplicación desde dentro de un handler.
+
+```typescript filename="src/modules/ticket/handlers/ticket-submit.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { ModalHandler, ModalTextField, type ModalContext } from '@spraxium/components';
+import { Injectable } from '@spraxium/core';
+import { TicketModal } from '../components/ticket.modal';
+import { TicketService } from '../ticket.service';
+
+@Injectable()
+@ModalHandler(TicketModal)
+export class TicketSubmitHandler {
+  constructor(private readonly tickets: TicketService) {}
+
+  async handle(
+    @ModalTextField('subject') subject: string,
+    @ModalTextField('description') description: string,
+    @Ctx() ctx: ModalContext,
+  ): Promise<void> {
+    const ticket = await this.tickets.create({
+      userId: ctx.user.id,
+      subject,
+      description,
+    });
+
+    await ctx.reply({
+      content: `✅ Ticket **#${ticket.id}** created!`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+
+## Registro en módulo
+
+Registra clases handler en el arreglo _handlers_ de un módulo de funcionalidad. Las clases de componente modal decoradas con _@ModalComponent_ son solo metadatos y nunca se registran; Spraxium las resuelve de forma transitiva desde el vínculo `@ModalHandler` del handler.
+
+```typescript filename="src/modules/feedback/feedback.module.ts"
+import { Module } from '@spraxium/core';
+import { FeedbackHandler } from './handlers/feedback.handler';
+
+@Module({
+  handlers: [FeedbackHandler],
+})
+export class FeedbackModule {}
+```
+
+<Callout tone="warning" title="Registra el handler, no el componente">
+  Solo las clases handler decoradas con *@ModalHandler* van en el arreglo
+  *handlers*. Agregar la clase del componente modal al módulo no tendrá efecto y
+  puede producir logs confusos durante el arranque.
+</Callout>
+
+## Siguiente página
+
+Continúa con [Dynamic Modals](/guide/modals-dynamics).

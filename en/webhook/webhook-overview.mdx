@@ -1,0 +1,483 @@
+---
+title: Webhooks
+description: |
+  Send messages, embeds, and notifications to Discord webhooks from your bot using the @spraxium/webhook package.
+  Learn how to configure named webhooks, use the declarative @Send decorator, and call the imperative WebhookService API.
+order: 1
+category: Webhook
+keywords:
+  - spraxium webhook overview
+  - webhooks in spraxium
+  - webhook webhook overview guide
+  - webhook overview discord bot
+  - webhook overview typescript
+  - spraxium webhook documentation
+  - webhooks webhook
+  - spraxium webhooks
+faq:
+  - question: "What does \"Webhooks\" cover in Spraxium?"
+    answer: "Send messages, embeds, and notifications to Discord webhooks from your bot using the @spraxium/webhook package. Learn how to configure named webhooks, use the declarative @Send decorator, and call the imperative WebhookService API."
+  - question: "When should I use \"Webhooks\"?"
+    answer: "Use this page when you are implementing webhook overview in the Webhook area of your bot architecture."
+  - question: "What should I read after \"Webhooks\"?"
+    answer: "Continue with related Webhook pages to connect this concept with practical implementation details."
+---
+
+## What the webhook package does
+
+The _@spraxium/webhook_ package gives every provider in your bot a clean way to send messages and embeds to Discord webhooks. Instead of manually constructing HTTP requests or managing webhook clients, you register named webhooks once in the plugin configuration and then refer to them by name from any service in the application.
+
+The package offers two delivery styles. The **declarative** style relies on the _@Send_ decorator attached to a service method; Spraxium intercepts the return value and dispatches it automatically based on its type. The **imperative** style injects _WebhookService_ through the constructor and lets you call methods like `send`, `sendEmbed`, `sendAll`, and `formatAndSend` directly. Both styles share the same underlying delivery engine and the same named webhook registry, so you can mix them freely in the same application.
+
+## When to choose declarative or imperative delivery
+
+Use the declarative style when the method's entire job is to *produce* a webhook message. It keeps service code compact and makes intent obvious in reviews.
+
+Use the imperative style when delivery depends on branching logic, multiple destinations, conditional broadcasting, or runtime decisions. In those cases, the explicit _WebhookService_ calls are easier to understand and debug.
+
+## Setup
+
+Install the package:
+
+```bash
+pnpm add @spraxium/webhook
+```
+
+Then import _WebhookModule_ in your root module so _WebhookService_ becomes injectable everywhere:
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { WebhookModule } from '@spraxium/webhook';
+
+@Module({
+  imports: [WebhookModule],
+})
+export class AppModule {}
+```
+
+## Configuration
+
+Webhook configuration lives in a dedicated `config/webhook.config.ts` file, exported as a named constant and consumed by `spraxium.config.ts` through the `plugins` array.
+
+```typescript filename="config/webhook.config.ts"
+import { defineWebhook } from '@spraxium/webhook';
+
+export const webhookConfig = defineWebhook({
+  webhooks: {
+    alerts: process.env.WEBHOOK_ALERTS ?? '',
+    logs: process.env.WEBHOOK_LOGS ?? '',
+    reports: process.env.WEBHOOK_REPORTS ?? '',
+  },
+  globalUsername: 'MyBot',
+  globalAvatarUrl: 'https://example.com/avatar.png',
+  onError: (name, error) => {
+    console.error(`Webhook "${name}" failed: ${error.message}`);
+  },
+});
+```
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { webhookConfig } from './config/webhook.config';
+
+export default defineConfig((env) => ({
+  plugins: [webhookConfig],
+}));
+```
+
+The `webhooks` map keys are the names you use everywhere else, in `send('alerts', ...)`, `@Send('reports')`, `sendAll()`, and so on. Each value is the Discord webhook URL for that destination. The `globalUsername` and `globalAvatarUrl` fields set the default display identity for every outgoing message, but both can be overridden per-call through `SendOptions`.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Required</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*webhooks*</TableCell>
+      <TableCell>Record&lt;string, string&gt;</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Map of webhook name to Discord webhook URL. Names are the identifiers used in every send call.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*globalUsername*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Display name override applied to every outgoing message. Overrides the webhook's own default name.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*globalAvatarUrl*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Avatar URL override applied to every outgoing message.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*onError*</TableCell>
+      <TableCell>(name: string, err: Error) =&gt; void</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Called when a webhook send fails instead of throwing. If omitted, errors propagate as rejected promises.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="tip">
+Store webhook URLs in environment variables via @spraxium/env and validate them with @IsDiscordWebhookUrl(). Never hard-code them in source files.
+</Callout>
+
+## Declarative API: @Send
+
+The _@Send_ decorator is the simplest way to dispatch a message. Attach it to a method in a class decorated with _@WebhookSender_ and return one of three types: a `string` for plain content, an `EmbedBuilder` for a single embed, or a `MessageCreateOptions` object for a full raw payload. Spraxium intercepts the return value after the method completes and dispatches it to the named webhook.
+
+_@WebhookSender_ is required on the class. It applies _@Injectable_ automatically and registers the class in the webhook interceptor pipeline, so you do not need to add _@Injectable_ separately.
+
+```typescript filename="src/modules/reports/reports.service.ts"
+import { Send, WebhookSender } from '@spraxium/webhook';
+import { EmbedBuilder } from 'discord.js';
+
+@WebhookSender()
+export class ReportsService {
+  // A plain string sent as message content
+  @Send('logs')
+  async buildActivityLog(action: string, userId: string): Promise<string> {
+    return `Activity: \`${action}\` by <@${userId}> at ${new Date().toISOString()}`;
+  }
+
+  // An EmbedBuilder dispatched as a single embed
+  @Send('alerts')
+  async buildErrorReport(error: Error): Promise<EmbedBuilder> {
+    return new EmbedBuilder()
+      .setTitle('Error Report')
+      .setDescription(`\`\`\`\n${error.message}\n\`\`\``)
+      .setColor(0xed4245)
+      .setTimestamp();
+  }
+
+  // A MessageCreateOptions object sent as a raw payload
+  @Send('reports')
+  async buildDailySummary(): Promise<{ content: string }> {
+    return { content: `Daily summary for ${new Date().toDateString()}: all systems nominal.` };
+  }
+}
+```
+
+The return value type determines dispatch behaviour:
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Return type</TableCell>
+      <TableCell header>Dispatch behaviour</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>string</TableCell>
+      <TableCell>Sent as the message content field.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>EmbedBuilder</TableCell>
+      <TableCell>Sent as a single embed in the embeds array.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>MessageCreateOptions</TableCell>
+      <TableCell>Sent as a raw Discord message payload, giving full control over every field.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>undefined or null</TableCell>
+      <TableCell>Nothing is sent. The method runs normally but the interceptor skips dispatch.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+The declarative style works best when one method maps cleanly to one outgoing message. If the method starts branching on conditions and building several webhook calls, that is usually the point where the imperative API becomes easier to maintain.
+
+Register the sender class in the `providers` array of any feature module:
+
+```typescript filename="src/modules/reports/reports.module.ts"
+import { Module } from '@spraxium/common';
+import { ReportsService } from './reports.service';
+
+@Module({
+  providers: [ReportsService],
+})
+export class ReportsModule {}
+```
+
+## Imperative API: WebhookService
+
+Inject _WebhookService_ through the constructor of any provider for full programmatic control. This style is ideal when the message content depends on branching logic, when you need conditional broadcasting, or when you want to trigger webhooks from lifecycle hooks like `onReady`.
+
+```typescript filename="src/modules/notifications/notifications.service.ts"
+import { Injectable } from '@spraxium/common';
+import type { SpraxiumOnReady } from '@spraxium/common';
+import { WebhookService } from '@spraxium/webhook';
+import { EmbedBuilder } from 'discord.js';
+
+@Injectable()
+export class NotificationsService implements SpraxiumOnReady {
+  constructor(private readonly webhook: WebhookService) {}
+
+  async onReady(): Promise<void> {
+    await this.webhook.send('logs', 'Bot is now online and ready.');
+
+    const embed = new EmbedBuilder()
+      .setTitle('Bot Online')
+      .setDescription('All systems operational.')
+      .setColor(0x57f287)
+      .setTimestamp();
+
+    await this.webhook.sendEmbed('alerts', embed);
+    await this.webhook.sendAll('Startup complete.');
+  }
+
+  async notifyGuildJoin(guildName: string, memberCount: number): Promise<void> {
+    await this.webhook.formatAndSend(
+      'logs',
+      'Bot joined guild **{{guildName}}** ({{memberCount}} members).',
+      { guildName, memberCount: String(memberCount) },
+    );
+  }
+
+  async broadcastAlert(message: string): Promise<void> {
+    await this.webhook.sendMany(['alerts', 'logs'], message);
+  }
+
+  async sendStatusReport(stats: { guilds: number; users: number; ping: number }): Promise<void> {
+    const guildsEmbed = new EmbedBuilder()
+      .setTitle('Guild Stats')
+      .addFields({ name: 'Total Guilds', value: String(stats.guilds), inline: true })
+      .setColor(0x5865f2);
+
+    const pingEmbed = new EmbedBuilder()
+      .setTitle('Performance')
+      .addFields(
+        { name: 'Users', value: String(stats.users), inline: true },
+        { name: 'WS Ping', value: `${stats.ping} ms`, inline: true },
+      )
+      .setColor(0xfee75c);
+
+    await this.webhook.sendEmbeds('reports', [guildsEmbed, pingEmbed]);
+  }
+}
+```
+
+### Method reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*send(name, content, options?)*</TableCell>
+      <TableCell>Send a plain text message to the named webhook.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendEmbed(name, embed, options?)*</TableCell>
+      <TableCell>Send a single EmbedBuilder to the named webhook.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendEmbeds(name, embeds[], options?)*</TableCell>
+      <TableCell>Send up to 10 embeds in one message to the named webhook.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendMessage(name, message, options?)*</TableCell>
+      <TableCell>Send a raw MessageCreateOptions payload to the named webhook.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendMany(names[], content, options?)*</TableCell>
+      <TableCell>Broadcast plain text to a specific subset of named webhooks in parallel.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendAll(content, options?)*</TableCell>
+      <TableCell>Broadcast plain text to every registered webhook simultaneously.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*formatAndSend(name, template, vars, options?)*</TableCell>
+      <TableCell>Replace placeholder keys from the vars object, then send the resulting string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*format(template, vars)*</TableCell>
+      <TableCell>Replace placeholder keys and return the interpolated string without sending anything.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*get(name)*</TableCell>
+      <TableCell>Return the WebhookEntry for the named webhook, or undefined if not registered.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*isRegistered(name)*</TableCell>
+      <TableCell>Return true if a webhook with the given name is registered.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*registered()*</TableCell>
+      <TableCell>Return an array of all registered webhook names.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Per-call options
+
+Every send method accepts an optional `SendOptions` object as the last argument. Values set here override the global `globalUsername` and `globalAvatarUrl` from the plugin configuration for that specific call only.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Option</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*username*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Overrides the webhook's display name for this send only.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*avatarURL*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Overrides the webhook's avatar for this send only.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*threadId*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Sends the message into a specific forum or text thread inside the webhook's channel.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Use these per-call overrides sparingly. If every send needs a custom username or avatar, it is usually a sign that you should split one webhook into multiple named destinations instead of overriding the same destination on every call.
+
+```typescript
+await this.webhook.send('alerts', 'Maintenance window starting in 5 minutes.', {
+  username: 'Maintenance Bot',
+  avatarURL: 'https://example.com/maintenance.png',
+  threadId: '1234567890123456789',
+});
+```
+
+## Checking registration at runtime
+
+Use `isRegistered` to guard a send call when a webhook is optional in some environments, and `registered` to inspect the full list of configured names at boot or in a health-check route.
+
+```typescript
+if (this.webhook.isRegistered('alerts')) {
+  await this.webhook.send('alerts', 'Service is up.');
+}
+
+// List all configured webhook names
+console.log(this.webhook.registered()); // ['alerts', 'logs', 'reports']
+```
+
+## reliability model and behavior details
+
+In the current feature set, webhook delivery behavior is intentionally explicit. Some methods fail fast, while
+broadcast methods favor partial success and continue sending to remaining destinations.
+
+Use this behavior as part of your design instead of treating all methods as equivalent.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Failure behavior</TableCell>
+      <TableCell header>Typical use</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*send / sendEmbed / sendEmbeds / sendMessage*</TableCell>
+      <TableCell>Rejects on failure (unless plugin-level `onError` handles it).</TableCell>
+      <TableCell>Single critical destination where caller should decide retry/fallback.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendMany*</TableCell>
+      <TableCell>Uses parallel fan-out and logs individual failures; does not stop other sends.</TableCell>
+      <TableCell>Best-effort multi-destination notifications.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*sendAll*</TableCell>
+      <TableCell>Delegates to `sendMany`; warns if no webhooks are registered.</TableCell>
+      <TableCell>Broadcast-style operational messages.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Plugin-level onError versus call-site try/catch
+
+The plugin `onError` callback is a good central hook for telemetry, alerting, and structured logging.
+However, call-site `try/catch` remains important for business decisions, for example deciding whether
+to fail the current command, switch to another channel, or enqueue a retry.
+
+```typescript filename="config/webhook.config.ts"
+import { defineWebhook } from '@spraxium/webhook';
+import { logger } from '@spraxium/logger';
+
+const log = logger.child('WebhookErrors');
+
+export const webhookConfig = defineWebhook({
+  webhooks: {
+    alerts: process.env.WEBHOOK_ALERTS ?? '',
+    audit: process.env.WEBHOOK_AUDIT ?? '',
+  },
+  onError: (name, error) => {
+    log.error(`Webhook \"${name}\" failed: ${error.message}`);
+  },
+});
+```
+
+### Production architecture pattern
+
+A practical pattern for medium and large bots is to split webhook traffic by responsibility instead
+of by feature module. For example:
+
+1. `alerts`: high-priority incidents and failures.
+2. `audit`: security and moderation audit trails.
+3. `ops`: lifecycle events and periodic operational snapshots.
+
+This keeps downstream channels clean and allows separate retention/permissions policies.
+
+```typescript filename="src/modules/ops/ops-webhook.service.ts"
+import { Injectable } from '@spraxium/common';
+import { WebhookService } from '@spraxium/webhook';
+
+@Injectable()
+export class OpsWebhookService {
+  constructor(private readonly webhook: WebhookService) {}
+
+  async reportIncident(summary: string): Promise<void> {
+    await this.webhook.send('alerts', `INCIDENT: ${summary}`);
+  }
+
+  async appendAudit(entry: string): Promise<void> {
+    await this.webhook.send('audit', entry);
+  }
+
+  async announceLifecycle(eventName: string): Promise<void> {
+    await this.webhook.send('ops', `Lifecycle event: ${eventName}`);
+  }
+}
+```
+
+### Security and operational checklist
+
+For production projects, use this checklist before going live:
+
+1. Keep webhook URLs in environment variables and never commit them.
+2. Validate env values at startup (`@spraxium/env`) so bad URLs fail early.
+3. Keep destination naming stable (`alerts`, `audit`, `ops`) to avoid string drift.
+4. Decide where best-effort is acceptable (`sendMany`/`sendAll`) versus fail-fast methods.
+5. Route errors from `onError` to your central logging/alerting pipeline.
+6. Avoid placing user-generated unescaped markdown in privileged audit channels.
+
+## Next page
+
+Continue with [Sharding Overview](/sharding-overview).
+

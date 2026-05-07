@@ -1,19 +1,35 @@
 ---
-title: "Configuração e Padrões"
+title: Configuração e padrões
 description: |
-  O config de schedule usa o padrão split-config com defineSchedule para configuração type-safe.
-  Aprenda a referência completa do ScheduleConfig, boas práticas e padrões comuns de jobs.
+  A config de schedule usa o padrão de configuração separada com defineSchedule para um setup com segurança de tipos.
+  Conheça a referência completa de ScheduleConfig, as boas práticas e os padrões de job mais comuns.
 order: 4
 category: Schedule
+keywords:
+  - spraxium schedule config pattern
+  - configuração e padrões no spraxium
+  - schedule schedule config pattern guia
+  - schedule config pattern bot discord
+  - schedule config pattern typescript
+  - documentacao spraxium schedule
+  - configuração e padrões schedule
+  - spraxium configuração e padrões
+faq:
+  - question: "O que \"Configuração e padrões\" cobre no Spraxium?"
+    answer: "A config de schedule usa o padrão de configuração separada com defineSchedule para um setup com segurança de tipos. Conheça a referência completa de ScheduleConfig, as boas práticas e os padrões de job mais comuns."
+  - question: "Quando devo usar \"Configuração e padrões\"?"
+    answer: "Use esta pagina quando voce estiver implementando schedule config pattern dentro da area de Schedule do seu bot."
+  - question: "Qual o proximo passo depois de \"Configuração e padrões\"?"
+    answer: "Continue nas paginas relacionadas de Schedule para conectar este conceito com implementacao pratica."
 ---
 
-## Padrão split-config
+## Padrão de configuração separada
 
-Como outros plugins do Spraxium, o módulo de schedule usa o padrão split-config onde a configuração fica em um arquivo dedicado dentro do diretório `config/`. O helper _defineSchedule_ fornece type safety completo e auto-complete para todos os campos do config. Seu `spraxium.config.ts` principal referencia o arquivo de config, mantendo o config raiz limpo e a configuração de cada plugin isolada.
+Assim como outros plugins do Spraxium, o módulo de schedule usa o padrão de configuração separada, em que a configuração vive em um arquivo dedicado dentro do diretório `config/`. O helper _defineSchedule_ fornece segurança de tipos completa e auto-complete para todos os campos de configuração. O seu `spraxium.config.ts` principal referencia esse arquivo, mantendo a config raiz limpa e cada configuração de plugin isolada.
 
-Esse padrão escala bem conforme seu bot cresce. Cada plugin tem seu próprio arquivo de config com suas próprias definições de tipo, e o config raiz simplesmente importa e compõe todos. Você nunca acaba com um objeto de config monolítico que mistura configurações de prefix, schedule e HTTP em um único lugar.
+Cada plugin tem o próprio arquivo de configuração com suas próprias definições de tipo, e a config raiz apenas importa e compõe esses arquivos. Assim, você evita terminar com um objeto de configuração monolítico misturando ajustes de prefix, schedule e HTTP.
 
-O framework automaticamente descobre e carrega o config de schedule durante o bootstrap. Você não precisa chamar nenhuma função de registro manualmente. Basta exportar o config do arquivo e referenciá-lo no array de imports do config raiz.
+O framework descobre e carrega automaticamente a config de schedule durante o bootstrap. Você não precisa chamar nenhuma função de registro manualmente. Basta exportar a config do arquivo e referenciá-la no array de imports da sua config raiz.
 
 <CodeTabs>
   <Tab label="Config de schedule" language="typescript">
@@ -39,9 +55,9 @@ export default defineConfig({
   </Tab>
 </CodeTabs>
 
-## Referência do ScheduleConfig
+## Referência de ScheduleConfig
 
-A interface _ScheduleConfig_ controla o comportamento global para todos os jobs agendados. A maioria dos campos é opcional com padrões adequados que funcionam para bots single-process.
+A interface _ScheduleConfig_ controla o comportamento global de todos os jobs agendados. A maioria dos campos é opcional e tem defaults sensatos que funcionam bem em bots de processo único.
 
 <Table>
   <TableHead>
@@ -55,38 +71,36 @@ A interface _ScheduleConfig_ controla o comportamento global para todos os jobs 
   <TableBody>
     <TableRow>
       <TableCell>*driver*</TableCell>
-      <TableCell>`ScheduleDriver`</TableCell>
+      <TableCell>*ScheduleDriver*</TableCell>
       <TableCell>*MemoryDriver*</TableCell>
       <TableCell>Driver de lock para execução distribuída</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*timezone*</TableCell>
-      <TableCell>`string`</TableCell>
-      <TableCell>Padrão do sistema</TableCell>
-      <TableCell>Timezone IANA para jobs cron</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Default do sistema</TableCell>
+      <TableCell>Fuso horário IANA para jobs cron</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*defaultLockTtlMs*</TableCell>
-      <TableCell>`number`</TableCell>
-      <TableCell>`30000`</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>30000</TableCell>
       <TableCell>TTL padrão do lock em milissegundos para o driver</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*disableAll*</TableCell>
-      <TableCell>`boolean`</TableCell>
-      <TableCell>`false`</TableCell>
-      <TableCell>
-        Desabilitar todos os jobs globalmente (útil para manutenção)
-      </TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>*false*</TableCell>
+      <TableCell>Desabilita todos os jobs globalmente, útil para manutenção</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
 ## Organização do projeto
 
-Serviços de schedule são providers injetáveis regulares que você registra em qualquer módulo. Um padrão comum é criar um módulo de tasks dedicado que agrupa todos os jobs em segundo plano, mas você também pode colocar métodos decorados com schedule em serviços específicos de domínio. A escolha depende de se seus jobs são transversais (como limpeza e sincronização) ou fortemente acoplados a uma feature específica.
+Serviços de schedule são providers injetáveis comuns que você registra em qualquer módulo. Um padrão frequente é criar um módulo dedicado de tasks para agrupar todos os jobs em segundo plano, mas você também pode colocar métodos decorados com schedule em serviços específicos de domínio. A escolha depende de os seus jobs serem transversais, como limpeza e sincronização, ou fortemente acoplados a uma funcionalidade específica.
 
-Para tarefas transversais, um módulo de tasks centralizado mantém as coisas organizadas. Para tarefas específicas de feature, colocar o decorator de schedule em um método no serviço da feature evita indireção desnecessária. Ambas as abordagens são válidas e o framework as trata de forma idêntica.
+Para tarefas transversais, um módulo centralizado de tasks ajuda a manter tudo organizado. Para tarefas específicas de uma funcionalidade, colocar o decorator de schedule em um método do serviço da feature evita indireção desnecessária. As duas abordagens são válidas, e o framework trata ambas da mesma forma.
 
 <FolderStructure>
   <Folder name="config" open>
@@ -114,9 +128,9 @@ Para tarefas transversais, um módulo de tasks centralizado mantém as coisas or
 
 ## Padrões comuns
 
-### Combinando múltiplos tipos de job em um serviço
+### Combinando vários tipos de job em um serviço
 
-Um único serviço pode ter métodos decorados com diferentes tipos de job. Isso é útil quando tarefas relacionadas têm requisitos de temporização diferentes mas compartilham as mesmas dependências. O scheduler trata cada método decorado como um job independente com seu próprio nome e ciclo de vida.
+Um único serviço pode ter métodos decorados com tipos de job diferentes. Isso é útil quando tarefas relacionadas têm exigências de tempo distintas, mas compartilham as mesmas dependências. O scheduler trata cada método decorado como um job independente, com nome e ciclo de vida próprios.
 
 ```typescript filename="src/modules/tasks/services/maintenance.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -132,24 +146,24 @@ import {
 export class MaintenanceService {
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'daily-cleanup' })
   async dailyCleanup(): Promise<void> {
-    // Arquivar logs antigos, limpar dados tempor\u00e1rios
+    // Archive old logs, clear temp data
   }
 
   @Interval(IntervalExpression.EVERY_10_MINUTES, { name: 'health-ping' })
   async healthPing(): Promise<void> {
-    // Reportar sa\u00fade do bot para servi\u00e7o de monitoramento
+    // Report bot health to monitoring service
   }
 
   @AfterOnline(10_000, { name: 'restore-presences' })
   async restorePresences(): Promise<void> {
-    // Restaurar status do bot a partir do banco de dados ap\u00f3s reconex\u00e3o
+    // Restore bot status from database after reconnection
   }
 }
 ```
 
 ### Execução condicional de jobs com feature flags
 
-Às vezes você quer definir um job mas só habilitá-lo baseado em variáveis de ambiente ou condições de runtime. A opção _disabled_ nas opções do decorator permite controlar isso no momento do registro. Para controle em runtime, use os métodos _ScheduleService.pause_ e _ScheduleService.resume_.
+Em alguns casos, você quer definir um job, mas só habilitá-lo com base em variáveis de ambiente ou condições de runtime. A opção _disabled_ nas opções do decorator permite controlar isso no momento do registro. Para controle em runtime, use os métodos _ScheduleService.pause_ e _ScheduleService.resume_.
 
 ```typescript filename="src/modules/tasks/services/analytics.service.ts"
 import { Injectable } from '@spraxium/common';
@@ -162,14 +176,14 @@ export class AnalyticsService {
     disabled: process.env.ENABLE_ANALYTICS !== 'true',
   })
   async collectAnalytics(): Promise<void> {
-    // Coletar e agregar analytics de uso
+    // Collect and aggregate usage analytics
   }
 }
 ```
 
-### Registro no módulo
+### Registro do módulo
 
-Registre seus serviços de tarefa como providers em um módulo. O _ScheduleModule_ é global e não precisa ser importado no seu feature module. Basta adicionar seus serviços ao array de providers e o scheduler descobrirá seus métodos decorados automaticamente.
+Registre seus serviços de task como providers em um módulo. O _ScheduleModule_ é global e não precisa ser importado no seu feature module. Basta adicionar os serviços ao array de providers, e o scheduler descobrirá automaticamente os métodos decorados.
 
 ```typescript filename="src/modules/tasks/tasks.module.ts"
 import { Module } from '@spraxium/common';
@@ -183,6 +197,6 @@ import { MaintenanceService } from './services/maintenance.service';
 export class TasksModule {}
 ```
 
-## Próximo estudo
+## Próxima página
 
-Continue com [Visão Geral da Package HTTP](/guide/http-overview).
+Continue com [Visão geral do pacote HTTP](/guide/http-overview).

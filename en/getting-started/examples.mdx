@@ -1,196 +1,256 @@
 ---
 title: Examples
-description: |
-  A tour of the example applications shipped with the Spraxium repository.
-  Each app targets a specific package or pattern and serves as a runnable reference you can clone and adapt.
-order: 5
-category: Getting Started
+description: Learn from practical Spraxium applications, understand the architecture each example demonstrates, and choose a safe production-ready starting point.
+order: 2
+keywords:
+  - spraxium examples
+  - examples in spraxium
+  - getting started examples guide
+  - examples discord bot
+  - examples typescript
+  - spraxium getting started documentation
+  - examples getting started
+faq:
+  - question: "What does \"Examples\" cover in Spraxium?"
+    answer: "Learn from practical Spraxium applications, understand the architecture each example demonstrates, and choose a safe production-ready starting point."
+  - question: "When should I use \"Examples\"?"
+    answer: "Use this page when you are implementing examples in the getting started area of your bot architecture."
+  - question: "What should I read after \"Examples\"?"
+    answer: "Continue with related getting started pages to connect this concept with practical implementation details."
 ---
 
-## Overview
+Spraxium ships with a complete set of real, runnable applications in [github.com/spraxium/spraxium/tree/main/apps](https://github.com/spraxium/spraxium/tree/main/apps). Currently, those examples are aligned with the latest APIs, including async component builders, modern interaction patterns, and production-oriented architecture.
 
-The Spraxium repository ships a set of example applications under the `apps/` directory. Each one is a minimal, self-contained bot that focuses on a single package or concept. They are not toys, they use the same module structure, dependency injection, and config patterns you would use in a production bot, but they are kept small enough to read in an afternoon.
+This page helps you choose the right starting point for your goal, then gives a practical workflow to run, inspect, and modify examples safely.
 
-If the documentation covers the theory, the examples show the practice. Whenever a concept feels abstract you can open the corresponding app, run it locally, and watch it behave.
+## App map 
 
-All examples live at [github.com/spraxium/spraxium/tree/main/apps](https://github.com/spraxium/spraxium/tree/main/apps).
+Spraxium currently includes **13 official example apps**:
 
----
+1. [`components-bot`](https://github.com/spraxium/spraxium/tree/main/apps/components-bot)
+2. [`context-menu-bot`](https://github.com/spraxium/spraxium/tree/main/apps/context-menu-bot)
+3. [`dynamic-bot`](https://github.com/spraxium/spraxium/tree/main/apps/dynamic-bot)
+4. [`guard-bot`](https://github.com/spraxium/spraxium/tree/main/apps/guard-bot)
+5. [`http-bot`](https://github.com/spraxium/spraxium/tree/main/apps/http-bot)
+6. [`i18n-bot`](https://github.com/spraxium/spraxium/tree/main/apps/i18n-bot)
+7. [`i18n-components-bot`](https://github.com/spraxium/spraxium/tree/main/apps/i18n-components-bot)
+8. [`modal-bot`](https://github.com/spraxium/spraxium/tree/main/apps/modal-bot)
+9. [`sandbox`](https://github.com/spraxium/spraxium/tree/main/apps/sandbox)
+10. [`schedule-bot`](https://github.com/spraxium/spraxium/tree/main/apps/schedule-bot)
+11. [`signal-bot`](https://github.com/spraxium/spraxium/tree/main/apps/signal-bot)
+12. [`slash-bot`](https://github.com/spraxium/spraxium/tree/main/apps/slash-bot)
+13. [`webhook-bot`](https://github.com/spraxium/spraxium/tree/main/apps/webhook-bot)
 
-## slash-bot
+`upgrade-test-bot` was intentionally removed and is not part of the current app set.
 
-**What it covers:** slash commands, subcommands, option injection, guards, and autocomplete.
+## What each app teaches
 
-`slash-bot` is the best starting point if you are building a command-driven bot. It demonstrates four independent feature modules:
+### 1) slash-bot
 
-- `simple`, three standalone commands (`/ping`, `/color`, `/inspect`) showing the basic `@SlashCommandHandler` + `@Ctx` + `@SlashOpt` pattern.
-- `subcommands`, two commands with nested subcommands (`/math add|subtract|multiply` and `/server info|icon|settings language|prefix`) showing how subcommand trees are modelled with a single component class and multiple handlers.
-- `autocomplete`, a `/search` command with a handler that resolves suggestions dynamically via `@OnAutocomplete`.
-- `protection`, a `/mod kick|timeout|warn` group that applies `@UseGuards(GuildOnly, PermissionGuard)` to restrict commands to guild moderators.
+Use this first if you want the cleanest entry point.
 
-The guard example is particularly useful: it shows how to compose multiple guards in a single decorator and how `withOptions` passes guard-specific config without breaking the handler signature.
+You will learn:
 
-```text
-apps/slash-bot/src/modules/
-  simple/        → @SlashCommandHandler, @Ctx, @SlashOpt
-  subcommands/   → nested subcommand trees
-  autocomplete/  → @OnAutocomplete
-  protection/    → @UseGuards, GuildOnly, PermissionGuard
-```
+- Basic slash command registration and execution.
+- Handler/module organization with minimal ceremony.
+- Core command flow before adding advanced infrastructure.
 
----
+### 2) context-menu-bot
 
-## modal-bot
+Use this if your bot workflow starts from message/user context actions instead of slash commands.
 
-**What it covers:** modal components, reading submitted fields, and multi-step modal flows.
+You will learn:
 
-`modal-bot` shows three real-world modal patterns: a profile setup form, a community suggestion form, and a support ticket creation flow. Each module defines a modal component with the fields it needs and a handler that processes the submission.
+- User and message context menu commands.
+- Deferral and response patterns that avoid timeout failures.
+- Guard and service composition around interaction handlers.
 
-The ticket module is the most instructive: it has both an "open" handler that presents the modal and an "edit" handler that re-opens it pre-filled, showing how to carry state between invocations.
+### 3) guard-bot
 
-```text
-apps/modal-bot/src/modules/
-  profile/     → single modal with select + radio + checkbox fields
-  suggestion/  → modal triggered by slash command
-  ticket/      → open + edit handlers, shared modal component
-```
+Use this to understand access control and policy layers.
 
----
+You will learn:
 
-## components-bot
+- Guard composition for roles, permissions, and conditions.
+- Reusable security checks at module/handler level.
+- Patterns for keeping authorization logic out of business code.
 
-**What it covers:** buttons, select menus, modals via `@spraxium/components`, flow context, and V2 container layouts.
+### 4) components-bot
 
-This is the most comprehensive UI example. It demonstrates every component type the framework supports and includes a `flow` module that shows how to build stateful multi-step interactions using `FlowContext`, a session-scoped store that persists data across button clicks and select interactions without any external storage.
+Use this when you need buttons/select menus with richer flows.
 
-The `v2` module shows the three ways to build a V2 container layout: using the class-based `@Container` decorator, the fluent builder API, and the inline dynamic approach. These map to the three patterns described in the components documentation.
+You will learn:
 
-```text
-apps/components-bot/src/modules/
-  buttons/   → primary, secondary, approve, delete, disabled, link buttons
-  selects/   → string, user, role, channel, mention, multi-select
-  modal/     → feedback and report modals opened via buttons
-  flow/      → multi-step wizard using FlowContext
-  v2/        → class-based, fluent, and dynamic V2 container layouts
-```
+- Component V2 usage with `await`-driven builders.
+- Multi-step UI-like interaction flows.
+- Mapping component interactions to typed handlers.
 
----
+### 5) dynamic-bot
 
-## http-bot
+Use this when payload data must travel inside component interactions.
 
-**What it covers:** exposing bot state through a REST API with `@spraxium/http`.
+You will learn:
 
-`http-bot` shows the minimal setup for adding an HTTP layer to your bot. A single controller at `/status` returns live data from the Discord client (uptime, configured port) via a service that is injected through the DI container.
+- Dynamic component identity/payload strategies.
+- Safer handling of stateful interactions without brittle parsing.
+- Migration-friendly structure for evolving component contracts.
 
-The config file (`config/http.config.ts`) shows the `defineHttp` call with `apiKey`, `port`, and `sharding: false`. This is the reference point for adding HTTP to any bot without sharding. The sharding-enabled version is documented separately in the HTTP package guide.
+### 6) modal-bot
 
-```text
-apps/http-bot/src/modules/http/
-  controllers/status.controller.ts   → @HttpController, @HttpGet, @HttpCtx
-  services/status-http.service.ts    → business logic injected into controller
-config/http.config.ts                → defineHttp({ port, apiKey, module })
-```
+Use this for form-like input collection.
 
----
+You will learn:
 
-## i18n-bot
+- Modal opening and submission handlers.
+- Validation and error feedback for submitted fields.
+- Integration of modal output into command workflows.
 
-**What it covers:** internationalization, locale-per-user resolution, and locale management commands.
+### 7) i18n-bot
 
-`i18n-bot` builds a fully localized bot with English and Brazilian Portuguese locale files. It has two feature modules:
+Use this when localization is a top requirement.
 
-- `greet`, a `/greet me` and `/greet user` command that renders responses in the calling user's stored locale using `tUser()`.
-- `locale`, a `/locale set` and `/locale info` command pair that lets users change their preference and inspect what locale they are currently using.
+You will learn:
 
-The locale files under `locales/` show the exact key structure that `I18nService` expects, including variable interpolation (`{{user}}`, `{{locale}}`) and how locale strings are namespaced by command.
+- Locale detection and translation loading.
+- Message composition with language-aware utilities.
+- Structuring multilingual command output.
 
-```text
-apps/i18n-bot/
-  locales/en-US.json      → English locale strings
-  locales/pt-BR.json      → Brazilian Portuguese locale strings
-  src/modules/
-    greet/    → tUser() for per-user locale resolution
-    locale/   → getUserLocale(), setUserLocale()
-```
+### 8) i18n-components-bot
 
----
+Use this to combine localization with complex component flows.
 
-## schedule-bot
+You will learn:
 
-**What it covers:** scheduled jobs with `@spraxium/schedule`, all four decorator types in a single app.
+- Localized labels/content in component trees.
+- Locale-safe dynamic UI states.
+- Practical translation boundaries in interaction-heavy UX.
 
-`schedule-bot` uses two services to demonstrate the full decorator surface of the schedule package:
+### 9) http-bot
 
-`StartupTasksService` shows the two one-shot patterns: `@AfterOnline` fires relative to the Discord `ready` event and is ideal for cache warmup or post-login logging, while `@Timeout` fires relative to the application boot sequence regardless of the gateway state.
+Use this when your Discord bot also exposes HTTP endpoints.
 
-`ScheduledTasksService` shows the two recurring patterns: `@Interval` repeats on a fixed millisecond cadence using `IntervalExpression` constants, and `@Cron` runs on a calendar schedule using `CronExpression` values.
+You will learn:
 
-Both services inject the `Client` instance directly through the DI container to access live bot state inside job callbacks.
+- Running bot runtime and HTTP runtime together.
+- API endpoint organization around services/modules.
+- Basic middleware patterns used by the framework.
 
-```text
-apps/schedule-bot/src/modules/jobs/services/
-  startup-tasks.service.ts    → @AfterOnline, @Timeout
-  scheduled-tasks.service.ts  → @Interval, @Cron
-config/schedule.config.ts     → defineSchedule({ timezone, defaultLockTtlMs })
-```
+### 10) webhook-bot
 
----
+Use this when external events should trigger Discord actions.
 
-## signal-bot
+You will learn:
 
-**What it covers:** receiving async event signals through Discord webhooks with `@spraxium/signal`.
+- Receiving and validating webhook requests.
+- Dispatching webhook events to the proper handlers.
+- Reliability patterns and explicit error strategy.
 
-`signal-bot` receives typed signals dispatched by external services. Signals are JSON messages delivered via a Discord webhook to a designated channel. The bot verifies the HMAC signature, validates the payload against a Zod schema, and routes to the correct listener method.
+### 11) signal-bot
 
-Two listeners are registered:
+Use this for event-driven communication patterns.
 
-- `DeployListener` handles `deploy.completed` and `deploy.failed`, events a CI/CD pipeline would emit after a deployment finishes.
-- `ConfigUpdateListener` handles `config.update` and `config.reset`, events an admin panel might emit to push config changes to a live bot without a restart.
+You will learn:
 
-All Zod schemas live in a dedicated `schemas/` folder alongside the `signals/` folder, keeping validation logic separate from handler logic.
+- Signal/event publishing and consumption.
+- Decoupling producers from consumers.
+- Scalable internal communication architecture.
 
-```text
-apps/signal-bot/src/modules/signals/
-  schemas/
-    deployment-completed.schema.ts   → deploy.completed payload + type
-    deploy-failed.schema.ts          → deploy.failed payload + type
-    config-update.schema.ts          → config.update + config.reset payloads
-  signals/
-    deploy.signal.ts                 → @SignalListener, @OnSignal
-    config-update.signal.ts          → @SignalListener, @OnSignal
-config/signal.config.ts              → defineSignal({ channelId, allowedWebhookIds, hmacSecret })
-```
+### 12) schedule-bot
 
----
+Use this for recurring automation.
 
-## Running an example locally
+You will learn:
 
-Every example app follows the same setup flow.
+- Scheduled tasks and cron-like execution flow.
+- Safe scheduling boundaries for Discord operations.
+- Organizing job logic with observability in mind.
 
-**1. Install dependencies from the repo root:**
+### 13) sandbox
+
+Use this as your integration laboratory.
+
+You will learn:
+
+- Mixed patterns from many framework features.
+- Exception demos and edge-case handling.
+- How to prototype quickly before extracting production modules.
+
+## Recommended learning paths
+
+Pick one path and follow it sequentially for faster comprehension.
+
+### Path A: command fundamentals
+
+1. `slash-bot`
+2. `context-menu-bot`
+3. `guard-bot`
+
+### Path B: interaction-heavy UX
+
+1. `components-bot`
+2. `dynamic-bot`
+3. `modal-bot`
+4. `i18n-components-bot`
+
+### Path C: backend/integration architecture
+
+1. `http-bot`
+2. `webhook-bot`
+3. `signal-bot`
+4. `schedule-bot`
+5. `sandbox`
+
+### Path D: localization-first products
+
+1. `i18n-bot`
+2. `i18n-components-bot`
+3. `sandbox`
+
+## How to run an example
+
+From the workspace root:
 
 ```bash
 pnpm install
+pnpm --filter @spraxium/slash-bot build
+pnpm --filter @spraxium/slash-bot start
 ```
 
-**2. Copy the env file and fill in your bot token:**
+Swap `@spraxium/slash-bot` for the app package you want to run.
 
-```bash
-cp apps/slash-bot/.env.example apps/slash-bot/.env
-# edit apps/slash-bot/.env and set DISCORD_TOKEN
-```
+## Practical workflow for studying examples
 
-**3. Start the bot in development mode:**
+Use this loop when analyzing any app:
 
-```bash
-cd apps/slash-bot
-pnpm dev
-```
+1. Read `spraxium.config.ts` to understand module wiring and runtime hooks.
+2. Read `src/` handlers first, then services/providers.
+3. Run one command/interaction end-to-end and inspect logs.
+4. Modify one behavior and re-run immediately.
+5. Keep successful experiments, discard noisy experiments quickly.
 
-For apps that require additional environment variables (`signal-bot`, `http-bot`, `i18n-bot`), the `.env.example` file documents every required and optional variable inline.
+This keeps your learning focused on execution paths, not just static code reading.
 
-<Callout tone="info" title="Not production configs">
-  The example apps are designed to be read and run locally, not deployed as-is.
-  They use hard-coded defaults, no Redis drivers, and minimal error handling on
-  purpose so the signal-to-noise ratio stays low.
-</Callout>
+## migration notes for example readers
+
+If you used older revisions of the examples, keep these points in mind:
+
+1. Component V2 examples now emphasize async builder usage.
+2. Dynamic component flows were modernized to match current payload patterns.
+3. HTTP/webhook examples are aligned with latest package interfaces.
+4. App manifests were normalized for workspace dependency consistency.
+
+## Building your own app from an example
+
+A safe production-oriented approach:
+
+1. Choose the closest example by behavior, not by size.
+2. Copy only modules you can explain line-by-line.
+3. Replace environment values and secrets first.
+4. Add guards, logging, and error handling before adding features.
+5. Add tests around your first critical command or interaction flow.
+
+Examples are intended as architecture references, not drop-in production templates.
+
+## Next page
+
+Continue with [Configuration](../configuration/configuration-overview/) to understand environment setup, runtime options, and deployment-safe defaults.

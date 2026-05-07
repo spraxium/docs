@@ -1,23 +1,23 @@
 ---
 title: Embeds
 description: |
-  Construye embeds ricos usando un sistema declarativo de decorators basado en schema.
-  Aprende definiciones de campo, renderizado condicional, propiedades dinámicas, el DescriptionBuilder y renderizado con EmbedService.
+  Construye embeds ricos usando un sistema declarativo guiado por schema y decorators.
+  Aprende definición de campos, renderizado condicional, propiedades dinámicas, DescriptionBuilder y renderizado con EmbedService.
 order: 4
 category: Components
 ---
 
 ## Embeds declarativos
 
-El sistema de embeds en _@spraxium/components_ permite definir embeds de Discord como clases decoradas en lugar de cadenas imperativas de builders. Cada propiedad del embed, como título, color, campos, pie de página e imágenes, se declara a través de decorators a nivel de propiedad. En el momento del renderizado, _EmbedService_ lee los metadatos y produce un _EmbedBuilder_ estándar de discord.js rellenado con todos los valores declarados.
+El sistema de embeds en _@spraxium/components_ permite definir embeds de Discord como clases decoradas, en lugar de encadenar builders de forma imperativa. Cada propiedad del embed, como título, color, campos, footer e imágenes, se describe por decorators aplicados en propiedades de la clase. En el renderizado, _EmbedService_ lee estos metadatos y construye un _EmbedBuilder_ estándar de discord.js con todos los valores declarados.
 
-Este enfoque aporta los mismos beneficios que los patrones de botón y select: las definiciones son reutilizables, los campos son testeables independientemente y el renderizado está desacoplado de la lógica de negocio. Los embeds basados en datos son especialmente poderosos porque las funciones fábrica en cada decorator pueden calcular valores en el momento del renderizado basándose en el objeto de datos que proporcionas.
+Este enfoque entrega las mismas ventajas vistas en botones y selects: las definiciones quedan reutilizables, los campos pueden tratarse de forma aislada y el renderizado sigue separado de la regla de negocio. Embeds guiados por datos quedan especialmente fuertes aquí, porque cada decorator puede recibir una factory function que calcula el valor en el momento del renderizado según el objeto de datos informado.
 
-El decorator _@Embed_ marca una clase como un schema de embed. Opcionalmente acepta un objeto _EmbedSchema_ estático con propiedades de nivel superior como _title_, _description_, _color_, _footer_ y _url_. Para propiedades que necesitan datos en runtime, usa decorators de propiedad como _@EmbedTitle_, _@EmbedColor_ y _@EmbedField_.
+El decorator _@Embed_ marca la clase como schema de embed. Puede recibir un objeto estático _EmbedSchema_ con propiedades de nivel superior, como _title_, _description_, _color_, _footer_ y _url_. Cuando la propiedad necesita depender de datos de runtime, el camino correcto es usar decorators como _@EmbedTitle_, _@EmbedColor_ y _@EmbedField_.
 
 ## Embed básico con propiedades estáticas
 
-El embed más simple usa el decorator de clase _@Embed_ con un schema estático. Esto es adecuado para embeds cuyo contenido no cambia en runtime. El objeto de schema acepta los mismos campos de la API de _EmbedBuilder_ de discord.js: _title_, _description_, _color_, _footer_, _timestamp_, _author_, _thumbnail_, _image_ y _url_.
+El caso más simple usa el decorator de clase _@Embed_ con un schema estático. Este formato funciona bien cuando el contenido del embed no cambia en runtime. El objeto schema acepta los mismos campos que la API de _EmbedBuilder_ de discord.js: _title_, _description_, _color_, _footer_, _timestamp_, _author_, _thumbnail_, _image_ y _url_.
 
 ```typescript filename="src/components/embeds/welcome.embed.ts"
 import { Embed } from '@spraxium/components';
@@ -32,11 +32,11 @@ import { Embed } from '@spraxium/components';
 export class WelcomeEmbed {}
 ```
 
-Para renderizar un embed estático, inyecta _EmbedService_ y llama a _build_ con la clase. El servicio lee los metadatos de _@Embed_ y produce el _EmbedBuilder_ configurado.
+Para renderizar un embed estático, inyecta _EmbedService_ y llama _build_ con la clase. El servicio lee el metadato generado por _@Embed_ y devuelve el _EmbedBuilder_ ya configurado.
 
-## Embeds basados en datos con decorators
+## Embeds orientados por datos con decorators
 
-Para embeds que dependen de datos de runtime, usa decorators a nivel de propiedad. Cada decorator acepta un valor estático o una función fábrica que recibe el objeto de datos. Esto permite calcular títulos, colores, campos y otras propiedades dinámicamente manteniendo la declaración en un solo lugar.
+Cuando el embed depende de datos de runtime, el camino es usar decorators en propiedades. Cada decorator acepta un valor estático o una factory function que recibe el objeto de datos. Con eso, puedes calcular título, color, campos y otras propiedades dinámicamente, sin repartir la definición por múltiples puntos del código.
 
 ```typescript filename="src/components/embeds/user-profile.embed.ts"
 import {
@@ -57,37 +57,37 @@ interface ProfileData {
 
 @Embed()
 export class UserProfileEmbed {
-  @EmbedTitle((data: ProfileData) => `Profile: ${data.username}`)
-  title: string;
+  @EmbedTitle<ProfileData>((data) => `${data.username}'s Profile`)
+  title!: never;
 
-  @EmbedColor((data: ProfileData) => (data.isPremium ? 0xffd700 : 0x5865f2))
-  color: number;
+  @EmbedColor<ProfileData>((data) => (data.isPremium ? 0xffd700 : 0x5865f2))
+  color!: never;
 
-  @EmbedThumbnail((data: ProfileData) => data.avatarUrl)
-  thumbnail: string;
+  @EmbedThumbnail<ProfileData>((data) => data.avatarUrl)
+  thumbnail!: never;
 
-  @EmbedField({
+  @EmbedField<ProfileData>({
     name: 'Level',
-    value: (data: ProfileData) => String(data.level),
+    value: (data) => String(data.level),
     inline: true,
   })
-  levelField: void;
+  level!: never;
 
-  @EmbedField({
+  @EmbedField<ProfileData>({
     name: 'Status',
-    value: (data: ProfileData) => (data.isPremium ? '⭐ Premium' : 'Free'),
+    value: (data) => (data.isPremium ? '⭐ Premium' : 'Free'),
     inline: true,
   })
-  statusField: void;
+  status!: never;
 
-  @EmbedFooter((data: ProfileData) => ({
-    text: `Member since ${data.username}'s creation`,
-  }))
-  footer: void;
+  @EmbedFooter<ProfileData>((data) => ({ text: `ID: ${data.username}` }))
+  footer!: never;
 }
 ```
 
-El decorator _@EmbedDescription_ acepta una cadena estática o una función fábrica que puede devolver una cadena o un _DescriptionBuilder_. La función _desc()_ crea un builder que encadena métodos de formateo markdown, componiendo descripciones estructuradas sin concatenación de strings.
+El parámetro genérico en cada decorator da seguridad de tipo para el argumento de la factory function. La declaración de la propiedad con `!: never` es solo una convención de TypeScript para satisfacer el compilador sin crear estado real en la instancia, ya que los valores del embed vienen de metadatos y no de propiedades almacenadas.
+
+La factory de _@EmbedDescription_ puede retornar una string común o una instancia de _DescriptionBuilder_. El atajo _desc()_ crea ese builder encadenable, permitiendo montar descripciones estructuradas sin depender de concatenación de string o template literals innecesariamente ruidosos.
 
 ```typescript filename="src/components/embeds/account-summary.embed.ts"
 import {
@@ -106,245 +106,252 @@ interface AccountData {
 
 @Embed()
 export class AccountSummaryEmbed {
-  @EmbedTitle((data: AccountData) => `Cuenta de ${data.username}`)
+  @EmbedTitle<AccountData>((data) => `${data.username}'s Account`)
   title!: never;
 
-  @EmbedDescription((data: AccountData) =>
+  @EmbedDescription<AccountData>((data) =>
     desc()
-      .bold(`Saldo: ${data.balance} monedas`)
+      .bold(`Balance: ${data.balance} coins`)
       .empty()
       .when(data.isPremium, (b) =>
-        b.quote("\u2b50 Premium \u2014 recompensas 2\u00d7 activas"),
+        b.quote("\u2b50 Premium \u2014 2\u00d7 rewards active"),
       )
       .build(),
   )
   description!: never;
 
-  @EmbedColor((data: AccountData) => (data.isPremium ? 0xffd700 : 0x5865f2))
+  @EmbedColor<AccountData>((data) => (data.isPremium ? 0xffd700 : 0x5865f2))
   color!: never;
 }
 ```
 
-## Referencia de decorators de propiedad
+## Decorators de propiedad del embed
 
-Cada decorator de propiedad mapea a un campo específico del embed de Discord. Todos aceptan un valor estático o una función fábrica que recibe el objeto de datos pasado a _EmbedService.build_. Los decorators se procesan en orden de declaración, y el resultado se fusiona en un solo objeto de embed.
+Cada decorator de propiedad controla un aspecto específico de la apariencia del embed. Todos aceptan un valor estático o una factory function que recibe el objeto de datos en el momento del renderizado.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Decorator</TableCell>
-      <TableCell header>Campo del embed</TableCell>
+      <TableCell header>Decorador</TableCell>
       <TableCell header>Tipo de valor</TableCell>
+      <TableCell header>Finalidad</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*@EmbedTitle*</TableCell>
-      <TableCell>Título</TableCell>
-      <TableCell>`string` o `(data) => string`</TableCell>
+      <TableCell>String o función que retorna string</TableCell>
+      <TableCell>Define el título del embed. La versión con factory permite personalizar cada renderizado.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedDescription*</TableCell>
-      <TableCell>Descripción</TableCell>
-      <TableCell>`string` o `(data) => string`</TableCell>
+      <TableCell>String o función que retorna string</TableCell>
+      <TableCell>Reemplaza el campo *description* del schema *@Embed* por un valor dinámico.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedColor*</TableCell>
-      <TableCell>Color de la barra lateral</TableCell>
-      <TableCell>`number` o `(data) => number`</TableCell>
+      <TableCell>Número, string, o función que retorna uno de los dos</TableCell>
+      <TableCell>Color en hexadecimal o nombrado. La factory permite colores condicionales.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedFooter*</TableCell>
-      <TableCell>Pie de página</TableCell>
-      <TableCell>`FooterData` o `(data) => FooterData`</TableCell>
+      <TableCell>String, *FooterConfig*, o función que retorna uno de los dos</TableCell>
+      <TableCell>Texto del pie y URL opcional de icono.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedTimestamp*</TableCell>
-      <TableCell>Timestamp</TableCell>
-      <TableCell>`boolean`, `Date` o `(data) => Date`</TableCell>
+      <TableCell>Boolean, *Date*, o función que retorna uno de los dos</TableCell>
+      <TableCell>Cuando está en *true*, usa la hora actual. También acepta *Date* para timestamps específicos.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedAuthor*</TableCell>
-      <TableCell>Autor</TableCell>
-      <TableCell>`AuthorData` o `(data) => AuthorData`</TableCell>
+      <TableCell>*AuthorConfig* o función que lo retorna</TableCell>
+      <TableCell>Nombre del autor, URL de icono y enlace opcional.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedThumbnail*</TableCell>
-      <TableCell>Miniatura</TableCell>
-      <TableCell>`string` o `(data) => string`</TableCell>
+      <TableCell>String o función que retorna string</TableCell>
+      <TableCell>Imagen pequeña mostrada en la esquina superior derecha.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedImage*</TableCell>
-      <TableCell>Imagen</TableCell>
-      <TableCell>`string` o `(data) => string`</TableCell>
+      <TableCell>String o función que retorna string</TableCell>
+      <TableCell>Imagen principal mostrada en la parte inferior del embed.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*@EmbedUrl*</TableCell>
-      <TableCell>URL del título</TableCell>
-      <TableCell>`string` o `(data) => string`</TableCell>
+      <TableCell>String o función que retorna string</TableCell>
+      <TableCell>Convierte el título del embed en un enlace clickable.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Campos con @EmbedField
+## Campos del embed
 
-El decorator _@EmbedField_ agrega un campo al embed. Cada campo tiene un _name_ (encabezado en negrita), un _value_ (cuerpo del texto) y un flag _inline_ opcional que controla si el campo aparece alineado con campos adyacentes. Al igual que los decorators de propiedad, tanto _name_ como _value_ aceptan strings estáticos o funciones fábrica.
+El decorator _@EmbedField_ registra un campo de nombre y valor en el embed. Estos campos aparecen como líneas estructuradas debajo de la descripción. La propiedad _value_ puede ser una string estática o una factory function para contenido dinámico. _inline_ controla si el campo comparte la misma línea con campos vecinos también marcados como inline.
 
-```typescript filename="src/components/embeds/stats.embed.ts"
-import {
-  Embed,
-  EmbedTitle,
-  EmbedField,
-  EmbedColor,
-} from '@spraxium/components';
+```typescript filename="src/components/embeds/server-stats.embed.ts"
+import { Embed, EmbedTitle, EmbedField } from '@spraxium/components';
 
 interface StatsData {
-  members: number;
-  online: number;
-  messages: number;
+  memberCount: number;
+  onlineCount: number;
+  boostLevel: number;
 }
 
-@Embed()
+@Embed({ color: 0x00bfff })
 export class ServerStatsEmbed {
   @EmbedTitle('Server Statistics')
-  title: string;
+  title!: never;
 
-  @EmbedColor(0x57f287)
-  color: number;
-
-  @EmbedField({
+  @EmbedField<StatsData>({
     name: 'Members',
-    value: (d: StatsData) => String(d.members),
+    value: (d) => String(d.memberCount),
     inline: true,
   })
-  membersField: void;
+  members!: never;
 
-  @EmbedField({
+  @EmbedField<StatsData>({
     name: 'Online',
-    value: (d: StatsData) => String(d.online),
+    value: (d) => String(d.onlineCount),
     inline: true,
   })
-  onlineField: void;
+  online!: never;
 
-  @EmbedField({
-    name: 'Messages',
-    value: (d: StatsData) => String(d.messages),
+  @EmbedField<StatsData>({
+    name: 'Boost Level',
+    value: (d) => `Level ${d.boostLevel}`,
     inline: true,
   })
-  messagesField: void;
+  boost!: never;
 }
 ```
 
-## Campos condicionales con @EmbedWhen
+## Campos condicionales
 
-El decorator _@EmbedWhen_ acepta una función predicado que recibe los datos y retorna un booleano. Si el predicado retorna `true`, el campo se incluye en el embed renderizado. Si retorna `false`, el campo se omite completamente. El predicado se evalúa durante _EmbedService.build_, así que los datos deben estar disponibles en el momento del renderizado.
+El decorator _@EmbedWhen_ incluye un campo de forma condicional según una función predicado. Esta función recibe el objeto de datos y retorna un booleano. Cuando retorna `false`, el campo simplemente no entra en el embed renderizado. Esto es útil para mostrar campos solo en ciertos roles, planes o estados específicos de los datos.
 
-```typescript filename="src/components/embeds/moderation.embed.ts"
-import { Embed, EmbedTitle, EmbedField, EmbedWhen } from '@spraxium/components';
+```typescript filename="src/components/embeds/premium-profile.embed.ts"
+import { Embed, EmbedField, EmbedWhen } from '@spraxium/components';
 
-interface ModerationData {
-  reason: string;
-  duration?: number;
-  appealUrl?: string;
+interface ProfileData {
+  username: string;
+  isPremium: boolean;
+  premiumSince?: string;
 }
 
-@Embed()
-export class ModerationEmbed {
-  @EmbedTitle('Moderation Action')
-  title: string;
+@Embed({ title: 'Profile' })
+export class PremiumProfileEmbed {
+  @EmbedField<ProfileData>({ name: 'User', value: (d) => d.username })
+  user!: never;
 
-  @EmbedField({ name: 'Reason', value: (d: ModerationData) => d.reason })
-  reasonField: void;
-
-  @EmbedWhen((d: ModerationData) => d.duration !== undefined)
-  @EmbedField({
-    name: 'Duration',
-    value: (d: ModerationData) => `${d.duration} minutes`,
+  @EmbedWhen<ProfileData>((d) => d.isPremium)
+  @EmbedField<ProfileData>({
+    name: 'Premium Since',
+    value: (d) => d.premiumSince ?? 'Unknown',
   })
-  durationField: void;
-
-  @EmbedWhen((d: ModerationData) => d.appealUrl !== undefined)
-  @EmbedField({
-    name: 'Appeal',
-    value: (d: ModerationData) => `[Click here](${d.appealUrl})`,
-  })
-  appealField: void;
+  premiumField!: never;
 }
 ```
 
-<Callout type="warning">
-  Siempre aplica *@EmbedWhen* antes de *@EmbedField* en la misma propiedad. El
-  orden de apilamiento de los decorators importa, si el predicado retorna false,
-  los metadatos del campo se omiten por completo durante el renderizado.
+<Callout tone="warning">
+  Aplica siempre *@EmbedWhen* antes de *@EmbedField* en la misma propiedad. El
+  orden de apilado importa, porque, si el predicado retorna false, el metadato
+  del campo se omite por completo durante el renderizado.
 </Callout>
 
 ## DescriptionBuilder
 
-El _DescriptionBuilder_ es una API fluente para construir textos en markdown para la propiedad _description_ del embed. Abstrae el formateo de markdown y proporciona métodos encadenables para encabezados, listas, bloques de código, separadores y formateo inline. El resultado se pasa al _@EmbedDescription_ o a la propiedad _description_ del schema.
+_DescriptionBuilder_ ofrece una API fluente para componer descripciones en Markdown con más estructura. Sabe manejar niveles de heading, texto en negrita, cursiva, bloques de código, listas y saltos de línea. Esto es especialmente útil cuando la descripción del embed necesita formato más rico y no quieres caer en concatenación manual de string todo el tiempo.
 
 ```typescript filename="src/utils/build-help-description.ts"
 import { DescriptionBuilder } from '@spraxium/components';
 
-export function buildHelpDescription(commands: string[]): string {
-  return new DescriptionBuilder()
-    .heading('Available Commands')
-    .list(commands.map((cmd) => `\`/${cmd}\``))
-    .separator()
-    .text('Use `/help <command>` for details on a specific command.')
-    .build();
-}
+const description = new DescriptionBuilder()
+  .heading('Commands', 2)
+  .bold('!help')
+  .text(' - Shows this message')
+  .newline()
+  .bold('!ping')
+  .text(' - Check bot latency')
+  .newline()
+  .heading('Links', 2)
+  .link('Documentation', 'https://docs.example.com')
+  .build();
 ```
 
-## Referencia de la API de EmbedService
+## Renderizado con EmbedService
+
+_EmbedService_ es el servicio inyectable que transforma clases de embed decoradas en objetos _EmbedBuilder_ de discord.js. El método _build_ recibe la clase y, opcionalmente, un objeto de datos. Además, el servicio ofrece atajos para algunos patrones comunes de embed.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
-      <TableCell header>Firma</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidad</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*build*</TableCell>
-      <TableCell>`build(embed: Type, data?: unknown)`</TableCell>
       <TableCell>
-        Construye un *EmbedBuilder* a partir de la clase de embed. Pasa *data*
-        para alimentar decorators con fábricas.
+        Renderiza una clase de embed decorada en un *EmbedBuilder* con los
+        datos informados.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*simple*</TableCell>
-      <TableCell>`simple(options: SimpleEmbedOptions)`</TableCell>
       <TableCell>
-        Crea un embed rápido sin necesidad de una clase. Acepta *title*,
-        *description*, *color*.
+        Crea un embed simple con descripción y color opcional, sin necesidad de
+        clase dedicada.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*error*</TableCell>
-      <TableCell>`error(message: string)`</TableCell>
       <TableCell>
-        Crea un embed de error pre-estilizado con color rojo y el texto
-        proporcionado como descripción.
+        Crea un embed de error con tema rojo y una descripción.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Registro en módulo
+```typescript filename="src/commands/profile.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { EmbedService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { UserProfileEmbed } from '../components/embeds/user-profile.embed';
+import { ProfileCommand } from './profile.command';
 
-Las clases de embed no requieren ningún registro en módulo. _EmbedService_ es provisto globalmente por _ComponentsModule_ y es inyectable en cualquier handler de comando sin configuración adicional. Pasa la clase de embed como argumento directo a `embeds.build()` en el momento de la llamada. El servicio lee los metadatos del decorator directamente desde el constructor de la clase, sin instanciarla. El módulo de feature solo necesita listar las clases de comando y handler que usan el servicio.
+@SlashCommandHandler(ProfileCommand)
+export class ProfileCommandHandler {
+  constructor(private readonly embeds: EmbedService) {}
 
-```typescript filename="src/components/components.module.ts"
-import { Module } from '@spraxium/core';
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const profileData = {
+      username: interaction.user.username,
+      level: 42,
+      isPremium: true,
+      avatarUrl: interaction.user.displayAvatarURL(),
+    };
+
+    const embed = this.embeds.build(UserProfileEmbed, profileData);
+    await interaction.reply({ embeds: [embed] });
+  }
+}
+```
+
+## Registro en el módulo
+
+Las clases de embed no exigen registro en módulo. _EmbedService_ es proporcionado globalmente por _ComponentsModule_ y puede inyectarse en cualquier command handler sin configuración adicional. Pasas la clase del embed directamente a `embeds.build()` en el momento de la llamada. El servicio lee los metadatos directamente del constructor de la clase, no de la DI. El módulo de la feature solo necesita listar comandos y handlers que usan este servicio.
+
+```typescript filename="src/modules/profile/profile.module.ts"
+import { Module } from '@spraxium/common';
 import { ProfileCommand } from './commands/profile.command';
 
 @Module({
   commands: [ProfileCommand],
 })
-export class EmbedsModule {}
+export class ProfileModule {}
 ```
 
 ## Siguiente página

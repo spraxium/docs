@@ -1,19 +1,19 @@
 ---
-title: Patrones Avanzados
+title: Patrones avanzados
 description: |
-  Patrones avanzados de variables de entorno incluyendo validadores personalizados, herencia de schema y manejo de errores.
-  Aprende a componer validadores, construir pipelines de validación e integrar el schema en tu bot.
+  Patrones avanzados de variables de entorno, incluyendo validadores personalizados, herencia de esquemas y manejo de errores.
+  Aprende a componer validadores, construir pipelines de validación e integrar el esquema de entorno en tu bot.
 order: 3
 category: Environment
 ---
 
-## Componiendo múltiples validadores
+## Componer múltiples validadores
 
-Una sola propiedad puede llevar tantos validadores como sea necesario. El pipeline los ejecuta en orden de declaración, aplicando transforms primero y luego validando el resultado. Esto permite apilar restricciones donde cada decorator se encarga de una preocupación. Una URL de base de datos puede usar _IsString_ para presencia, un _Validate_ personalizado para verificación de prefijo, y _Secret_ para enmascaramiento. Cada decorator se mantiene enfocado y la combinación expresa el requisito completo.
+Una sola propiedad puede tener tantos validadores como necesite. El pipeline los ejecuta en orden de declaración, aplicando primero transformaciones y luego validando el resultado. Esto te permite apilar restricciones para que cada decorador maneje una sola responsabilidad. Una URL de base de datos puede usar _IsString_ para presencia, un _Validate_ personalizado para revisar prefijo y _Secret_ para enmascarado. Cada decorador se mantiene enfocado y la combinación expresa el requisito completo.
 
-Al apilar validadores, coloca decorators de transform antes de decorators de validate. El decorator _Transform_ convierte la string cruda en su lugar, y cada _Validate_ o validador de tipo subsiguiente ve el valor transformado. Si inviertes el orden, un validador de tipo podría rechazar la string cruda antes de que tu transform tenga oportunidad de convertirla.
+Al apilar validadores, coloca decoradores de transformación antes que decoradores de validación. El decorador _Transform_ convierte el string crudo in place, y cada _Validate_ posterior o validador de tipo verá el valor transformado. Si inviertes el orden, un validador de tipo podría rechazar el string crudo antes de que tu transformación tenga oportunidad de convertirlo.
 
-También puedes combinar validadores de tipo incorporados con verificaciones personalizadas. Por ejemplo, _IsPort_ ya valida que el valor es un entero entre 1 y 65535. Agregar un _Validate_ encima permite restringir aún más el rango, como rechazar puertos por debajo de 1024 para forzar binding no privilegiado.
+También puedes combinar validadores de tipo incorporados con comprobaciones personalizadas. Por ejemplo, _IsPort_ ya valida que el valor sea un entero entre 1 y 65535. Agregar un _Validate_ encima te permite restringir aún más el rango, como rechazar puertos por debajo de 1024 para forzar un binding no privilegiado.
 
 ```typescript filename="src/app.env.ts"
 import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
@@ -29,13 +29,13 @@ export class AppEnv {
 }
 ```
 
-## Herencia de schema
+## Herencia de esquemas
 
-Los schemas de entorno soportan herencia de clase. Una clase hija extiende una padre y agrega sus propios campos. El pipeline de validación recorre toda la cadena de prototipos, recopilando campos de cada ancestro. Esto hace posible construir schemas en capas donde una clase base define campos compartidos y clases específicas de funcionalidad agregan los suyos.
+Los esquemas de entorno soportan herencia de clases. Una clase hija extiende una clase padre y agrega sus propios campos. El pipeline de validación recorre toda la cadena de prototipos, recopilando campos de cada ancestro. Esto permite construir esquemas por capas, donde una clase base define campos compartidos y clases específicas de una feature agregan los suyos.
 
-El patrón más común es extender _SpraxiumBaseEnv_, que proporciona `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` y `NODE_ENV`. Aplicas _@EnvSchema_ solo a la clase hija. La clase padre ya tiene su propio _@EnvSchema_, y ambas entradas de metadatos son reconocidas durante la validación.
+El patrón más común es extender _SpraxiumBaseEnv_, que proporciona `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` y `NODE_ENV`. Aplicas _@EnvSchema_ solo a la clase hija. La clase padre ya tiene su propio _@EnvSchema_, y ambas entradas de metadatos se reconocen durante la validación.
 
-Cuando dos clases en la cadena declaran un campo con la misma property key, la hija gana. Esto permite sobrescribir un default del padre, por ejemplo cambiar el default de `NODE_ENV` de `"development"` a `"production"` en un schema específico de despliegue. Campos con property keys diferentes se fusionan normalmente sin importar cuál clase los declara.
+Cuando dos clases en la cadena declaran un campo con la misma property key, gana la clase hija. Esto te permite sobrescribir un default del padre, por ejemplo cambiando el default de `NODE_ENV` de `"development"` a `"production"` en un esquema específico de despliegue. Los campos con property keys diferentes se fusionan normalmente sin importar qué clase los declare.
 
 <CodeTabs>
   <Tab label="Base" language="typescript">
@@ -57,7 +57,7 @@ export class BaseEnv extends SpraxiumBaseEnv {
 
 ````
   </Tab>
-  <Tab label="Hija" language="typescript">
+  <Tab label="Child" language="typescript">
 ```typescript filename="src/app.env.ts"
 import { EnvSchema, Env, IsMongoUri, IsRedisUri } from '@spraxium/env';
 import { BaseEnv } from './base.env';
@@ -77,17 +77,17 @@ export class AppEnv extends BaseEnv {
   </Tab>
 </CodeTabs>
 
-## El flujo de errores de validación
+## Flujo de errores de validación
 
-Cuando uno o más campos fallan en la validación, el framework construye una lista de objetos _EnvFieldError_. Cada error lleva la clave de la variable, un código de razón, un valor recibido opcional y un mensaje opcional del validador que rechazó. Los cuatro códigos de razón son `missing` cuando la variable está ausente, `invalid_value` cuando un validador retornó un mensaje de error, `enum_mismatch` cuando _IsEnum_ falló, y `validation_failed` para rechazos personalizados de _Validate_.
+Cuando uno o más campos fallan validación, el framework construye una lista de objetos _EnvFieldError_. Cada error incluye la clave de variable, un reason code, un valor recibido opcional y un mensaje opcional del validador que lo rechazó. Los cuatro reason codes son `missing` cuando la variable no existe, `invalid_value` cuando un validador devuelve un mensaje de error, `enum_mismatch` cuando falla _IsEnum_ y `validation_failed` para rechazos de _Validate_ personalizados.
 
-En modo producción (cuando `NODE_ENV` no es `"development"`), el framework imprime todos los errores en stderr y finaliza el proceso inmediatamente. Esto previene que un bot mal configurado se conecte a Discord con configuraciones parciales o incorrectas. La salida de error lista cada variable fallida con su razón, una máscara o el valor recibido (dependiendo de la flag _secret_), y el mensaje del validador.
+En modo producción (cuando `NODE_ENV` no es `"development"`), el framework imprime todos los errores en stderr y sale del proceso inmediatamente. Esto evita que un bot mal configurado se conecte a Discord con ajustes parciales o incorrectos. La salida de error enumera cada variable fallida con su reason, una máscara o el valor recibido (según el flag _secret_) y el mensaje del validador.
 
-En modo desarrollo, el framework entra en un ciclo de hot-reload en lugar de salir. Observa el archivo `.env` y re-valida cada 500 milisegundos. Cuando corriges el archivo y lo guardas, el pipeline se re-ejecuta. Si quedan errores, actualiza la lista. Cuando todos los errores se resuelven, imprime un mensaje de éxito con un diff mostrando qué cambió y continúa la secuencia de arranque. Este ciclo tiene un timeout de cinco minutos tras el cual finaliza para prevenir procesos zombi.
+En modo desarrollo, el framework entra en un ciclo de hot-reload en lugar de salir. Observa el archivo `.env` y vuelve a validar cada 500 milisegundos. Cuando corriges el archivo y guardas, el pipeline se ejecuta otra vez. Si aún quedan errores, actualiza la lista de errores. Cuando todos se corrigen, imprime un mensaje de éxito con un diff de lo que cambió y continúa la secuencia de arranque. Este ciclo tiene un timeout de cinco minutos tras el cual sale para evitar procesos zombie.
 
 ## Validación silenciosa
 
-Cuando necesitas validar un schema sin imprimir la tabla de inicio, pasa la opción _silent_. Esto es útil en entornos de test donde la salida de consola contamina los resultados, o en procesos worker que deben validar sin loguear. El schema aún ejecuta cada validador y aún lanza errores, solo omite la tabla de éxito.
+Cuando necesitas validar un esquema sin imprimir la tabla de inicio, pasa la opción _silent_. Esto es útil en entornos de prueba donde la salida de consola ensucia los resultados, o en procesos worker que deben validar sin loguear. El esquema sigue ejecutando todos los validadores y sigue lanzando errores, simplemente omite la tabla de éxito.
 
 ```typescript filename="src/test/setup.ts"
 import { EnvValidator } from '@spraxium/env';
@@ -96,35 +96,34 @@ import { AppEnv } from '../app.env';
 const env = EnvValidator.validate(AppEnv, { silent: true });
 ```
 
-El método _validate_ retorna una instancia completamente poblada de tu clase de schema. Cada propiedad contiene su valor validado y transformado. Puedes usar esta instancia directamente en tests o pasarla a servicios que necesitan configuración sin depender del contenedor de inyección de dependencias.
+El método _validate_ devuelve una instancia totalmente poblada de tu clase de esquema. Cada propiedad contiene su valor validado y transformado. Puedes usar esta instancia directamente en tests o pasarla a servicios que necesiten configuración sin pasar por el contenedor de inyección de dependencias.
 
-## Carga de archivo DotEnv
+## Carga de archivos DotEnv
 
-El framework carga archivos `.env` automáticamente durante la validación. Verifica `.env.local` primero, luego `.env`, usando el primero que encuentra. Variables que ya existen en `process.env` nunca son sobrescritas por el cargador de archivos, así que variables de sistema y de pipeline CI siempre tienen precedencia.
+El framework carga archivos `.env` automáticamente durante la validación. Primero comprueba `.env.local` y luego `.env`, usando el primero que encuentre. Las variables que ya existen en `process.env` nunca se sobrescriben, por lo que las variables de sistema y de pipelines CI siempre tienen prioridad.
 
-El parser maneja comentarios (líneas que comienzan con `#`), valores entre comillas (comillas simples o dobles se eliminan), y comentarios inline después de valores sin comillas. No soporta valores multilínea ni interpolación de variables. Para valores complejos como objetos JSON, envuélvelos en comillas y usa _IsJson_ para parsearlos.
+El parser maneja comentarios (líneas que comienzan con `#`), valores entre comillas (simples o dobles, que se eliminan) y comentarios inline después de valores sin comillas. No soporta valores multilínea ni interpolación de variables. Para valores complejos como objetos JSON, envuélvelos entre comillas y usa _IsJson_ para parsearlos.
 
 <DropdownGroup>
-<Dropdown title="1. Entorno del sistema y variables de CI">
-  La fuente de mayor prioridad. Las variables ya presentes en `process.env` nunca son sobrescritas por ningún cargador de archivo, así que secretos de despliegue, secretos Docker y variables de pipeline CI siempre tienen precedencia sobre la configuración basada en archivo. Este comportamiento garantiza que las credenciales de producción inyectadas en el despliegue nunca sean ocultadas por un archivo local desactualizado.
+<Dropdown title="1. System environment and CI variables">
+  La fuente de mayor prioridad. Las variables que ya están presentes en `process.env` nunca se sobrescriben por ningún cargador de archivos, así que secretos de despliegue, secretos de Docker y variables de pipelines CI siempre tienen prioridad sobre la configuración basada en archivos. Este comportamiento garantiza que credenciales de producción inyectadas en despliegue nunca queden ocultas por un archivo local desactualizado.
 </Dropdown>
 
 <Dropdown title="2. .env.local">
-  Cargado primero entre las fuentes de archivo cuando el archivo existe en la
-  raíz del proyecto. Usa este archivo para overrides locales del desarrollador
-  que no deben ser comprometidos en control de versión. Agrega `.env.local` a tu
-  `.gitignore` para mantener valores específicos del desarrollador fuera del
-  repositorio.
+  Se carga primero entre las fuentes de archivo cuando existe en la raíz del
+  proyecto. Usa este archivo para overrides locales de desarrollo que no deben
+  versionarse. Agrega `.env.local` a tu `.gitignore` para mantener
+  fuera del repositorio los valores específicos de cada desarrollador.
 </Dropdown>
 
 <Dropdown title="3. .env">
-  Cargado cuando `.env.local` no se encuentra. Este archivo típicamente contiene defaults compartidos para todo el equipo y se compromete en control de versión. Nunca debe contener secretos porque cualquier desarrollador que clone el repositorio tendrá acceso a él.
+  Se carga cuando no se encuentra `.env.local`. Este archivo normalmente contiene defaults compartidos para todo el equipo y se versiona. Nunca debería contener secretos porque cualquier desarrollador que clone el repositorio tendrá acceso a él.
 </Dropdown>
 </DropdownGroup>
 
 ## Ejemplo completo
 
-Este ejemplo muestra un schema completo que combina herencia, múltiples tipos de validadores, transforms personalizados y enmascaramiento de secretos. El schema extiende _SpraxiumBaseEnv_ para el token y entorno, agrega campos de base de datos y API, e incluye un transform personalizado que divide una lista separada por coma en un array.
+Este ejemplo muestra un esquema completo que combina herencia, múltiples tipos de validadores, transformaciones personalizadas y enmascarado de secretos. El esquema extiende _SpraxiumBaseEnv_ para el token y el entorno de Node, agrega campos de base de datos y API, e incluye una transformación personalizada que divide una lista separada por comas en un array.
 
 ```typescript filename="src/app.env.ts"
 import {
@@ -180,6 +179,6 @@ export class AppEnv extends SpraxiumBaseEnv {
 }
 ```
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Resumen de Configuración](/guide/configuration-layers).
+Continúa con [Visión general de la configuración](/guide/configuration-layers).

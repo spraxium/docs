@@ -5,6 +5,22 @@ description: |
   Learn the two button types, handler wiring, style options, emoji configuration, and rendering with ButtonService.
 order: 2
 category: Components
+keywords:
+  - spraxium components buttons
+  - buttons in spraxium
+  - components components buttons guide
+  - components buttons discord bot
+  - components buttons typescript
+  - spraxium components documentation
+  - buttons components
+  - spraxium buttons
+faq:
+  - question: "What does \"Buttons\" cover in Spraxium?"
+    answer: "Build interactive buttons with static IDs and URL links for reliable, event-driven interactions. Learn the two button types, handler wiring, style options, emoji configuration, and rendering with ButtonService."
+  - question: "When should I use \"Buttons\"?"
+    answer: "Use this page when you are implementing components buttons in the Components area of your bot architecture."
+  - question: "What should I read after \"Buttons\"?"
+    answer: "Continue with related Components pages to connect this concept with practical implementation details."
 ---
 
 ## Button types
@@ -52,7 +68,7 @@ import { Button } from '@spraxium/components';
   customId: 'confirm_action',
   label: 'Confirm',
   style: 'success',
-  emoji: '✅',
+  emoji: 'âœ…',
 })
 export class ConfirmButton {}
 
@@ -67,7 +83,7 @@ import { ConfirmButton } from './confirm.button';
 @ButtonHandler(ConfirmButton)
 export class ConfirmButtonHandler {
   async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
-    await interaction.reply({ content: 'Action confirmed.', ephemeral: true });
+    await interaction.reply({ content: 'Action confirmed.', flags: 'Ephemeral' });
   }
 }
 ````
@@ -91,39 +107,39 @@ The handler class must be decorated with _@ButtonHandler_ and pass the component
   <TableBody>
     <TableRow>
       <TableCell>*customId*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Yes</TableCell>
       <TableCell>Unique identifier used for interaction routing. Must be unique across the bot.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*url*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Yes (link)</TableCell>
       <TableCell>URL opened when the link button is clicked. No handler fires.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*label*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>Yes</TableCell>
       <TableCell>Text displayed on the button face.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*style*</TableCell>
-      <TableCell>`'primary' | 'secondary' | 'success' | 'danger'`</TableCell>
+      <TableCell>primary | secondary | success | danger</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>Visual style. Not applicable to link buttons. Defaults to `'primary'`.</TableCell>
+      <TableCell>Visual style. Not applicable to link buttons. Defaults to primary.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*emoji*</TableCell>
-      <TableCell>`string | { id?, name?, animated? }`</TableCell>
+      <TableCell>string or custom emoji object</TableCell>
       <TableCell>No</TableCell>
       <TableCell>Unicode emoji string or custom emoji object displayed beside the label.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*disabled*</TableCell>
-      <TableCell>`boolean`</TableCell>
+      <TableCell>boolean</TableCell>
       <TableCell>No</TableCell>
-      <TableCell>When `true`, the button is rendered as grayed-out and non-interactive.</TableCell>
+      <TableCell>When true, the button is rendered as grayed-out and non-interactive.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -138,7 +154,7 @@ import { LinkButton } from '@spraxium/components';
 @LinkButton({
   url: 'https://docs.example.com',
   label: 'View Documentation',
-  emoji: '📖',
+  emoji: 'ðŸ“–',
 })
 export class DocsLinkButton {}
 ```
@@ -160,19 +176,24 @@ _ButtonService_ is the injectable service that transforms decorated classes into
   <TableBody>
     <TableRow>
       <TableCell>*build*</TableCell>
-      <TableCell>`build(input: Class | Class[], context?): ActionRowBuilder`</TableCell>
+      <TableCell>build(input: Class | Class[], context?): ActionRowBuilder</TableCell>
       <TableCell>Renders one or more static/link buttons into a single action row. Attaches context to all buttons when provided.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*rowWithContext*</TableCell>
-      <TableCell>`rowWithContext(context, ...Classes): ActionRowBuilder`</TableCell>
+      <TableCell>rowWithContext(context, ...Classes): ActionRowBuilder</TableCell>
       <TableCell>Convenience wrapper that calls *build* with context as the first argument and spreads classes.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*buildMixedRow*</TableCell>
+      <TableCell>buildMixedRow(entries: \{button, items\}[], context?): Promise&lt;[ActionRowBuilder, string[]]&gt;</TableCell>
+      <TableCell>Renders multiple dynamic buttons of different types into a single action row in one call. Returns the row and a flat array of all payload refs. Mix store-encoded and inline-encoded buttons freely. Automatically capped at five buttons.</TableCell>
     </TableRow>
 
   </TableBody>
 </Table>
 
-<Callout type="tip">
+<Callout tone="tip">
   Discord limits action rows to five buttons. The service throws an error if you
   pass more than five classes to *build*. For layouts with more buttons, create
   multiple rows by calling *build* multiple times and pass each row individually
@@ -227,25 +248,25 @@ The _style_ field accepts one of four named values that map to Discord's _Button
   </TableHead>
   <TableBody>
     <TableRow>
-      <TableCell>`'primary'`</TableCell>
+      <TableCell>primary</TableCell>
       <TableCell>*ButtonStyle.Primary*</TableCell>
       <TableCell>Blurple</TableCell>
       <TableCell>Default action, general purpose interactions.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'secondary'`</TableCell>
+      <TableCell>secondary</TableCell>
       <TableCell>*ButtonStyle.Secondary*</TableCell>
       <TableCell>Gray</TableCell>
       <TableCell>Lower-emphasis actions like cancel or dismiss.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'success'`</TableCell>
+      <TableCell>success</TableCell>
       <TableCell>*ButtonStyle.Success*</TableCell>
       <TableCell>Green</TableCell>
       <TableCell>Confirmation and positive outcome actions.</TableCell>
     </TableRow>
     <TableRow>
-      <TableCell>`'danger'`</TableCell>
+      <TableCell>danger</TableCell>
       <TableCell>*ButtonStyle.Danger*</TableCell>
       <TableCell>Red</TableCell>
       <TableCell>
@@ -270,6 +291,405 @@ import { UserBanButtonHandler } from './components/user-ban.handler';
 })
 export class ModerationModule {}
 ```
+
+## Dynamic buttons
+
+Static buttons use a fixed _customId_ known at definition time. Dynamic buttons invert this: the button's label, style, and the data it carries are computed per render from an arbitrary payload object. The custom ID is generated automatically by the framework and encodes a reference to the stored payload. The handler retrieves the original payload from the store when the button is clicked.
+
+The dynamic button system has three parts: the _@DynamicButton_ class that defines the component and its rendering logic, the _@DynamicButtonHandler_ class that handles the click, and the payload store that bridges the two.
+
+### Defining a dynamic button
+
+A dynamic button class is decorated with _@DynamicButton_ and must expose a static `render(item)` method that returns a `ButtonRenderConfig`. The _baseId_ in the config is the prefix used when matching incoming interactions, and the framework appends the payload reference automatically. The _payloadTtl_ is an optional TTL in seconds; payloads expire after this duration and any click after expiry will not reach the handler (defaults to 600 seconds, 10 minutes).
+
+<CodeTabs>
+  <Tab label="Component" language="typescript">
+```typescript filename="src/components/buttons/book-buy.button.ts"
+import { DynamicButton } from '@spraxium/components';
+import type { ButtonRenderConfig } from '@spraxium/components';
+
+interface Book {
+  id: string;
+  title: string;
+}
+
+@DynamicButton({ baseId: 'buy-book', payloadTtl: 300 })
+export class BuyBookButton {
+  static render(book: Book): ButtonRenderConfig {
+    return {
+      label: `Buy "${book.title}"`,
+      style: 'success',
+    };
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/buttons/book-buy.handler.ts"
+import { DynamicButtonHandler, Ctx, ButtonPayload, PayloadRef } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import type { PayloadHandle } from '@spraxium/components';
+import { BuyBookButton } from './book-buy.button';
+
+interface Book {
+  id: string;
+  title: string;
+}
+
+@DynamicButtonHandler(BuyBookButton)
+export class BuyBookButtonHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonPayload() book: Book,
+    @PayloadRef() ref: PayloadHandle,
+  ): Promise<void> {
+    await ref.consume(); // one-shot; prevent double purchase
+    await this.orders.create(book.id, interaction.user.id);
+    await interaction.reply({ content: `Purchased "${book.title}"!`, flags: 'Ephemeral' });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+### Rendering a dynamic button
+
+To render a single dynamic button into an action row, call `ButtonService.build` passing the component class and the payload object. The service calls `render(item)`, stores the payload in the TTL-bounded store, and returns an _ActionRowBuilder_ with the generated custom ID embedded.
+
+```typescript filename="src/commands/shop.command-handler.ts"
+import { SlashCommandHandler, Ctx } from '@spraxium/common';
+import { ButtonService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { BuyBookButton } from '../components/buttons/book-buy.button';
+import { ShopCommand } from './shop.command';
+
+@SlashCommandHandler(ShopCommand)
+export class ShopCommandHandler {
+  constructor(private readonly buttons: ButtonService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const book = await this.catalog.getBook('978-0-7432-7356-5');
+    const row = this.buttons.build(BuyBookButton, book);
+
+    await interaction.reply({
+      content: `Found **${book.title}**`,
+      components: [row],
+    });
+  }
+}
+```
+
+To combine multiple dynamic buttons of different types into the same row, use `ButtonService.buildMixedRow`. It accepts an array of `{ button, items }` entries and returns a single `ActionRowBuilder` alongside a flat array of all payload refs - one per store-encoded button, in declaration order. Inline-encoded buttons produce no ref and are omitted from the refs array.
+
+```typescript filename="src/commands/open-ticket.command-handler.ts"
+import { Ctx, SlashCommandHandler, SlashStringOption } from '@spraxium/common';
+import { ButtonService } from '@spraxium/components';
+import { type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { OpenTicketCommand } from '../commands/open-ticket.command';
+import { AssignTicketButton } from '../components/assign-ticket-button.component';
+import { CloseTicketButton } from '../components/close-ticket-button.component';
+import { TicketsRepository } from '../tickets.repository';
+
+@SlashCommandHandler(OpenTicketCommand)
+export class OpenTicketHandler {
+  constructor(
+    private readonly buttons: ButtonService,
+    private readonly tickets: TicketsRepository,
+  ) {}
+
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashStringOption('subject') subject: string,
+  ): Promise<void> {
+    const ticket = await this.tickets.create({
+      subject,
+      openedBy: interaction.user.id,
+    });
+
+    // buildMixedRow renders both buttons into one row and collects all store refs.
+    // AssignTicketButton is store-encoded (payload persisted, ref tracked for revocation).
+    // CloseTicketButton is inline-encoded (ticket id encoded in the customId, no ref).
+    const [row, refs] = await this.buttons.buildMixedRow([
+      { button: AssignTicketButton, items: [ticket] },
+      { button: CloseTicketButton, items: [ticket] },
+    ]);
+
+    // Persist each ref so it can be revoked when the ticket is closed externally.
+    await Promise.all(refs.map((ref) => this.tickets.addAssignRef(ticket.id, ref)));
+
+    await interaction.reply({
+      content: [
+        `## 🎫 Ticket \`${ticket.id}\``,
+        `**Subject:** ${ticket.subject}`,
+        `**Opened by:** <@${ticket.openedBy}>`,
+      ].join('\n'),
+      components: [row],
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+}
+```
+
+### Parameter decorators in dynamic handlers
+
+Dynamic button handlers support three parameter decorators in the `handle()` method.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Injects</TableCell>
+      <TableCell header>Notes</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*@Ctx()*</TableCell>
+      <TableCell>ButtonInteraction</TableCell>
+      <TableCell>The raw discord.js interaction object.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@ButtonPayload()*</TableCell>
+      <TableCell>The payload object stored during render</TableCell>
+      <TableCell>Type the parameter as the same type passed to the render method. The framework deserializes the stored value.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*@PayloadRef()*</TableCell>
+      <TableCell>PayloadHandle</TableCell>
+      <TableCell>A handle for lifecycle control. Call await ref.consume() to permanently delete the payload so subsequent clicks get an expiry error instead of re-running the handler.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="tip">
+  _@ButtonPayload()_ and _@PayloadRef()_ are independent. You can use either
+  or both in the same handler. Use @PayloadRef() alone when you only need to
+  consume the payload and do not need the data, or combine both when you need
+  the data _and_ want to prevent re-execution.
+</Callout>
+
+### Dynamic button configuration reference
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Field</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Required</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*baseId*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>Yes</TableCell>
+      <TableCell>Prefix for generated custom IDs. Must be unique across all dynamic buttons in the bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*payloadTtl*</TableCell>
+      <TableCell>number (seconds)</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Seconds until the stored payload expires. Clicks after expiry do not reach the handler. Defaults to 600 (10 minutes).</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Module registration
+
+Dynamic button handlers follow the same registration rules as static button handlers. Register only the handler class in the _handlers_ array of your module. The component class decorated with _@DynamicButton_ is metadata-only and does not need to appear in any module.
+
+```typescript filename="src/modules/shop/shop.module.ts"
+import { Module } from '@spraxium/common';
+import { BuyBookButtonHandler } from './components/book-buy.handler';
+
+@Module({
+  handlers: [BuyBookButtonHandler],
+})
+export class ShopModule {}
+```
+
+<Callout tone="tip">
+  _@DynamicStringSelect_ works the same way for select menus: define a class
+  with *@DynamicStringSelect*, expose a static render(items) method returning
+  a SelectRenderConfig, and write a handler with *@DynamicSelectHandler*. Use
+  *@SelectPayload()* instead of *@ButtonPayload()* to inject the stored payload.
+</Callout>
+
+### Inline params encoding
+
+By default, dynamic buttons store their payload in a TTL-bounded server-side store and embed only an opaque reference in the custom ID. This is the right choice for large or complex objects.
+
+For small, primitive data - like a single database record ID - you can use `encoding: 'inline'` instead. The framework encodes the params directly into the custom ID string, removing any dependency on the payload store and the TTL entirely. The data lives in the Discord message for as long as the message exists.
+
+<Callout tone="warning">
+  Discord enforces a hard limit of **100 characters** on custom IDs. The framework
+  measures the encoded string at render time and throws
+  `DynamicButtonInlinePayloadTooLargeError` if the result would exceed this limit.
+  Keep inline params small: one or two short IDs or flags. Use store-based encoding
+  for anything larger.
+</Callout>
+
+<CodeTabs>
+  <Tab label="Component" language="typescript">
+```typescript filename="src/components/buttons/approve-suggestion.button.ts"
+import { DynamicButton } from '@spraxium/components';
+import type { ButtonRenderConfig } from '@spraxium/components';
+
+interface Suggestion {
+  id: number;
+  userId: string;
+}
+
+@DynamicButton({ baseId: 'approve-suggestion', encoding: 'inline' })
+export class ApproveSuggestionButton {
+  static render(s: Suggestion): ButtonRenderConfig {
+    return {
+      label: 'Approve',
+      style: 'success',
+      params: { id: s.id },
+    };
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/buttons/approve-suggestion.handler.ts"
+import { DynamicButtonHandler, Ctx, ButtonParams } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { ApproveSuggestionButton } from './approve-suggestion.button';
+
+@DynamicButtonHandler(ApproveSuggestionButton)
+export class ApproveSuggestionHandler {
+  async handle(
+    @Ctx() interaction: ButtonInteraction,
+    @ButtonParams() params: { id: number },
+  ): Promise<void> {
+    const suggestion = await this.db.suggestions.findById(params.id);
+    await interaction.reply({ content: `Suggestion #${params.id} approved!`, flags: 'Ephemeral' });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Notice that `@ButtonParams()` replaces `@ButtonPayload()` for inline-encoded buttons. Using `@ButtonPayload()` or `@PayloadRef()` on an inline handler causes a bootstrap error. The type of `params` is inferred from the `params` field returned by `render()`, so TypeScript knows the shape without any manual casting.
+
+The encoded custom ID for the example above looks like `approve-suggestion~id=42`. Values are URL-encoded to handle special characters. Numbers and booleans are cast back to their original types when decoded.
+
+### Revoking payloads externally
+
+When a dynamic button payload lives in the store, the handler can consume it with `ref.consume()` after handling the click. But some flows require revoking a payload before any click happens - for example, closing a ticket via a slash command should immediately invalidate the approve/reject buttons in the admin channel.
+
+Inject `ButtonPayloadService` to revoke one or more payload refs from any service, command handler, or listener.
+
+**Storing refs at render time**
+
+`ButtonService.buildMixedRow` returns a tuple `[ActionRowBuilder, string[]]`. The refs array contains one entry per store-encoded button in declaration order. Inline-encoded buttons produce no ref. Store each ref in your database so it can be revoked later:
+
+```typescript filename="src/repositories/tickets.repository.ts"
+interface TicketRecord {
+  id: string;
+  subject: string;
+  openedBy: string;
+  assignRefs: string[]; // payload refs for all store-encoded buttons
+  status: 'open' | 'closed';
+}
+
+export class TicketsRepository {
+  async create(data: Pick<TicketRecord, 'subject' | 'openedBy'>): Promise<TicketRecord> {
+    // INSERT INTO tickets (...)
+    return { id: 'ticket-uuid', assignRefs: [], status: 'open', ...data };
+  }
+
+  async addAssignRef(ticketId: string, ref: string): Promise<void> {
+    // UPDATE tickets SET assign_refs = JSON_ARRAY_APPEND(assign_refs, '$', ?) WHERE id = ?
+  }
+
+  async findOpenById(ticketId: string): Promise<TicketRecord | null> {
+    // SELECT ... WHERE id = ? AND status = 'open'
+    return null;
+  }
+}
+```
+
+Then, when the ticket is closed from outside a handler, load the record and revoke all refs:
+
+```typescript filename="src/commands/close-ticket.command-handler.ts"
+const ticket = await this.tickets.findOpenById(ticketId);
+
+if (ticket?.assignRefs.length) {
+  await this.payloads.revokeMany(ticket.assignRefs);
+}
+```
+
+**Revoking when the flow ends externally**
+
+```typescript filename="src/commands/close-ticket.command-handler.ts"
+import { SlashCommandHandler, Ctx, SlashStringOption } from '@spraxium/common';
+import { ButtonPayloadService } from '@spraxium/components';
+import { type ChatInputCommandInteraction, MessageFlags } from 'discord.js';
+import { CloseTicketCommand } from '../commands/close-ticket.command';
+import { TicketsRepository } from '../tickets.repository';
+
+@SlashCommandHandler(CloseTicketCommand)
+export class CloseTicketHandler {
+  constructor(
+    private readonly payloads: ButtonPayloadService,
+    private readonly tickets: TicketsRepository,
+  ) {}
+
+  async handle(
+    @Ctx() interaction: ChatInputCommandInteraction,
+    @SlashStringOption('ticket-id') ticketId: string,
+  ): Promise<void> {
+    const ticket = await this.tickets.findOpenById(ticketId);
+
+    if (!ticket) {
+      return interaction.reply({ content: 'Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
+    }
+
+    // Revoke all store-encoded button refs - any subsequent click will receive
+    // the configured expired message instead of reaching the handler.
+    if (ticket.assignRefs.length) {
+      await this.payloads.revokeMany(ticket.assignRefs);
+    }
+
+    await this.tickets.close(ticketId);
+    await interaction.reply({ content: `Ticket \`${ticketId}\` closed.`, flags: MessageFlags.Ephemeral });
+  }
+}
+```
+
+**`ButtonPayloadService` API reference**
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Method</TableCell>
+      <TableCell header>Signature</TableCell>
+      <TableCell header>Purpose</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*revoke*</TableCell>
+      <TableCell>`revoke(ref: string): Promise<void>`</TableCell>
+      <TableCell>Deletes a single payload from the store. After revocation, any click on a button carrying this ref receives the expired message. Resolves silently if the ref no longer exists.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*revokeMany*</TableCell>
+      <TableCell>`revokeMany(refs: string[]): Promise<void>`</TableCell>
+      <TableCell>Batch revoke. Useful for cleaning up multiple buttons at once, e.g. all action buttons on a resolved ticket. Missing refs are silently ignored.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="tip">
+  `ButtonPayloadService` is globally available through the components module.
+  You do not need any additional module imports to inject it - just add it to
+  your constructor like any other service.
+</Callout>
 
 ## Next page
 

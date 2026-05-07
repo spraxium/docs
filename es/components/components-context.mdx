@@ -1,23 +1,23 @@
 ---
 title: Contexto de flujo
 description: |
-  Enlaza datos con estado entre interacciones de componentes multi-paso con SpraxiumContext.
-  Aprende creación de contexto, adaptadores de almacenamiento, expiración por TTL, restricciones de usuario e inyección en handlers.
+  Transporta datos con estado entre interacciones de componentes en múltiples etapas usando SpraxiumContext.
+  Aprende creación de contexto, adapters de almacenamiento, expiración por TTL, restricción por usuario e inyección en el handler.
 order: 5
 category: Components
 ---
 
 ## Qué es el contexto de flujo
 
-El contexto de flujo es un contenedor de datos con estado que enlaza información a través de interacciones secuenciales de componentes. Cuando un usuario hace clic en un botón, selecciona una opción y luego envía un modal, cada handler en esa secuencia puede necesitar acceso a datos de pasos anteriores. Sin contexto de flujo, tendrías que codificar el estado en cadenas de _customId_ (limitadas a 100 caracteres), almacenar datos en una base de datos externa o usar maps globales que causan fugas de memoria.
+El contexto de flujo es un contenedor de datos con estado que transporta información a lo largo de interacciones secuenciales con componentes. Cuando una persona hace clic en un botón, elige una opción y después envía un modal, cada handler de esa secuencia puede necesitar datos creados en etapas anteriores. Sin este contexto, tendrías que codificar estado en strings de _customId_, que son limitadas, guardar datos en una base externa o mantener mapas globales que tienden a filtrar memoria.
 
-_SpraxiumContext_ resuelve esto proporcionando un contenedor de datos tipado, con TTL, opcionalmente restringido por usuario y almacenado en un adaptador pluggable, referenciado por un UUID anexado al _customId_ del componente. El _ContextService_ crea contextos, los servicios de componentes adjuntan IDs de contexto a los componentes renderizados, y el dispatcher resuelve los contextos automáticamente antes de invocar los handlers.
+_SpraxiumContext_ resuelve este problema ofreciendo un contenedor tipado, con TTL y, opcionalmente, restringido a un usuario específico. Se almacena en un adapter conectable y se referencia por un UUID anexado al _customId_ del componente. _ContextService_ crea los contextos, los servicios de componente acoplan ese ID a los elementos renderizados y el dispatcher resuelve todo automáticamente antes de llamar al handler.
 
-El sistema de contexto de flujo es compartido entre todos los tipos de componentes. Un contexto creado para una fila de botones puede ser leído por un handler de modal activado más adelante en el mismo flujo. Este enlace entre componentes es lo que hace posible experiencias interactivas multi-paso sin gestión manual de estado.
+El sistema de contexto de flujo es compartido por todos los tipos de componente. Un contexto creado en una fila de botones puede leerse después por un handler de modal en el mismo flujo. Eso es lo que hace viables experiencias interactivas de múltiples etapas sin tener que controlar estado manualmente.
 
-## Crear un contexto
+## Cómo crear un contexto
 
-Inyecta _ContextService_ en tu comando o servicio y llama a _create_ con el objeto de datos que deseas enlazar a través del flujo. El método retorna un _SpraxiumContext_ con un UUID generado, los datos, timestamps y el TTL. Luego pasas este contexto al método build del servicio de componentes.
+Inyecta _ContextService_ en tu comando o service y llama _create_ con el objeto de datos que quieres transportar durante el flujo. El método devuelve un _SpraxiumContext_ con UUID generado, datos, timestamps y TTL. Después, pasas ese contexto al método de build del servicio de componente.
 
 ```typescript filename="src/commands/setup-wizard.command-handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
@@ -51,69 +51,69 @@ export class SetupWizardCommandHandler {
 
 ## Interfaz SpraxiumContext
 
-El objeto _SpraxiumContext_ transporta tanto tus datos personalizados como metadatos operacionales. El campo _id_ es un UUID que se anexa a las cadenas de _customId_ mediante el separador de tilde. El campo _data_ contiene tu payload tipado. Los campos _ttl_ y _expiresAt_ controlan la expiración automática, y _restrictedTo_ limita qué usuario puede interactuar con los componentes que llevan este contexto.
+El objeto _SpraxiumContext_ transporta tanto tus datos como metadatos operativos del flujo. El campo _id_ es el UUID anexado a strings de _customId_ por medio del separador til. El campo _data_ guarda el payload tipado. _ttl_ y _expiresAt_ controlan la expiración automática, mientras _restrictedTo_ limita qué usuarios pueden interactuar con componentes vinculados a ese contexto.
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Campo</TableCell>
       <TableCell header>Tipo</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidad</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*id*</TableCell>
-      <TableCell>`string`</TableCell>
+      <TableCell>string</TableCell>
       <TableCell>
-        UUID generado por `crypto.randomUUID()`. Se anexa al *customId* mediante
-        el separador de tilde.
+        UUID generado por la función de UUID en runtime. Se anexa al *customId*
+        por medio del separador til.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*data*</TableCell>
-      <TableCell>`T`</TableCell>
+      <TableCell>T</TableCell>
       <TableCell>
-        Tu payload tipado. Puede ser cualquier objeto serializable. Mutable
-        mediante *update*.
+        Tu payload tipado. Puede ser cualquier objeto serializable y puede
+        modificarse vía *update*.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*createdAt*</TableCell>
-      <TableCell>`number`</TableCell>
+      <TableCell>number</TableCell>
       <TableCell>
-        Timestamp Unix en milisegundos del momento en que se creó el contexto.
+        Timestamp Unix en milisegundos indicando cuándo se creó el contexto.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*ttl*</TableCell>
-      <TableCell>`number`</TableCell>
+      <TableCell>number</TableCell>
       <TableCell>
-        Tiempo de vida en segundos. Se usa para computar *expiresAt*.
+        Tiempo de vida en segundos. Se usa para calcular *expiresAt*.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*expiresAt*</TableCell>
-      <TableCell>`number`</TableCell>
+      <TableCell>number</TableCell>
       <TableCell>
-        Timestamp Unix en milisegundos de expiración del contexto. Calculado
-        como `createdAt + ttl * 1000`.
+        Timestamp Unix en milisegundos que marca la expiración. El cálculo se
+        hace como createdAt + ttl * 1000.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*restrictedTo*</TableCell>
-      <TableCell>`string | undefined`</TableCell>
+      <TableCell>string | undefined</TableCell>
       <TableCell>
-        Si se establece, solo este ID de usuario puede interactuar con
-        componentes que lleven este contexto.
+        Cuando se define, solo ese ID de usuario puede interactuar con los
+        componentes que llevan este contexto.
       </TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## Leer contexto en handlers
+## Cómo leer el contexto en el handler
 
-Usa el decorator de parámetro _@FlowContext()_ en el método _handle_ de tu handler para recibir el contexto resuelto. El dispatcher extrae el ID de contexto del _customId_, recupera el contexto del adaptador de almacenamiento, valida la expiración y restricciones de usuario, e inyecta el objeto resuelto. Si el contexto ha expirado o el usuario está restringido, el dispatcher responde con el mensaje de error configurado y no invoca el handler.
+Usa el decorator de parámetro _@FlowContext()_ en el método _handle_ para recibir el contexto ya resuelto. El dispatcher extrae el ID de contexto desde el _customId_, busca el valor en el adapter de almacenamiento, valida expiración y restricciones de usuario e inyecta el objeto resultante. Si el contexto ya expiró o la interacción viene de un usuario no autorizado, el dispatcher responde con el mensaje de error configurado y ni siquiera llega a llamar al handler.
 
 ```typescript filename="src/components/next-step.handler.ts"
 import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
@@ -142,9 +142,9 @@ export class NextStepButtonHandler {
 }
 ```
 
-## Actualizar contexto
+## Cómo actualizar el contexto
 
-El método _ContextService.update_ aplica un parche a los datos del contexto sin reemplazar el objeto completo. Esto es útil en flujos multi-paso donde cada handler agrega o modifica un subconjunto de los datos. El método retorna un booleano indicando si la actualización fue exitosa (contexto encontrado y no expirado).
+El método _ContextService.update_ aplica un patch a los datos del contexto sin reemplazar el objeto completo. Eso ayuda mucho en flujos de múltiples etapas, donde cada handler solo agrega o ajusta una parte del estado. El retorno es un booleano que indica si la actualización funcionó, es decir, si el contexto fue encontrado y todavía no había expirado.
 
 ```typescript filename="src/components/step-two.handler.ts"
 import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
@@ -180,9 +180,9 @@ export class StepTwoButtonHandler {
 }
 ```
 
-## Eliminar contexto
+## Cómo eliminar el contexto
 
-Llama a _ContextService.delete_ cuando el flujo se completa o se cancela. Esto elimina inmediatamente el contexto del adaptador de almacenamiento. Aunque los contextos expiran automáticamente según el TTL, la eliminación explícita es buena práctica para flujos que se completan normalmente, ya que libera almacenamiento y evita que datos obsoletos se lean en casos extremos.
+Llama _ContextService.delete_ cuando el flujo haya sido completado o cancelado. Esto elimina el contexto de inmediato del adapter de almacenamiento. Aunque la expiración automática por TTL ya existe, la eliminación explícita sigue siendo una buena práctica en flujos cerrados de forma normal, porque libera espacio y evita lecturas de datos obsoletos en escenarios límite.
 
 ```typescript filename="src/components/finish-wizard.handler.ts"
 import { ButtonHandler, Ctx, FlowContext } from '@spraxium/components';
@@ -205,48 +205,133 @@ export class FinishWizardHandler {
 }
 ```
 
-## Adaptadores de almacenamiento
+### Eliminar contexto desde fuera de un handler
 
-El sistema de contexto usa un adaptador de almacenamiento pluggable configurado a través del plugin _defineComponents_. Cuatro adaptadores integrados cubren diferentes escenarios de despliegue. Todos los adaptadores implementan la interfaz _ContextStorageAdapter_ con métodos async _get_, _set_, _delete_ y _entries_.
+`ContextService.delete` recibe el ID del contexto como string simple, por lo que puede llamarse desde cualquier servicio, handler de comando o listener - no solo desde dentro de un handler de botón o modal que reciba una inyección de `@FlowContext()`.
+
+La clave es persistir el ID del contexto junto a tus propios datos de aplicación cuando se crea el contexto:
+
+```typescript filename="src/commands/start-onboarding.command-handler.ts"
+@SlashCommandHandler(StartOnboardingCommand)
+export class StartOnboardingCommandHandler {
+  constructor(
+    private readonly context: ContextService,
+    private readonly buttons: ButtonService,
+    private readonly db: OnboardingRepository,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const ctx = await this.context.create(
+      { guildId: interaction.guildId!, step: 1 },
+      { ttl: 86400, restrictedTo: interaction.user.id },
+    );
+
+    // Guarda ctx.id en tu base de datos para que pueda cancelarse desde fuera
+    await this.db.createSession(interaction.user.id, { contextId: ctx.id });
+
+    const row = this.buttons.rowWithContext(ctx, NextStepButton);
+    await interaction.reply({ content: '¡Onboarding iniciado!', components: [row] });
+  }
+}
+```
+
+**Persistir un registro de sesión recuperable**
+
+Para flujos de larga duración, guarda una fila de sesión dedicada para poder recuperar `contextId` más tarde:
+
+```typescript filename="src/repositories/onboarding.repository.ts"
+interface OnboardingSessionRecord {
+  userId: string;
+  contextId: string;
+  onboardingMessageId: string;
+  state: 'active' | 'cancelled' | 'completed';
+}
+
+export class OnboardingRepository {
+  async createSession(
+    userId: string,
+    data: Omit<OnboardingSessionRecord, 'userId'>,
+  ): Promise<void> {
+    // INSERT INTO onboarding_sessions (...)
+  }
+
+  async findActiveSession(userId: string): Promise<OnboardingSessionRecord | null> {
+    // SELECT ... WHERE user_id = ? AND state = 'active'
+    return null;
+  }
+}
+```
+
+Después cancela el flujo desde un comando de administración o cualquier otro servicio sin necesitar el contexto en scope:
+
+```typescript filename="src/commands/cancel-onboarding.command-handler.ts"
+@SlashCommandHandler(CancelOnboardingCommand)
+export class CancelOnboardingCommandHandler {
+  constructor(
+    private readonly context: ContextService,
+    private readonly db: OnboardingRepository,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const session = await this.db.findActiveSession(interaction.options.getUser('user', true).id);
+
+    if (session?.contextId) {
+      // Elimina el contexto - cualquier botón pendiente en el flujo
+      // recibirá ahora el mensaje de expiración al ser clicado.
+      await this.context.delete(session.contextId);
+    }
+
+    await this.db.removeSession(session.userId);
+    await interaction.reply({ content: 'Sesión de onboarding cancelada.', flags: 'Ephemeral' });
+  }
+}
+```
+
+## Adapters de almacenamiento
+
+El sistema de contexto usa un adapter de almacenamiento conectable configurado por medio del plugin _defineComponents_. Cuatro adapters nativos cubren los escenarios de deploy más comunes. Todos implementan la interfaz _ContextStorageAdapter_, con métodos asíncronos _get_, _set_, _delete_ y _entries_.
 
 <Table>
   <TableHead>
     <TableRow>
-      <TableCell header>Adaptador</TableCell>
-      <TableCell header>Valor de config</TableCell>
+      <TableCell header>Adapter</TableCell>
+      <TableCell header>Valor en config</TableCell>
       <TableCell header>Persistencia</TableCell>
-      <TableCell header>Ideal para</TableCell>
+      <TableCell header>Mejor uso</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>Memory</TableCell>
-      <TableCell>`'memory'`</TableCell>
+      <TableCell>memory</TableCell>
       <TableCell>Volátil, se pierde al reiniciar</TableCell>
-      <TableCell>Desarrollo y pruebas. No requiere configuración.</TableCell>
+      <TableCell>
+        Desarrollo y pruebas. No requiere configuración adicional.
+      </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Filesystem</TableCell>
-      <TableCell>`'filesystem'`</TableCell>
-      <TableCell>Archivo JSON en el directorio `.spraxium/`</TableCell>
+      <TableCell>filesystem</TableCell>
+      <TableCell>Archivo JSON dentro de .spraxium</TableCell>
       <TableCell>
-        Bots de instancia única que necesitan que los contextos sobrevivan
-        reinicios.
+        Bots de instancia única que necesitan mantener contexto tras reinicios.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>Redis</TableCell>
-      <TableCell>`'redis'`</TableCell>
-      <TableCell>Claves Redis con prefijo `spraxium:ctx:`</TableCell>
+      <TableCell>redis</TableCell>
+      <TableCell>Claves Redis con prefijo spraxium:ctx:</TableCell>
       <TableCell>
-        Despliegues multi-instancia con requisitos de estado compartido.
+        Deploys con múltiples instancias y necesidad de estado compartido.
       </TableCell>
     </TableRow>
     <TableRow>
       <TableCell>SQLite</TableCell>
-      <TableCell>`'sqlite'`</TableCell>
-      <TableCell>Base de datos SQLite en `.spraxium/contexts.db`</TableCell>
-      <TableCell>Persistencia ligera sin infraestructura externa.</TableCell>
+      <TableCell>sqlite</TableCell>
+      <TableCell>Base SQLite en .spraxium/contexts.db</TableCell>
+      <TableCell>
+        Persistencia ligera sin depender de infraestructura externa.
+      </TableCell>
     </TableRow>
   </TableBody>
 </Table>
@@ -262,56 +347,56 @@ export const componentsPlugin = defineComponents({
 });
 ```
 
-## Referencia de la API de ContextService
+## Referencia de API de ContextService
 
 <Table>
   <TableHead>
     <TableRow>
       <TableCell header>Método</TableCell>
       <TableCell header>Firma</TableCell>
-      <TableCell header>Propósito</TableCell>
+      <TableCell header>Finalidad</TableCell>
     </TableRow>
   </TableHead>
   <TableBody>
     <TableRow>
       <TableCell>*create*</TableCell>
-      <TableCell>`create<T>(data: T, options?): Promise<SpraxiumContext<T>>`</TableCell>
-      <TableCell>Crea un nuevo contexto con un UUID generado, lo almacena y retorna el objeto completo.</TableCell>
+      <TableCell>create&lt;T&gt;(data: T, options?): Promise&lt;SpraxiumContext&lt;T&gt;&gt;</TableCell>
+      <TableCell>Crea un nuevo contexto con UUID generado, persiste el valor y devuelve el objeto completo.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*get*</TableCell>
-      <TableCell>`get<T>(id: string): Promise<SpraxiumContext<T> | null>`</TableCell>
-      <TableCell>Recupera un contexto por ID. Retorna `null` si no se encuentra o ha expirado.</TableCell>
+      <TableCell>get&lt;T&gt;(id: string): Promise&lt;SpraxiumContext&lt;T&gt; | null&gt;</TableCell>
+      <TableCell>Busca un contexto por ID. Retorna null si no existe o ya expiró.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*update*</TableCell>
-      <TableCell>`update<T>(id: string, patch: Partial<T>): Promise<boolean>`</TableCell>
-      <TableCell>Fusiona un objeto parcial de datos en los datos existentes del contexto. Retorna `false` si no se encuentra.</TableCell>
+      <TableCell>update&lt;T&gt;(id: string, patch: Partial&lt;T&gt;): Promise&lt;boolean&gt;</TableCell>
+      <TableCell>Mezcla un objeto parcial en los datos existentes. Retorna false si no encuentra el contexto.</TableCell>
     </TableRow>
     <TableRow>
       <TableCell>*delete*</TableCell>
-      <TableCell>`delete(id: string): Promise<void>`</TableCell>
-      <TableCell>Elimina inmediatamente el contexto del almacenamiento. Se resuelve silenciosamente si no se encuentra.</TableCell>
+      <TableCell>delete(id: string): Promise&lt;void&gt;</TableCell>
+      <TableCell>Elimina el contexto del almacenamiento inmediatamente. Resuelve en silencio si no existe.</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 
-## TTL y comportamiento de expiración
+## Comportamiento de TTL y expiración
 
-Cada contexto tiene un TTL medido en segundos. Cuando un usuario interactúa con un componente cuyo contexto ha expirado, el dispatcher responde con el mensaje _errorMessages.expired_ configurado y no invoca el handler. Los contextos expirados no se eliminan inmediatamente del almacenamiento; se limpian de forma perezosa al acceder a ellos o durante barridos periódicos del adaptador de almacenamiento.
+Todo contexto tiene un TTL medido en segundos. Cuando alguien interactúa con un componente cuyo contexto ya expiró, el dispatcher responde con el mensaje configurado en _errorMessages.expired_ y no llama al handler. Contextos expirados no se eliminan inmediatamente del almacenamiento. La limpieza suele ocurrir de forma perezosa, al acceder, o en barridos periódicos realizados por el adapter.
 
-El TTL por defecto se establece en la configuración de _defineComponents_. Los contextos individuales pueden sobreescribirlo mediante el parámetro _options.ttl_ en _ContextService.create_.
+El TTL predeterminado se define en la configuración de _defineComponents_. Contextos individuales pueden sobrescribir ese valor con el parámetro _options.ttl_ en _ContextService.create_.
 
-<Callout type="tip">
-  Para interacciones cortas como diálogos de confirmación, un TTL de 60 a 120
-  segundos es apropiado. Para asistentes multi-paso, de 600 a 1800 segundos
-  proporciona una ventana cómoda para que los usuarios completen el flujo sin
-  alcanzar la expiración a mitad de la interacción.
+<Callout tone="tip">
+  Para interacciones cortas, como cajas de confirmación, un TTL entre 60 y 120
+  segundos suele ser suficiente. En asistentes de varias etapas, algo entre 600
+  y 1800 segundos suele dar un margen cómodo para que la persona complete el
+  flujo sin toparse con una expiración a mitad de camino.
 </Callout>
 
-## Restricciones de usuario
+## Restricciones por usuario
 
-La opción _restrictedTo_ limita el acceso al contexto a un ID de usuario específico. Cuando se establece, solo las interacciones de ese ID de usuario se despachan al handler. Otros usuarios que hagan clic en el componente reciben el mensaje _errorMessages.restricted_ configurado. Esto es esencial para flujos donde el componente es visible para todos en un canal pero solo debe ser accionable por el usuario que inició el comando.
+La opción _restrictedTo_ limita el acceso al contexto a un ID de usuario específico. Cuando está definida, solo interacciones de ese usuario se despachan al handler. Si otra persona hace clic en el componente, recibe el mensaje configurado en _errorMessages.restricted_. Esto es esencial en flujos donde el componente está visible para todo el canal, pero solo debería poder accionarlo quien inició el comando.
 
 ```typescript filename="src/commands/verification.command-handler.ts"
 import { Ctx, SlashCommandHandler } from '@spraxium/common';
@@ -343,6 +428,6 @@ export class VerificationCommandHandler {
 }
 ```
 
-## Siguiente estudio
+## Siguiente página
 
-Continúa con [Contenedores V2](/guide/components-v2).
+Continúa con [Containers V2](/guide/components-v2).
