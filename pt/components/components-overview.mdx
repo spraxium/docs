@@ -40,7 +40,7 @@ import { defineComponents } from '@spraxium/components';
 
 export const componentsPlugin = defineComponents({
   context: {
-    storage: 'memory',
+    storage: { type: 'file' },
     defaultTtl: 300,
   },
   errorMessages: {
@@ -50,7 +50,7 @@ export const componentsPlugin = defineComponents({
 });
 ```
 
-O campo _context.storage_ escolhe o backend usado para persistir os contextos de fluxo. Existem quatro adapters prontos: *memory* para desenvolvimento, *filesystem* para bots de instância única, *redis* para ambientes com múltiplas instâncias e *sqlite* para persistência leve. Já o _defaultTtl_ define, em segundos, o tempo de expiração dos contextos que não especificarem um TTL próprio.
+O campo _context.storage_ escolhe o backend usado para persistir os contextos de fluxo e recebe um objeto, não uma string: `{ type: 'file' }` para bots de instância única, `{ type: 'redis' }` para ambientes com múltiplas instâncias e `{ type: 'sqlite' }` para persistência leve. O adapter em memória foi removido na v0.2.0. Já o _defaultTtl_ define, em segundos, o tempo de expiração dos contextos que não especificarem um TTL próprio.
 
 <Table>
   <TableHead>
@@ -64,11 +64,11 @@ O campo _context.storage_ escolhe o backend usado para persistir os contextos de
   <TableBody>
     <TableRow>
       <TableCell>*context.storage*</TableCell>
-      <TableCell>*memory*, *filesystem*, *redis* ou *sqlite*</TableCell>
-      <TableCell>*memory*</TableCell>
+      <TableCell>`{ type: 'file', dir? }`, `{ type: 'redis', ... }` ou `{ type: 'sqlite', path? }`</TableCell>
+      <TableCell>Obrigatório</TableCell>
       <TableCell>
-        Backend de persistência do contexto de fluxo. *memory* é volátil, os
-        demais sobrevivem a reinícios.
+        Backend de persistência do contexto de fluxo. Todos os adapters
+        sobrevivem a reinícios.
       </TableCell>
     </TableRow>
     <TableRow>
