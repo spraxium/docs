@@ -1,0 +1,87 @@
+---
+title: Trocar a versão do Spraxium
+description: |
+  Teste uma versão de desenvolvimento em um bot existente, instale uma build específica ou volte para o canal estável.
+order: 7
+category: CLI
+keywords:
+  - spraxium use
+  - canal next spraxium
+  - testar a prévia do spraxium
+  - fixar a versão do spraxium
+faq:
+  - question: "Como vejo o que a troca vai alterar?"
+    answer: "Adicione --dry-run ao comando spraxium use. A CLI consulta a versão no npm e lista as mudanças planejadas."
+  - question: "Posso instalar uma versão antiga do Spraxium?"
+    answer: "Passe uma versão exata que tenha sido publicada para todos os pacotes do Spraxium declarados no projeto."
+---
+
+## Escolha a versão
+
+- `next` instala a prévia disponível no npm. A primeira build de teste da 1.0 é a `1.0.0-dev.1`.
+- `stable` segue a tag `latest` do npm. Use esse canal quando quiser voltar para a versão estável.
+- Uma versão exata fixa a build escolhida, mesmo depois que a tag mudar.
+
+Execute `use` na pasta do bot, onde o `package.json` declara os pacotes do Spraxium vindos do registro. Os exemplos usam `pnpm dlx` para rodar a CLI publicada. A instalação usa o gerenciador de pacotes do próprio projeto.
+
+## Teste a prévia no seu bot
+
+<Steps>
+  <Step title="Confira os pacotes que vão mudar">
+    A simulação resolve a prévia e mostra a versão de destino de cada pacote.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next --dry-run
+    ```
+  </Step>
+
+  <Step title="Aplique a troca">
+    Instale a build escolhida. A CLI fixa os pacotes do Spraxium na mesma versão e atualiza o lockfile do projeto.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next
+    ```
+  </Step>
+
+  <Step title="Inicie o bot">
+    Use o comando com que você já roda o bot. Em um projeto com o script padrão de desenvolvimento, execute o comando abaixo.
+
+    ```bash filename="terminal"
+    pnpm run dev
+    ```
+  </Step>
+</Steps>
+
+Se o bot usa o Core, a versão instalada aparece na inicialização. Na primeira prévia da 1.0, procure esta linha.
+
+```text
+Spraxium 1.0.0-dev.1 is a development build (next).
+```
+
+## Instale uma build específica ou volte para a estável
+
+Para reproduzir um problema encontrado na primeira prévia da 1.0, passe o número da versão diretamente.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use 1.0.0-dev.1
+```
+
+A versão pedida precisa estar publicada no npm para todos os pacotes do Spraxium que o bot declara. Um projeto com `@spraxium/logger`, por exemplo, pode usar `0.2.0` como ponto de partida para testar versões antigas, pois foi quando o pacote apareceu. Use `--dry-run` para conferir a versão antes de começar o teste. O código do bot também precisa ser compatível com as APIs da versão escolhida.
+
+Para voltar à versão estável atual, execute o comando abaixo.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use stable
+```
+
+Se o gerenciador de pacotes falhar ou deixar algum pacote na versão errada, a CLI restaura o `package.json` e o lockfile e tenta reinstalar as dependências anteriores.
+
+## Entenda os avisos na inicialização
+
+Além da linha que mostra a build instalada, o Core consulta atualizações em segundo plano e guarda o resultado por 24 horas. Bots na versão estável recebem avisos de novas versões estáveis. Quem está na prévia também pode receber avisos de builds mais novas da mesma série, com prioridade para uma versão estável mais recente quando ela estiver disponível.
+
+Defina `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` no ambiente do bot para pular a consulta ao registro. A versão instalada é lida localmente e aparece na inicialização mesmo sem conexão.
+
+## Próxima página
+
+[Configuração: Campos Principais](/guide/config-core-fields)

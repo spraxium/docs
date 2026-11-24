@@ -1,0 +1,87 @@
+---
+title: Cambiar la versión de Spraxium
+description: |
+  Prueba la siguiente versión de Spraxium en un bot existente, instala una compilación concreta o vuelve al canal estable.
+order: 7
+category: CLI
+keywords:
+  - spraxium use
+  - canal next de spraxium
+  - probar una versión preliminar de spraxium
+  - fijar la versión de spraxium
+faq:
+  - question: "¿Cómo puedo ver qué cambiará antes de instalar?"
+    answer: "Añade --dry-run a spraxium use. El CLI consulta la versión en npm y muestra los cambios previstos."
+  - question: "¿Puedo instalar una versión anterior de Spraxium?"
+    answer: "Indica una versión exacta que se haya publicado para todos los paquetes de Spraxium declarados en el proyecto."
+---
+
+## Elige una versión
+
+- `next` instala la versión preliminar disponible en npm. La primera compilación de prueba de la 1.0 es `1.0.0-dev.1`.
+- `stable` sigue la etiqueta `latest` de npm. Úsalo cuando quieras volver a la versión estable.
+- Una versión exacta fija una compilación concreta, aunque la etiqueta cambie más adelante.
+
+Ejecuta `use` desde la carpeta del bot, donde su `package.json` declara los paquetes de Spraxium del registro. Los ejemplos usan `pnpm dlx` para ejecutar el CLI publicado. La instalación se hace con el gestor de paquetes del proyecto.
+
+## Prueba la versión preliminar en tu bot
+
+<Steps>
+  <Step title="Revisa qué paquetes van a cambiar">
+    La simulación resuelve la versión preliminar y te muestra la versión de destino de cada paquete.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next --dry-run
+    ```
+  </Step>
+
+  <Step title="Aplica el cambio">
+    Instala la compilación elegida. El CLI fija todos los paquetes de Spraxium del bot a la misma versión y actualiza el archivo de bloqueo.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next
+    ```
+  </Step>
+
+  <Step title="Arranca el bot">
+    Inicia el bot como lo haces habitualmente. Si el proyecto usa el script de desarrollo de la plantilla predeterminada, ejecuta este comando.
+
+    ```bash filename="terminal"
+    pnpm run dev
+    ```
+  </Step>
+</Steps>
+
+Si el bot usa Core, la versión instalada aparece al arrancar. Con la primera versión preliminar de la 1.0, busca esta línea.
+
+```text
+Spraxium 1.0.0-dev.1 is a development build (next).
+```
+
+## Instala una compilación concreta o vuelve a la versión estable
+
+Si necesitas reproducir un problema de la primera versión preliminar de la 1.0, indica su número exacto.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use 1.0.0-dev.1
+```
+
+La versión elegida debe estar publicada en npm para todos los paquetes de Spraxium declarados por el bot. Si el proyecto usa `@spraxium/logger`, por ejemplo, puedes partir de la `0.2.0` para probar versiones antiguas, ya que fue la primera versión de ese paquete. Usa `--dry-run` para verificar la versión antes de empezar la prueba. El código del bot también debe ser compatible con las API de la versión elegida.
+
+Para volver a la versión estable actual, ejecuta el comando siguiente.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use stable
+```
+
+Si falla el gestor de paquetes o queda algún paquete en una versión distinta de la solicitada, el CLI restaura el `package.json` y el archivo de bloqueo e intenta reinstalar las dependencias anteriores.
+
+## Entiende los avisos de arranque
+
+Además de mostrar la compilación instalada, Core busca actualizaciones en segundo plano y guarda el resultado durante 24 horas. Los bots en el canal estable reciben avisos de nuevas versiones estables. Los que usan la versión preliminar también pueden recibir avisos de compilaciones más recientes de la misma serie. Si hay una versión estable posterior, tiene prioridad.
+
+Define `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` en el entorno del bot para omitir la consulta al registro. La versión preliminar instalada se lee localmente y aparece al arrancar aunque el bot esté sin conexión.
+
+## Siguiente página
+
+[Configuración: Campos principales](/guide/config-core-fields)

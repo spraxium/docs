@@ -1,0 +1,87 @@
+---
+title: Switching Spraxium Versions
+description: |
+  Try the next release of Spraxium in an existing bot, install an exact build, or return to the stable channel.
+order: 7
+category: CLI
+keywords:
+  - spraxium use
+  - spraxium next channel
+  - install a spraxium preview
+  - pin spraxium versions
+faq:
+  - question: "How do I see what the switch will change?"
+    answer: "Add --dry-run to spraxium use. The CLI checks the target version on npm and lists the changes it would make."
+  - question: "Can I install an older Spraxium release?"
+    answer: "Pass an exact version that was published for every Spraxium package the project declares."
+---
+
+## Choose a release
+
+- `next` installs the current preview on npm. The first preview of 1.0 is `1.0.0-dev.1`.
+- `stable` follows npm's `latest` tag. Use it when you're ready to return to the stable release.
+- An exact version pins a particular build, even after the channel moves on.
+
+Run `use` from your bot's directory, where its `package.json` declares Spraxium packages from the registry. These examples use `pnpm dlx` to run the published CLI. The switch itself uses the project's package manager.
+
+## Try the preview in your bot
+
+<Steps>
+  <Step title="See which packages will change">
+    The dry run resolves the preview and shows the version each of your packages would move to.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next --dry-run
+    ```
+  </Step>
+
+  <Step title="Apply the switch">
+    Install the selected build. The CLI pins your Spraxium packages to the same version and updates the project's lockfile.
+
+    ```bash filename="terminal"
+    pnpm dlx @spraxium/cli@next use next
+    ```
+  </Step>
+
+  <Step title="Start the bot">
+    Start your bot the way you normally do. For a project with the default development script, run the command below.
+
+    ```bash filename="terminal"
+    pnpm run dev
+    ```
+  </Step>
+</Steps>
+
+A bot using Core prints the version it's running. On the first 1.0 preview, look for this line.
+
+```text
+Spraxium 1.0.0-dev.1 is a development build (next).
+```
+
+## Install a specific build or return to stable
+
+If you need to reproduce a report against the first 1.0 preview, pass its version number directly.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use 1.0.0-dev.1
+```
+
+Every Spraxium package declared by the bot needs to have that exact release on npm. For example, a bot that declares `@spraxium/logger` can use `0.2.0` as an early baseline because that's where the package first appeared. Use `--dry-run` to check an older release before starting a test. The bot's code needs to be compatible with the APIs in the selected release.
+
+To return to the current stable release, run the following command.
+
+```bash filename="terminal"
+pnpm dlx @spraxium/cli@next use stable
+```
+
+If the package manager fails or leaves a package on the wrong version, the CLI restores the previous `package.json` and lockfile and attempts to reinstall the previous dependencies.
+
+## Understand the startup notices
+
+Besides the installed-build line, Core checks for updates in the background and caches the result for 24 hours. Stable bots get notices for newer stable releases. Preview bots can also get notices for newer builds in the same release series, with a newer stable release taking priority.
+
+Set `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` in the bot's environment to skip the registry check. The installed preview version is read locally and still appears on startup.
+
+## Next
+
+[Configuration: Core Fields](/guide/config-core-fields)
