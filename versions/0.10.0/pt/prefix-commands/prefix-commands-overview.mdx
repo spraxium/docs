@@ -1,0 +1,145 @@
+---
+title: Visão Geral de Prefix Commands
+description: |
+  Prefix commands permitem que pessoas usuárias acionem ações do bot por mensagens de texto com um prefixo configurável.
+  Entenda o modelo de comando, como comandos se conectam aos handlers e como são registrados em módulos.
+order: 1
+category: Prefix Commands
+keywords:
+  - spraxium prefix commands overview
+  - visão geral de prefix commands no spraxium
+  - prefix commands prefix commands overview guia
+  - prefix commands overview bot discord
+  - prefix commands overview typescript
+  - documentacao spraxium prefix commands
+  - visão geral de prefix commands prefix commands
+  - spraxium visão geral de prefix commands
+---
+
+## O que é um prefix command
+
+Um prefix command é um par de classes que reage a uma mensagem de texto iniciada por um caractere configurável, como `!` ou `?`. Quando alguém envia `!roll 20`, o framework detecta o prefixo, extrai o nome do comando, faz o parsing dos argumentos, executa guards e despacha a mensagem para o handler correto. Esse é o modelo tradicional de comandos de bot no Discord, anterior aos slash commands, e ele ainda é muito útil para fluxos rápidos de operação, ferramentas internas de moderação e bots em que as pessoas já dominam atalhos digitados.
+
+A diferença principal entre prefix commands e slash commands está no gatilho. Slash commands são disparados pelo sistema nativo de interações do Discord, com autocomplete e validação no cliente. Prefix commands nascem de mensagens de texto brutas, então o framework precisa cuidar sozinho de parsing, coerção de argumentos e mensagens de erro. Alguns bots precisam dos dois modelos, e o Spraxium permite registrar prefix e slash commands no mesmo módulo sem conflito.
+
+No Spraxium, prefix commands não existem como legado improvisado. Eles são classes completas, gerenciadas pelo container de injeção de dependência, registradas em módulos e conectadas automaticamente ao cliente do Discord durante o bootstrap. Isso significa que os handlers podem receber serviços injetados, participar da pipeline de guards, aproveitar controle de cooldown e usar o mesmo sistema de tratamento de exceções dos slash commands.
+
+Para rodar o exemplo, importe o módulo e defina `prefix: { prefix: '!' }` no `spraxium.config.ts`. Ative a intent Message Content no app e no Portal de Desenvolvedores do Discord. Veja [Execução e prefixos por servidor](/guide/prefix-commands-execution-guild-prefixes) para uma configuração completa.
+
+## Quando prefix commands ainda fazem sentido
+
+Prefix commands continuam sendo uma escolha forte para bots usados por equipes internas, staff, comunidades legadas com muita migração acumulada ou fluxos em que atalhos digitados importam mais do que a interface do seletor de comandos do Discord. Eles também fazem sentido quando hábitos baseados em mensagem já estão consolidados e mover tudo para slash commands só criaria atrito sem grande ganho.
+
+Eles perdem força quando você precisa de alta descobribilidade para usuários casuais, validação rica de opções no cliente do Discord ou entradas muito dependentes de autocomplete. Nesses cenários, slash commands costumam ser a opção padrão mais forte.
+
+## Exemplo básico de comando
+
+Aqui estão duas classes que mostram o padrão de duas classes. A primeira é a definição do comando, responsável por declarar nome, aliases e esquema de argumentos por meio de decorators _@PrefixArg_. A segunda é o handler, que recebe os argumentos já processados e o _Message_ bruto via _@Ctx_. Juntas, elas representam a estrutura mínima para criar um prefix command funcional.
+
+<CodeTabs>
+  <Tab label="Comando" language="typescript">
+```typescript filename="src/modules/fun/commands/ping.command.ts"
+import { PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({
+  name: 'ping',
+  aliases: ['p'],
+  description: 'Check bot latency.',
+  category: 'Fun',
+  usage: '!ping',
+  cooldown: 3,
+})
+export class PingCommand {
+  build() {}
+}
+
+````
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/fun/handlers/ping-command.handler.ts"
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
+
+@PrefixCommandHandler(PingCommand)
+export class PingHandler {
+  async handle(@Ctx() message: Message): Promise<void> {
+    const latency = Date.now() - message.createdTimestamp;
+    await message.reply(`Pong! Latency: ${latency}ms`);
+  }
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+Repare que a classe de comando é puramente declarativa: ela descreve o nome do comando, os aliases aceitos e o cooldown aplicado. A classe handler concentra a lógica de execução e recebe dependências por decorators. Quando o comando tem argumentos, você adiciona decorators _@PrefixArg_ ao método _build_ da classe de comando e usa os decorators de parâmetro _@PrefixArg_ correspondentes no método _handle_ do handler. A próxima página entra no detalhe do esquema de argumentos.
+
+## Caminho em runtime
+
+Em runtime, o fluxo é direto:
+
+1. O framework detecta o prefixo configurado.
+2. Ele extrai o nome do comando e tokeniza o texto restante.
+3. Resolve a definição do comando e faz o parsing dos argumentos.
+4. Executa guards e verificações de cooldown.
+5. Invoca o handler registrado.
+
+Essa pipeline explica por que a definição do comando e a execução do comando vivem em duas classes separadas. Uma classe descreve o schema; a outra executa a lógica com base nos valores já processados.
+
+## Registrando comandos em um módulo
+
+Prefix commands não passam a funcionar só por existirem no código-fonte. Você precisa registrar a classe do comando no array _commands_ do módulo e a classe handler no array _handlers_, para que o framework consiga descobri-las e conectá-las no bootstrap. Sem os dois registros, o comando ficará invisível para o parser ou não terá handler para receber o dispatch.
+
+```typescript filename="src/modules/fun/fun.module.ts"
+import { Module } from '@spraxium/common';
+import { PingCommand } from './commands/ping.command';
+import { PingHandler } from './handlers/ping-command.handler';
+
+@Module({
+  commands: [PingCommand],
+  handlers: [PingHandler],
+})
+export class FunModule {}
+```
+
+O módulo precisa ser importado pelo módulo raiz ou por algum módulo da cadeia de imports. Se um handler depender de um serviço, esse serviço deve estar disponível no escopo de providers do módulo ou ser exportado por um módulo importado, como acontece com qualquer outra classe injetável. Em geral, um módulo de prefix organiza comandos, handlers e guards em pastas próprias dentro do domínio.
+
+<FolderStructure title="Estrutura típica de um módulo de prefix">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="fun" open>
+        <Folder name="commands" open>
+          <File name="ping.command.ts" />
+          <File name="roll.command.ts" />
+        </Folder>
+        <Folder name="handlers" open>
+          <File name="ping-command.handler.ts" />
+          <File name="roll-command.handler.ts" />
+        </Folder>
+        <Folder name="guards" open>
+          <File name="cooldown.guard.ts" />
+        </Folder>
+        <File name="fun.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+Essa estrutura mantém definições de comando e handlers em pastas dedicadas, com o arquivo do módulo na raiz do domínio. Conforme o bot cresce, você consegue adicionar novos comandos e handlers sem mudar a organização das pastas. O arquivo do módulo continua sendo o ponto único que declara quais comandos e handlers estão ativos.
+
+Prefix commands também ficam melhores quando seguem a orientação por domínio. Um módulo de moderação deve concentrar seus próprios prefix commands de moderação, e um módulo de economia deve concentrar seus comandos de economia. Isso aproxima aliases, guards, handlers e serviços de apoio do mesmo contexto de negócio.
+
+<Callout tone="info" title="Duas classes por comando">
+  Cada prefix command exige uma classe de comando e uma classe handler
+  registradas no mesmo módulo. A classe de comando declara estrutura e
+  metadados. A classe handler concentra a lógica de execução e as dependências
+  injetáveis. Se você esquecer de registrar qualquer uma das duas, o comando
+  não funcionará em runtime.
+</Callout>
+
+Se a ideia for oferecer suporte a prefix e slash commands ao mesmo tempo, mantenha a lógica de negócio em serviços compartilhados e use cada superfície de comando apenas como ponto de entrada fino. Isso evita duplicar comportamento real só porque existem dois estilos de comando.
+
+## Próxima página
+
+[Comandos e Handlers](/prefix-commands-definition)

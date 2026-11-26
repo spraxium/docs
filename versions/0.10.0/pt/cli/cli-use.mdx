@@ -1,0 +1,34 @@
+---
+title: "Troque a versão do Spraxium"
+description: "Experimente uma prévia sem afetar seu bot em produção, fixe uma versão exata ou volte para a versão estável."
+order: 7
+category: "CLI"
+---
+
+## Escolha o que o bot vai testar
+
+Use `next` para testar a prévia disponível no npm, `stable` para seguir a tag `latest` ou um número exato quando precisar reproduzir uma falha. O que uma tag aponta pode mudar na próxima publicação. Rode o comando na pasta que declara as dependências do bot. Num monorepo, a CLI descobre o gerenciador e o lockfile do workspace. Antes de instalar, ela confere se existe uma publicação da versão escolhida para cada pacote que vai trocar.
+
+## Teste numa branch e comece pelo dry run
+
+Guarde uma versão em que o bot funciona, junto com o manifesto e o lockfile. Para testar uma prévia, use um servidor e um token de desenvolvimento. Peça à CLI para resolver a versão e mostrar o que seria alterado. O dry run consulta o npm sem mexer no projeto. Se um pacote do bot não foi publicado naquela versão, você consegue descobrir o motivo enquanto tudo continua funcionando. Os exemplos usam uma CLI que já inclui `use`. A instalação utiliza o gerenciador do projeto.
+
+~~~bash
+pnpm dlx @spraxium/cli@0.10.0 use next --dry-run
+pnpm dlx @spraxium/cli@0.10.0 use next
+~~~
+
+## Rode o bot com a versão instalada
+
+A CLI fixa a versão das dependências do grupo do framework, instala e verifica o resultado. Se falhar, ela restaura o manifesto e o lockfile anteriores e tenta reinstalar o que o bot tinha. Revise o diff, rode o build e teste um slash command e uma interação de componente. Se a mudança que você quer testar é RPC, faça também uma chamada real do backend para uma guild de teste. Os pacotes de RPC têm seu próprio release e são atualizados separadamente quando necessário.
+
+## Volte com o mesmo código e dependências
+
+Para reportar uma falha, guarde a versão exata que apareceu no dry run ou no startup. Use `stable` para voltar a seguir o npm `latest`. Para reproduzir um deploy anterior, volte ao código e ao lockfile que estavam funcionando ou fixe explicitamente a versão conhecida. O comando troca dependências; mudanças em código e banco precisam da própria estratégia de volta. O aviso de atualização do boot guarda o último resultado por 24 horas. `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` pula a consulta ao npm e mantém a indicação da versão instalada.
+
+~~~bash
+pnpm dlx @spraxium/cli@0.10.0 use stable
+pnpm dlx @spraxium/cli@0.10.0 use 0.10.0 --dry-run
+~~~
+
+Se todos os pacotes do seu bot estiverem publicados na 0.10.0, o último comando mostra a troca para essa versão. Revise a saída e só então tire --dry-run para aplicar. Antes de religar o bot em produção, confira as notas da versão que você escolheu.

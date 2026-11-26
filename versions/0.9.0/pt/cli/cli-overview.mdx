@@ -1,0 +1,134 @@
+---
+title: Visão Geral da CLI
+description: |
+  A CLI do Spraxium oferece sete comandos que cobrem todo o ciclo de desenvolvimento.
+  Entenda quando usar cada um e como eles se conectam, da criação do projeto à produção.
+order: 1
+category: CLI
+keywords:
+  - spraxium cli overview
+  - visão geral da cli no spraxium
+  - cli cli overview guia
+  - cli overview bot discord
+  - cli overview typescript
+  - documentacao spraxium cli
+  - visão geral da cli cli
+  - spraxium visão geral da cli
+faq:
+  - question: "O que \"Visão Geral da CLI\" cobre no Spraxium?"
+    answer: "A CLI do Spraxium oferece sete comandos que cobrem todo o ciclo de desenvolvimento. Entenda quando usar cada um e como eles se conectam, da criação do projeto à produção."
+  - question: "Quando devo usar \"Visão Geral da CLI\"?"
+    answer: "Use esta pagina quando voce estiver implementando cli overview dentro da area de CLI do seu bot."
+  - question: "Qual o proximo passo depois de \"Visão Geral da CLI\"?"
+    answer: "Continue nas paginas relacionadas de CLI para conectar este conceito com implementacao pratica."
+---
+
+## Para que serve a CLI
+
+A CLI é o caminho mais curto entre um projeto limpo e um bot pronto para rodar. Ela cuida de scaffolding, geração de arquivos, inicialização em desenvolvimento, builds de produção, execução em runtime, integração com banco de dados e diagnósticos, tudo por meio de uma interface consistente. Essa consistência importa porque é justamente na linha de comando que os times costumam perder tempo com etapas repetidas, desvios de nomenclatura ou fluxos meio manuais.
+
+Na prática, a CLI funciona melhor quando cada comando tem uma responsabilidade clara. _new_ cria o workspace, _generate_ adiciona arquivos alinhados ao framework, _dev_ roda o bot em atividade, _build_ valida a saída de produção e _start_ executa o artefato compilado. Os comandos restantes dão suporte a fluxos adjacentes, como configuração de banco de dados e diagnóstico do ambiente.
+
+## Comandos disponíveis
+
+A CLI oferece sete comandos. Cada um atende a uma etapa diferente do ciclo de vida do projeto, desde a criação de um projeto novo até a execução do artefato compilado em produção.
+
+<DropdownGroup>
+<Dropdown title="spraxium new">
+  Cria um novo projeto Spraxium a partir de um template. O assistente interativo pede o nome do projeto, o template, pacotes extras opcionais e se deve inicializar um repositório Git. Rode esse comando uma vez por projeto, fora de qualquer workspace Spraxium já existente.
+</Dropdown>
+
+<Dropdown title="spraxium dev">
+  Inicia o servidor de desenvolvimento usando o loader do SWC para ciclos de
+  compilação rápidos. Observa os arquivos-fonte e reinicia automaticamente a
+  cada salvamento. O comportamento do observador, o ponto de entrada e o atraso
+  de debounce são configuráveis em *spraxium.config.ts*.
+</Dropdown>
+
+<Dropdown title="spraxium generate">
+  Gera um arquivo alinhado ao framework a partir de um entre dezenove
+  schematics: módulos, serviços, tarefas, listeners, comandos slash, comandos
+  prefixados, guards, embeds, botões, modais e mais. Quando aplicável, registra
+  automaticamente os arquivos gerados no array correto do módulo.
+</Dropdown>
+
+<Dropdown title="spraxium build">
+  Executa *tsc --noEmit* para verificar os tipos e depois faz o bundle com
+  *tsdown* para produção. Em caso de falha, retorna um código de saída diferente
+  de zero, o que o torna adequado como gate em CI. A saída do build vai para
+  `.spraxium/dist`.
+</Dropdown>
+
+<Dropdown title="spraxium start">
+  Executa o artefato compilado produzido por *spraxium build*. Define
+  automaticamente *NODE_ENV* como `production` e envia o stdio direto para o
+  terminal. Exige que o build tenha sido concluído antes.
+</Dropdown>
+
+<Dropdown title="spraxium database">
+  Gera um módulo completo de integração com ORM por meio de um assistente
+  interativo. Suporta Prisma, Drizzle, TypeORM, Mongoose e MikroORM. Instala as
+  dependências e registra o módulo automaticamente.
+</Dropdown>
+
+<Dropdown title="spraxium info">
+  Exibe um relatório de diagnóstico com a versão da CLI, a versão do Node, o sistema operacional, o gerenciador de pacotes e todas as versões detectadas de *@spraxium/*. Aceita a flag *--json* para saída legível por máquina. É útil em relatórios de bugs e artefatos de CI.
+</Dropdown>
+</DropdownGroup>
+
+## Como os comandos se encaixam
+
+Pense na CLI como um ciclo, não como um conjunto de comandos soltos:
+
+1. _new_ cria a estrutura inicial do projeto.
+2. _generate_ mantém os novos arquivos alinhados às convenções do framework.
+3. _dev_ entrega o ciclo de feedback mais rápido durante a implementação.
+4. _build_ é a etapa de qualidade antes de compartilhar ou implantar.
+5. _start_ executa exatamente o artefato de produção que você acabou de gerar.
+6. _database_ e _info_ dão suporte à configuração e ao troubleshooting em torno desse fluxo.
+
+## Fluxo diário recomendado
+
+A maioria dos times usa apenas parte da CLI no dia a dia. O ritmo mais comum é criar o projeto uma vez, gerar arquivos conforme necessário, permanecer em _dev_ durante a implementação e usar _build_ como verificação final antes de publicar.
+
+<Steps>
+  <Step title="Crie com new">
+    Rode *spraxium new* uma vez para criar o projeto. Escolha o template e os
+    módulos opcionais durante o assistente interativo.
+  </Step>
+  <Step title="Gere com generate">
+    Use *spraxium generate* para adicionar módulos, serviços, listeners ou
+    comandos. A CLI coloca os arquivos na pasta correta e faz o registro automático.
+  </Step>
+  <Step title="Itere com dev">
+    Rode *spraxium dev* durante a implementação. Os arquivos recarregam
+    automaticamente ao salvar, então você vê o resultado na hora.
+  </Step>
+  <Step title="Valide com build">
+    Rode *spraxium build* antes de enviar para qualquer ambiente compartilhado.
+    Erros de tipos e falhas de bundle aparecem aqui, não em produção.
+  </Step>
+  <Step title="Execute com start">
+    Rode *spraxium start* em staging e produção depois de um build bem-sucedido.
+    Ele lê diretamente a saída compilada.
+  </Step>
+</Steps>
+
+## Uso local versus CI
+
+No desenvolvimento local, o foco costuma estar em _generate_ e _dev_. Em CI, o interesse normalmente fica em _build_ e, em alguns cenários de depuração, em _info --json_. Manter essa separação clara ajuda a evitar o uso forçado de comandos interativos em automação ou a dependência de comportamentos exclusivos de desenvolvimento em pipelines de produção.
+
+## Como escolher o comando certo rapidamente
+
+Se você estiver em dúvida sobre qual comando rodar, use este atalho:
+
+1. Precisa de um projeto novo: rode _spraxium new_.
+2. Precisa de um novo arquivo do framework: rode _spraxium generate_.
+3. Precisa de recarga ao vivo enquanto programa: rode _spraxium dev_.
+4. Precisa de um artefato pronto para deploy: rode _spraxium build_.
+5. Precisa executar o artefato gerado: rode _spraxium start_.
+6. Precisa de contexto sobre o ambiente: rode _spraxium info_.
+
+## Próxima página
+
+Continue com [Criando um Projeto](/guide/cli-new).

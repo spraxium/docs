@@ -1,0 +1,59 @@
+---
+title: "Credentials and connection security"
+description: "Authorize the calling service and keep user permissions at the web route."
+order: 3
+category: "@spraxium/rpc"
+---
+
+An RPC token identifies a service such as the dashboard backend. A signed-in dashboard user has a separate identity. When someone requests `/guilds/:guildId`, the web route checks their session and access to that guild. The gateway uses the backend's credential to check whether it may call the named method. The bot still applies its own permissions and Discord role hierarchy before performing restricted operations.
+
+A handler with `permissions: ['guild:read']` accepts a token that grants `guild:read`. If the handler declares several permissions, the caller needs all of them. The gateway rejects a handler declaration with no permissions unless you explicitly configure `allowAuthenticated: true`. Use that setting for a method that every authenticated service can use, such as an internal health check.
+
+## Give services separate credentials
+
+For one caller, use the short form with `token` and `permissions`. If a worker and a dashboard both call the bot, give each a different entry under `auth.tokens`. The ID identifies the entry, the value is a secret, and the permissions describe what that service needs. Use that list in place of the short form.
+
+~~~ts
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  auth: {
+    tokens: [
+      { id: 'dashboard', value: process.env.DASHBOARD_RPC_TOKEN ?? '', permissions: ['guild:read'] },
+      { id: 'worker', value: process.env.WORKER_RPC_TOKEN ?? '', permissions: ['bot:read'] },
+    ],
+  },
+});
+~~~
+
+To rotate a token, add a new entry with its own ID and the same permissions. Deploy the two entries, update the caller, and verify it can still make requests. Then remove the old entry. Separate entries let you make this change for one caller at a time.
+
+## Protect the connection between hosts
+
+The default loopback address works for two processes on the same host. For remote access, use HTTPS. You can give the gateway the PEM key and certificate, as shown below, or terminate TLS in a trusted proxy. Replace the example file paths with the paths your deployment uses.
+
+~~~ts
+import { readFileSync } from 'node:fs';
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  host: '0.0.0.0',
+  port: 4300,
+  token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+  permissions: ['guild:read'],
+  tls: {
+    key: readFileSync('/etc/tls/rpc.key'),
+    cert: readFileSync('/etc/tls/rpc.crt'),
+  },
+});
+~~~
+
+When a proxy terminates TLS, configure `tlsTerminationProxy: true` and allow access to the plaintext gateway only from that proxy. Leave HTTPS on the connection the backend uses. With a private CA, point Node at the CA through `NODE_EXTRA_CA_CERTS` so the client can verify the server.
+
+The gateway limits payload size, time, concurrent calls, and request rate per credential. Keep connection limits and access rules at the proxy or firewall, where they can apply before authentication. Keep tokens in server-side configuration and leave authorization headers and private request data out of logs. [Backend setup](./rpc-backends)
+
+## Check who can do what
+
+Imagine an internal report worker that only needs counts and a moderation panel that also changes server roles. Give the worker a credential with `guild:read` and the moderation backend a separate credential with the specific write permission its handlers require. Define what a write does in the bot and let Discord enforce the bot user's actual role and permissions. Keep the session and the caller's access to that guild at the public route. You can test the split by using the report credential against a write method and expecting `PermissionDenied`.
+
+Credentials must be unique with 32 to 4096 printable ASCII characters and no whitespace. Credential IDs are safe labels for correlation. Token values are secrets. To rotate them safely, leave old and new credentials active just long enough to move one caller and test it. A private network can be an explicit deployment choice, but a public client should connect to the HTTPS gateway and never see its bearer token. [Gateway settings and defaults](./rpc-configuration)

@@ -1,0 +1,76 @@
+---
+title: "Use RPC no backend que você já tem"
+description: "Veja como a mesma chamada fica em NestJS, Express, Hono, Fastify, Koa e Node HTTP."
+order: 6
+category: "@spraxium/rpc"
+---
+
+A rota do painel continua sendo HTTP. Coloque o SDK onde a aplicação monta seus serviços e lide com o cliente como uma conexão que dura enquanto o processo estiver aberto. Quando chega um pedido, a rota confere o acesso do usuário, chama o método do bot e monta a resposta. Isso funciona no framework que já atende seu produto.
+
+Os exemplos completos chamam `guild.stats` pelo mesmo contrato. O bot devolve a contagem de membros, se o servidor já alcançou um nível de impulso e o número do shard. A rota dos exemplos é `GET /guilds/:guildId/stats`. Eles escutam localmente por padrão. Se você usar a rota em um painel de verdade, encaixe o guard ou middleware de sessão e a checagem de acesso ao servidor que o painel já usa.
+
+## Rode um backend de exemplo
+
+No clone do RPC, preencha as variáveis da raiz a partir de `.env.example`. Use um framework Spraxium compatível com a release. O bot precisa de `DISCORD_TOKEN` e `SPRAXIUM_RPC_TOKEN`. O backend precisa do token RPC e de `SPRAXIUM_RPC_URL`, que pode ficar em `http://127.0.0.1:4300` no teste local. Inicie o bot de um servidor que você possa consultar.
+
+~~~sh
+pnpm install --frozen-lockfile
+pnpm build
+pnpm example:bot
+~~~
+
+Todos os exemplos são escritos em TypeScript. O build coloca os arquivos que o Node executa na pasta `dist/` de cada exemplo. Em outro terminal, inicie o NestJS ou troque o nome depois de `example:` por `express`, `hono`, `fastify`, `koa` ou `node-http`.
+
+~~~sh
+pnpm example:nestjs
+~~~
+
+Use o ID de um servidor do qual o bot faz parte. Com os valores padrão, a requisição entra na porta 3000. Se a porta já estiver em uso, defina `PORT` para o backend e atualize a URL da requisição.
+
+~~~sh
+curl http://127.0.0.1:3000/guilds/YOUR_GUILD_ID/stats
+~~~
+
+~~~json
+{ "members": 42, "premium": false, "shardId": 0 }
+~~~
+
+Para chamar o bot por um script, rode `pnpm example:node-client YOUR_GUILD_ID` ou `pnpm example:commonjs YOUR_GUILD_ID`. O exemplo CommonJS é escrito em `commonjs.cts`. O build também troca as extensões dos imports locais em TypeScript pelas que o Node executa. [Código dos clientes](https://github.com/spraxium/rpc/tree/main/examples/node-client/src) · [Configuração TypeScript dos exemplos](https://github.com/spraxium/rpc/blob/main/examples/tsconfig.base.json)
+
+## Onde a chamada entra em cada framework
+
+**NestJS.** O módulo registra um provider de fábrica para criar o SDK uma vez. `BotRpcService` recebe essa instância, chama o bot e traduz os erros para as exceções HTTP do Nest. O controller usa o service como usaria qualquer outra dependência. Caso já tenha guards ou pipes no controller, mantenha-os ali. [Exemplo NestJS](https://github.com/spraxium/rpc/tree/main/examples/nestjs/src) · [Providers do NestJS](https://docs.nestjs.com/fundamentals/custom-providers)
+
+
+[Tutorial completo de NestJS, do módulo até a chamada RPC](./rpc-nestjs)
+
+**Express.** Monte um `Router` no prefixo `/guilds` e passe o cliente quando criar o router. O Express 5 encaminha rejeições de handlers assíncronos para o middleware de erro montado depois das rotas. Essa é a camada que transforma o resultado do RPC nas respostas públicas que o painel conhece. [Exemplo Express](https://github.com/spraxium/rpc/tree/main/examples/express/src) · [Erros no Express](https://expressjs.com/en/guide/error-handling.html)
+
+**Hono.** Use um grupo de rotas montado com `app.route`. O exemplo usa o adapter Node; envie `context.req.raw.signal` para que o cliente possa parar de esperar quando a requisição for cancelada. `app.onError` trata a falha da chamada. Se seu Hono roda num runtime Edge ou Workers, ponha este SDK num serviço Node do lado do servidor. [Exemplo Hono](https://github.com/spraxium/rpc/tree/main/examples/hono/src) · [Hono no Node.js](https://hono.dev/docs/getting-started/nodejs)
+
+~~~ts
+guilds.get('/:guildId/stats', async (context) => {
+  const stats = await rpc.call(
+    'guild.stats',
+    { guildId: context.req.param('guildId') },
+    { signal: context.req.raw.signal },
+  );
+  return context.json(stats);
+});
+~~~
+
+**Fastify.** Registre as rotas como plugin e passe o SDK nas opções. O schema HTTP confere o parâmetro e descreve a resposta que a rota envia. O handler ainda precisa de um bom contrato no bot. O hook `onClose` fecha o SDK quando o Fastify termina de atender as requisições. [Exemplo Fastify](https://github.com/spraxium/rpc/tree/main/examples/fastify/src) · [Schemas do Fastify](https://fastify.dev/docs/latest/Reference/Validation-and-Serialization/)
+
+**Koa e Node HTTP.** No Koa, monte `@koa/router` com `routes()` e `allowedMethods()`, e deixe um middleware antes do router capturar erros de RPC. O exemplo em Node usa `createServer` e o evento `close` da resposta para cancelar uma chamada quando o consumidor fecha a conexão. As duas opções usam o mesmo SDK de servidor. [Exemplo Koa](https://github.com/spraxium/rpc/tree/main/examples/koa/src) · [Exemplo Node HTTP](https://github.com/spraxium/rpc/tree/main/examples/node-http/src)
+
+## Tempo de espera e transporte
+
+Defina o prazo do RPC abaixo do limite da rota HTTP para que ela ainda tenha tempo de devolver uma resposta. No desligamento, pare de receber requisições, espere as rotas em andamento e feche o cliente. Um HTTP 503 indica que o painel não pôde obter a resposta naquele momento. Se seu contrato usa 504 para prazo vencido, mantenha esse mapeamento na rota.
+
+No Node, o transporte padrão é Connect sobre HTTP/2. Para gRPC, configure `protocol: 'grpc'`. Se o proxy e o gateway TLS também aceitam HTTP/1.1, o cliente Connect pode usar `httpVersion: '1.1'`. Quem gera outro cliente encontra o esquema do método `Invoke` em `@spraxium/rpc-protocol`. Confira no proxy o protocolo que você vai usar. [Configuração de conexão](./rpc-authentication)
+
+## Preserve as respostas que o painel conhece
+
+A requisição HTTP e a chamada ao bot são duas etapas. A rota confere a sessão, o parâmetro e o acesso à guild. Ao passar para o cliente, envie só os campos que o método precisa. Se o frontend já espera uma resposta `{ data: stats }`, mantenha esse formato no backend mesmo que o bot retorne apenas `stats`. Uma falha de credencial do serviço precisa aparecer nos seus logs sem virar uma mensagem interna exposta ao navegador.
+
+No Express, crie o SDK na entrada do servidor e passe a instância ao construir o router. No Fastify, passe a mesma instância em `app.register(guildRoutes, { prefix: '/guilds', rpc })` e encerre no hook. No Koa, o router também recebe o cliente pronto. Um middleware acima dele captura os erros da rota e decide a resposta pública. No deploy, pare de aceitar novas requisições e dê tempo às rotas antes de fechar o cliente. Já num script com uma chamada só, feche no `finally`. [Tutorial dedicado para NestJS](./rpc-nestjs)

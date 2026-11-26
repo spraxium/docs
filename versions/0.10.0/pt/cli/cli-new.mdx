@@ -1,0 +1,149 @@
+---
+title: Criando um Projeto
+description: |
+  O comando spraxium new cria um projeto Spraxium completo a partir de um template.
+  Entenda como o assistente interativo funciona, quais templates estão disponíveis e o que é instalado.
+order: 2
+category: CLI
+keywords:
+  - spraxium cli new
+  - criando um projeto no spraxium
+  - cli cli new guia
+  - cli new bot discord
+  - cli new typescript
+  - documentacao spraxium cli
+  - criando um projeto cli
+  - spraxium criando um projeto
+---
+
+## O que ele faz
+
+_spraxium new_ cria um novo diretório de projeto do zero. Ele executa um assistente interativo que coleta o nome do projeto, o template, pacotes extras opcionais e a preferência de Git. Quando o assistente termina, a CLI monta o diretório, instala todas as dependências e, se você quiser, inicializa um repositório Git. No fim, você fica com um projeto funcional, pronto para _spraxium dev_.
+
+Rode o comando em qualquer diretório fora do seu projeto atual. Você também pode passar o nome do projeto diretamente como argumento para pular a primeira pergunta.
+
+```bash filename="terminal"
+spraxium new
+spraxium new my-bot
+# alias:
+spraxium n my-bot
+```
+
+O principal benefício de usar o assistente em vez de criar os arquivos manualmente é a consistência. Você já começa com a estrutura de pastas, o conjunto de pacotes, a configuração de TypeScript e a integração com o framework do jeito que o Spraxium espera, o que reduz retrabalho mais adiante.
+
+## O que o assistente pergunta
+
+<Steps>
+  <Step title="Nome do projeto">
+    Você pode digitar o nome interativamente ou passá-lo pela linha de comando.
+    A CLI usa esse nome para o diretório e para os metadados do pacote.
+  </Step>
+  <Step title="Template">
+    Escolha o ponto de partida mais próximo do bot que você quer construir.
+    Essa escolha define quais arquivos e pacotes entram carregados desde o início.
+  </Step>
+  <Step title="Pacotes opcionais">
+    No template default, o assistente permite selecionar pacotes extras do
+    framework para que a instalação inicial combine com o seu caso de uso.
+  </Step>
+  <Step title="Inicialização do Git">
+    Decida se a CLI deve inicializar um repositório Git imediatamente. Isso é
+    conveniente em projetos novos, mas continua sendo opcional.
+  </Step>
+</Steps>
+
+## Templates disponíveis
+
+Há três templates disponíveis. Cada um representa uma configuração inicial diferente, e o assistente deixa você escolher entre eles antes de gerar o projeto.
+
+<DropdownGroup>
+<Dropdown title="default">
+  Um bot Discord minimalista que inclui apenas os pacotes centrais. Depois de escolher esse template, o assistente mostra uma lista com caixas de seleção para módulos opcionais, permitindo que você inclua exatamente o que precisa. Use quando quiser controle total sobre o que entra no projeto desde o começo.
+</Dropdown>
+
+<Dropdown title="slash-bot">
+  Um bot Discord com um comando slash `/ping` já pronto e conectado. O comando,
+  o handler e o registro no módulo já vêm gerados, então você pode rodar
+  *spraxium dev* imediatamente e ver a resposta. É um bom ponto de partida
+  quando comandos slash são o seu principal modelo de interação.
+</Dropdown>
+
+<Dropdown title="http-bot (descontinuado)">
+  Modelo antigo para projetos que usam @spraxium/http.
+</Dropdown>
+</DropdownGroup>
+
+Escolha o menor template que ainda combine com o formato de projeto que você já sabe que vai precisar. É mais fácil adicionar um pacote depois do que carregar partes sem uso desde o primeiro dia.
+
+## Pacotes opcionais
+
+Quando você escolhe o template _default_, o assistente mostra um prompt com caixas de seleção onde é possível escolher qualquer combinação dos pacotes extras abaixo. Os templates não padrão usam um conjunto fixo.
+
+<DropdownGroup>
+<Dropdown title="@spraxium/components">
+  Adiciona o *ComponentsModule* para criar componentes interativos da interface do Discord, como botões, menus de seleção e modais com decorators.
+</Dropdown>
+
+<Dropdown title="@spraxium/http (descontinuado)">
+  Use esta opção para manter uma integração HTTP existente. Para novas chamadas ao bot, siga o [guia de RPC](./rpc-quickstart).
+</Dropdown>
+
+<Dropdown title="@spraxium/schedule">
+  Adiciona o *ScheduleModule* para tarefas cron, timeouts de execução única e
+  jobs baseados em intervalo usando agendamento com decorators.
+</Dropdown>
+
+<Dropdown title="@spraxium/i18n">
+  Adiciona o *I18nModule* para suporte multilíngue com arquivos de locale e
+  serviços de tradução injetáveis.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal">
+  Adiciona o barramento de eventos server-side *@spraxium/signal*. Use quando o
+  bot precisar transmitir eventos tipados para clientes conectados.
+</Dropdown>
+
+<Dropdown title="@spraxium/signal-client">
+  Adiciona o *@spraxium/signal-client* para se inscrever em eventos vindos de um servidor Signal. Use junto com *@spraxium/signal* ou em microsserviços independentes.
+</Dropdown>
+</DropdownGroup>
+
+Na maioria dos casos, vale começar enxuto e adicionar pacotes quando o primeiro caso de uso real aparecer. Para times experientes, com uma arquitetura bem definida, selecionar os pacotes certos logo de início reduz a primeira rodada de ajustes.
+
+## O que o assistente instala
+
+A CLI sempre instala um conjunto fixo de pacotes centrais, independentemente do template: _@spraxium/common_, _@spraxium/core_, _@spraxium/env_, _@spraxium/logger_ e _discord.js_. Entre as dependências de desenvolvimento entram _@spraxium/cli_, _typescript_, _@types/node_ e _tsdown_.
+
+Quaisquer pacotes extras que você selecionar entram na mesma rodada de instalação. O instalador detecta se você está em um monorepo e resolve referências locais de workspace quando isso faz sentido. Se nenhum gerenciador de pacotes for detectado, a CLI assume pnpm por padrão.
+
+## O que você recebe assim que a geração termina
+
+Quando o comando termina, o essencial já está pronto:
+
+1. Um diretório de projeto funcional.
+2. Uma pasta _src_ pronta para edição com os arquivos iniciais do template.
+3. Um arquivo _spraxium.config.ts_ alinhado ao setup escolhido.
+4. Dependências instaladas.
+5. Um repositório Git opcional, se você tiver habilitado isso.
+
+Isso já basta para seguir direto para a configuração do ambiente e para _spraxium dev_, sem uma etapa manual separada de bootstrap.
+
+<Callout tone="warning" title="O diretório não pode existir">
+  Se já existir um diretório com o nome do projeto no caminho atual, o comando
+  para imediatamente sem gravar nenhum arquivo. Renomeie ou remova o diretório
+  em conflito antes de rodar o assistente de novo.
+</Callout>
+
+## Próximos passos recomendados
+
+Depois da geração, a sequência mais comum é:
+
+1. Preencher as variáveis de ambiente.
+2. Rodar _spraxium dev_ uma vez para confirmar que a aplicação inicia.
+3. Usar _spraxium generate_ para adicionar o primeiro módulo, serviço ou comando real.
+
+Isso mantém o projeto avançando em passos pequenos e verificáveis, em vez de acumular muito código antes do primeiro boot bem-sucedido.
+
+## Próxima página
+
+Continue com [Gerando Arquivos](/guide/cli-generate).

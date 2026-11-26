@@ -1,0 +1,32 @@
+---
+title: "Spraxium RPC"
+description: "See how a dashboard, worker, or script can call your Discord bot."
+order: 1
+category: "@spraxium/rpc"
+---
+
+Think of a dashboard that shows the member count for a Discord server. The bot already has that count. The dashboard knows who signed in and which servers they can see. With Spraxium RPC, the dashboard backend calls `guild.stats` on the bot and gets a little JSON object with the numbers it needs.
+
+~~~text
+Dashboard -> HTTP backend -> RPC gateway -> bot handler -> Discord.js
+~~~
+
+## Follow one request
+
+The browser sends the same HTTP request it always sent. Your route checks the user's session and access to that guild. Then the SDK sends the method name, the ID, and a service credential to the bot's gateway. The gateway checks the credential and method permissions, finds the process that should do the work, and sends back the result. Your route turns that result into the HTTP response the page expects.
+
+Discord.js still runs in the bot. The handler can use the same services and injected providers as commands and listeners. With native sharding, the main process passes a guild call to the process responsible for that guild. A backend can use one address even as the bot adds shards. [Read how calls move between shards](./rpc-sharding)
+
+## Decide where the work belongs
+
+Install `@spraxium/rpc` in the bot to register the methods. Install `@spraxium/rpc-client` in a Node.js backend, script, or worker that calls them. The `@spraxium/rpc-protocol` package has the Protobuf schema for other integrations. A command that runs inside the bot can usually inject the service it needs and call it directly.
+
+The older `@spraxium/http` package maintained a web server with routing and middleware in addition to its bot bridge. Web frameworks already maintain those pieces. With RPC, NestJS, Express, Hono, or whatever you run today owns public URLs, sessions, CORS, and HTTP responses. Spraxium handles calls to the bot, including moving them to a shard and closing the gateway when the bot shuts down.
+
+Try a call that only asks if the bot is ready. It checks that both processes are running and using the same credential before you change an existing route. [Make the first call](./rpc-quickstart) · [Move a route from HTTP](./rpc-http-migration)
+
+## Decide if the call belongs in RPC
+
+Say your ticket dashboard needs the current Discord channel name and the number of members who can see it. The bot already holds the connection and can look up those details, so a method such as `ticket.channelSummary` makes sense. The backend can keep ticket titles and browser sessions in its own database. Data the backend already owns can stay there, and a slash command inside the bot can just inject the corresponding service instead of going through a network connection to reach it.
+
+A request expects a reply while the caller is waiting. When the work takes minutes or has to survive a restart, keep it in a durable job and send back an ID your dashboard can check later. If you're forwarding an event that has its own delivery lifecycle, check the [Signal docs](./signal-overview). For a first integration, get one read working, try it with the bot stopped, and only then use the same connection for actions that change Discord.

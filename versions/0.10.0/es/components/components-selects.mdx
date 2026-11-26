@@ -1,0 +1,561 @@
+---
+title: Menús de selección
+description: |
+  Construye los cinco tipos de select menu de Discord con opciones estáticas o dinámicas.
+  Aprende a trabajar con selects de string, user, role, mentionable y channel usando handlers, generación dinámica de opciones y renderizado con SelectService.
+order: 3
+category: Components
+---
+
+## Tipos de menú de selección
+
+Discord ofrece cinco variantes de select menu, y Spraxium da soporte a todas con decorators dedicados. String selects permiten definir opciones personalizadas con etiqueta y valor. Los selects de user, role, mentionable y channel usan los selectores nativos de Discord, que se rellenan automáticamente con datos del servidor. Los cinco tipos comparten el mismo patrón de handler y el mismo sistema de inyección de parámetros.
+
+Cada tipo se define como una clase decorada, se vincula a un handler por medio de un decorator específico y se renderiza vía _SelectService_. La diferencia principal entre ellos está en el decorator usado y en el tipo de dato que el usuario selecciona. String selects exigen definición explícita de opciones. Los otros cuatro tipos dejan que Discord rellene la lista automáticamente.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Handler</TableCell>
+      <TableCell header>Origen de opciones</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>String</TableCell>
+      <TableCell>*@StringSelect*</TableCell>
+      <TableCell>*@StringSelectHandler*</TableCell>
+      <TableCell>
+        Definida por el desarrollador vía *@SelectOption* o *dynamicOptions*
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>User</TableCell>
+      <TableCell>*@UserSelect*</TableCell>
+      <TableCell>*@UserSelectHandler*</TableCell>
+      <TableCell>Rellenada automáticamente por Discord</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Role</TableCell>
+      <TableCell>*@RoleSelect*</TableCell>
+      <TableCell>*@RoleSelectHandler*</TableCell>
+      <TableCell>Rellenada automáticamente por Discord</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Mentionable</TableCell>
+      <TableCell>*@MentionableSelect*</TableCell>
+      <TableCell>*@MentionableSelectHandler*</TableCell>
+      <TableCell>Rellenada automáticamente por Discord, con usuarios y roles</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Channel</TableCell>
+      <TableCell>*@ChannelSelect*</TableCell>
+      <TableCell>*@ChannelSelectHandler*</TableCell>
+      <TableCell>
+        Rellenada automáticamente por Discord, con filtro opcional por tipo
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## String selects con opciones estáticas
+
+String selects son el tipo más flexible, porque la lista de opciones queda totalmente bajo tu control. Define esas opciones con el decorator apilable _@SelectOption_, aplicado en la clase del componente. Cada opción exige un _label_, que es el texto mostrado, un _value_, que es el valor devuelto al handler, y también puede incluir _description_ y _emoji_. Las opciones se apilan de abajo hacia arriba en el orden de los decorators.
+
+<CodeTabs>
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/selects/language-select.component.ts"
+import { StringSelect, SelectOption } from '@spraxium/components';
+
+@StringSelect({
+  customId: 'language_picker',
+  placeholder: 'Choose a language',
+  minValues: 1,
+  maxValues: 1,
+})
+@SelectOption({ label: 'English', value: 'en', description: 'English (US)', emoji: '🇺🇸' })
+@SelectOption({ label: 'Português', value: 'pt', description: 'Portuguese (BR)', emoji: '🇧🇷' })
+@SelectOption({ label: 'Español', value: 'es', description: 'Spanish', emoji: '🇪🇸' })
+export class LanguageSelect {}
+
+````
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/selects/language-select.handler.ts"
+import { StringSelectHandler, SelectedValues } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { StringSelectMenuInteraction } from 'discord.js';
+import { LanguageSelect } from './language-select.component';
+
+@StringSelectHandler(LanguageSelect)
+export class LanguageSelectHandler {
+  async handle(
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() values: string[],
+  ): Promise<void> {
+    const language = values[0];
+    await interaction.reply({ content: `Language set to ${language}.`, ephemeral: true });
+  }
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## Referencia de configuración del select
+
+El objeto de configuración pasado a cualquier decorator de select comparte un conjunto común de campos. _customId_ identifica el select en el enrutamiento de interacción, igual que en botones. _placeholder_, _minValues_ y _maxValues_ controlan comportamiento visual y funcional de la interfaz.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Obligatorio</TableCell>
+      <TableCell header>Finalidad</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*customId*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Identificador único usado en el enrutamiento de interacción. Debe ser único en todo el bot.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*placeholder*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Texto de apoyo mostrado cuando ninguna opción fue elegida.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*minValues*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Número mínimo de opciones que la persona debe seleccionar. El predeterminado es 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*maxValues*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Número máximo de opciones que pueden seleccionarse. El predeterminado es 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disabled*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Cuando está en *true*, el select se renderiza sin permitir interacción.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*dynamicOptions*</TableCell>
+      <TableCell>Función que retorna *SelectOptionConfig[]*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Callback que genera opciones en el momento del renderizado a partir de datos de contexto. Solo vale para string selects.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Opciones dinámicas
+
+Cuando la lista de opciones depende de datos de runtime, usa el callback _dynamicOptions_ en lugar de decorators estáticos _@SelectOption_. Ese callback recibe el objeto _data_ pasado a _SelectService.build_ y debe devolver un array de opciones. Este patrón es común en selects rellenados a partir de consultas en base de datos, respuestas de API o datos específicos del usuario.
+
+```typescript filename="src/components/selects/category-select.component.ts"
+import { StringSelect } from '@spraxium/components';
+
+@StringSelect({
+  customId: 'category_picker',
+  placeholder: 'Select a category',
+  dynamicOptions: (data: { categories: Array<{ name: string; id: string }> }) =>
+    data.categories.map((cat) => ({
+      label: cat.name,
+      value: cat.id,
+    })),
+})
+export class CategorySelect {}
+```
+
+En el renderizado, pasa el objeto de datos como segundo argumento a _SelectService.build_. El servicio llama _dynamicOptions_ con ese valor y usa el array retornado para rellenar el select menu.
+
+<Callout tone="tip">
+  Decorators *@SelectOption* y *dynamicOptions* son mutuamente excluyentes.
+  Cuando ambos aparecen en la misma clase, el callback dinámico tiene prioridad,
+  y las opciones estáticas se ignoran por completo.
+</Callout>
+
+## Entity selects
+
+Selects de user, role, mentionable y channel son más directos, porque el propio Discord rellena las opciones automáticamente. Solo necesitas configurar _customId_, eventuales restricciones y el handler. En channel selects, existe además el filtro _channelTypes_ para limitar qué tipos de canal pueden aparecer.
+
+<CodeTabs>
+  <Tab label="User select" language="typescript">
+```typescript filename="src/components/selects/user-select.component.ts"
+import { UserSelect } from '@spraxium/components';
+
+@UserSelect({
+  customId: 'target_user',
+  placeholder: 'Select a user',
+  maxValues: 3,
+})
+export class TargetUserSelect {}
+
+````
+  </Tab>
+  <Tab label="Role select" language="typescript">
+```typescript filename="src/components/selects/role-select.component.ts"
+import { RoleSelect } from '@spraxium/components';
+
+@RoleSelect({
+  customId: 'assign_role',
+  placeholder: 'Choose roles to assign',
+  minValues: 1,
+  maxValues: 5,
+})
+export class AssignRoleSelect {}
+````
+
+  </Tab>
+  <Tab label="Channel select" language="typescript">
+```typescript filename="src/components/selects/channel-select.component.ts"
+import { ChannelSelect } from '@spraxium/components';
+import { ChannelType } from 'discord.js';
+
+@ChannelSelect({
+  customId: 'log_channel',
+  placeholder: 'Select a log channel',
+  channelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
+})
+export class LogChannelSelect {}
+
+````
+  </Tab>
+</CodeTabs>
+
+## Inyección de parámetros en el handler
+
+Usa `@Ctx()` de `@spraxium/common` para recibir la interacción de Discord. En un selector de roles, el tipo `RoleSelectMenuInteraction` te da acceso a los roles resueltos en `interaction.roles`. Si solo necesitas IDs o textos, `@SelectedValues()` de `@spraxium/components` te entrega directamente la lista de `interaction.values`.
+
+```typescript filename="src/components/selects/role-select.handler.ts"
+import { RoleSelectHandler } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { RoleSelectMenuInteraction } from 'discord.js';
+import { AssignRoleSelect } from './role-select.component';
+
+@RoleSelectHandler(AssignRoleSelect)
+export class AssignRoleSelectHandler {
+  async handle(
+    @Ctx() interaction: RoleSelectMenuInteraction,
+  ): Promise<void> {
+    const roles = interaction.roles;
+    const names = roles.map((r) => r.name).join(', ');
+    await interaction.reply({ content: `Assigning roles: ${names}`, ephemeral: true });
+  }
+}
+````
+
+## Renderizado con SelectService
+
+_SelectService_ es el servicio inyectable que monta action rows de select menu a partir de clases decoradas. El método _build_ recibe la clase del componente, un argumento opcional de datos para callbacks _dynamicOptions_ y, opcionalmente, un _SpraxiumContext_ para embutir un ID de contexto en el _customId_ del menú. El método es asíncrono porque callbacks dinámicos pueden retornar promises.
+
+```typescript filename="src/commands/category.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { SelectService, ContextService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { CategorySelect } from '../components/selects/category-select.component';
+import { CategoryCommand } from './category.command';
+
+@SlashCommandHandler(CategoryCommand)
+export class CategoryCommandHandler {
+  constructor(
+    private readonly selects: SelectService,
+    private readonly context: ContextService,
+  ) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const categories = await this.fetchCategories(interaction.guildId!);
+    const ctx = await this.context.create({ userId: interaction.user.id });
+    const row = await this.selects.build(CategorySelect, categories, ctx);
+
+    await interaction.reply({
+      content: 'Choose a category:',
+      components: [row],
+    });
+  }
+
+  private async fetchCategories(guildId: string) {
+    return [
+      { name: 'General', id: 'general' },
+      { name: 'Support', id: 'support' },
+      { name: 'Feedback', id: 'feedback' },
+    ];
+  }
+}
+```
+
+## Alternativa con fluent builder
+
+En escenarios más programáticos, donde crear una clase sería excesivo, _SelectDefBuilder_ ofrece una API fluente para montar definiciones de select inline. Este builder es útil en flujos dinámicos, selects temporales o interfaces generadas por código, donde el enfoque basado en decorators crearía demasiadas clases descartables.
+
+```typescript filename="src/commands/dynamic-select.command.ts"
+import { Selects } from '@spraxium/components';
+
+const row = Selects.string('quick_pick')
+  .placeholder('Quick selection')
+  .minValues(1)
+  .maxValues(1)
+  .options([
+    { label: 'Option A', value: 'a' },
+    { label: 'Option B', value: 'b' },
+  ])
+  .buildRow();
+```
+
+El fluent builder produce la misma action row de discord.js que el enfoque con decorators. La diferencia es que no participa del sistema de dispatch de handlers, porque no existe clase ni metadato para registrar. Usa este camino solo en selects descartables, donde el enrutamiento de handler no sea necesario.
+
+## Selects dinámicos
+
+String selects estáticos definen opciones ya en el momento de la declaración. _@DynamicStringSelect_ rompe esa limitación: describes el select una vez y generas la lista de opciones con datos vivos en el momento del renderizado, como resultados de base de datos, respuestas de API o cualquier otro valor de runtime. El sistema de payload guarda ese conjunto de datos junto al select, así el handler recibe todo de vuelta sin consultar la fuente por segunda vez.
+
+### Cómo definir un string select dinámico
+
+Decora una clase con _@DynamicStringSelect_ e implementa un método estático `render` que reciba los datos de payload y devuelva un `SelectRenderConfig`. Este método puede ser síncrono o asíncrono.
+
+```typescript filename="src/modules/topics/components/topic-select.component.ts"
+import { DynamicStringSelect } from '@spraxium/components';
+import type { SelectRenderConfig } from '@spraxium/components';
+import type { TopicsQuery } from '../topics.data';
+
+@DynamicStringSelect({
+  baseId: 'topic-pick',
+  placeholder: 'Pick one or more topics',
+  minValues: 1,
+  maxValues: 3,
+  payloadTtl: 600,
+})
+export class TopicSelect {
+  static render(query: TopicsQuery): SelectRenderConfig {
+    return {
+      options: query.topics.map((t) => ({
+        label: t.name,
+        value: t.slug,
+        description: t.description,
+      })),
+    };
+  }
+}
+```
+
+### Cómo renderizar un string select dinámico
+
+Llama `SelectService.buildDynamic` con la clase del componente y el payload. Spraxium guarda ese payload y embebe una referencia a él en el `customId` del select.
+
+```typescript filename="src/modules/topics/handlers/topics-command.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { SelectService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { TopicsCommand } from '../commands/topics.command';
+import { TopicSelect } from '../components/topic-select.component';
+import type { TopicsQuery } from '../topics.data';
+
+@SlashCommandHandler(TopicsCommand)
+export class TopicsCommandHandler {
+  constructor(private readonly selects: SelectService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const query: TopicsQuery = {
+      audience: 'developers',
+      topics: await fetchTopics(),
+    };
+
+    const row = await this.selects.buildDynamic(TopicSelect, query);
+    await interaction.reply({ content: 'Pick topics:', components: [row] });
+  }
+}
+```
+
+### Cómo tratar la interacción
+
+Usa _@DynamicSelectHandler_ para vincular un handler a una clase `@DynamicStringSelect`. El decorator _@SelectPayload()_ inyecta el payload almacenado en el renderizado. _@SelectedValues()_ inyecta `interaction.values` como `string[]`. Ambos pueden aparecer junto a `@Ctx()` y `@PayloadRef()` en cualquier orden.
+
+```typescript filename="src/modules/topics/handlers/topic-select.handler.ts"
+import { Ctx } from '@spraxium/common';
+import { DynamicSelectHandler, SelectPayload, SelectedValues } from '@spraxium/components';
+import type { StringSelectMenuInteraction } from 'discord.js';
+import { TopicSelect } from '../components/topic-select.component';
+import type { TopicsQuery } from '../topics.data';
+
+@DynamicSelectHandler(TopicSelect)
+export class TopicSelectHandler {
+  async handle(
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() picks: string[],
+    @SelectPayload() query: TopicsQuery,
+  ): Promise<void> {
+    const picked = query.topics.filter((t) => picks.includes(t.slug));
+    await interaction.reply({
+      content: `Picked: ${picked.map((t) => t.name).join(', ')}`,
+      ephemeral: true,
+    });
+  }
+}
+```
+
+### Referencia de configuración del select dinámico
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Opción</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Obligatorio</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*baseId*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Sí</TableCell>
+      <TableCell>Prefijo usado en la generación de custom IDs. Debe ser único entre todos los string selects dinámicos de la aplicación.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*placeholder*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Texto mostrado cuando ninguna opción fue seleccionada.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*minValues*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Número mínimo de opciones que la persona debe escoger. El predeterminado es 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*maxValues*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Número máximo de opciones que pueden escogerse. El predeterminado es 1.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*payloadTtl*</TableCell>
+      <TableCell>*number*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Tiempo en segundos hasta que expire el payload guardado. El predeterminado es 600. Solo aplica cuando el encoding es store.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*encoding*</TableCell>
+      <TableCell>*store* o *inline*</TableCell>
+      <TableCell>No</TableCell>
+      <TableCell>Estrategia de almacenamiento para los params. store (predeterminado) persiste el payload completo y embebe una referencia opaca en el customId. inline codifica el campo params de SelectRenderConfig directamente en el customId. Usar inline solo para datos primitivos pequeños — aplica el límite de 100 caracteres de Discord para custom IDs.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+### Codificación inline de parámetros
+
+Por defecto, _@DynamicStringSelect_ persiste el payload completo en un store con TTL y embebe solo una referencia opaca en el custom ID. Para datos pequeños y primitivos — como una etiqueta de origen, un flag de modo, o un solo ID de registro — puedes usar `encoding: 'inline'`. El framework codifica el campo `params` devuelto por `render()` directamente en el custom ID, eliminando cualquier dependencia del store de payload y el TTL. Los datos viven en el mensaje de Discord mientras ese mensaje exista.
+
+<Callout tone="warning">
+  El límite de **100 caracteres** de Discord para custom IDs aplica a los
+  selects con codificación inline. El framework lanza
+  `DynamicSelectInlinePayloadTooLargeError` en tiempo de renderizado si el
+  string codificado supera ese límite. Mantén los params inline pequeños: uno o
+  dos valores cortos. Usa el encoding store para cualquier cosa más grande.
+</Callout>
+
+<CodeTabs>
+  <Tab label="Componente" language="typescript">
+```typescript filename="src/components/selects/filter-select.component.ts"
+import { DynamicStringSelect } from '@spraxium/components';
+import type { SelectRenderConfig } from '@spraxium/components';
+
+interface Topic {
+  slug: string;
+  name: string;
+}
+
+@DynamicStringSelect({
+  baseId: 'topic-filter',
+  placeholder: 'Filtrar por tema',
+  encoding: 'inline',
+})
+export class FilterTopicSelect {
+  static render(data: { topics: Topic[]; audience: string }): SelectRenderConfig {
+    return {
+      options: data.topics.map((t) => ({ label: t.name, value: t.slug })),
+      params: { audience: data.audience }, // viaja dentro del customId
+    };
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/components/selects/filter-select.handler.ts"
+import { DynamicSelectHandler, SelectedValues, SelectParams } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { StringSelectMenuInteraction } from 'discord.js';
+import { FilterTopicSelect } from './filter-select.component';
+
+@DynamicSelectHandler(FilterTopicSelect)
+export class FilterTopicSelectHandler {
+  async handle(
+    @Ctx() interaction: StringSelectMenuInteraction,
+    @SelectedValues() values: string[],
+    @SelectParams() params: { audience: string },
+  ): Promise<void> {
+    await interaction.reply({
+      content: `Tema \`${values[0]}\` seleccionado para audiencia: ${params.audience}.`,
+      flags: 'Ephemeral',
+    });
+  }
+}
+```
+  </Tab>
+  <Tab label="Renderizado" language="typescript">
+```typescript filename="src/commands/filter.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { SelectService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { FilterCommand } from './filter.command';
+import { FilterTopicSelect } from '../components/selects/filter-select.component';
+
+@SlashCommandHandler(FilterCommand)
+export class FilterCommandHandler {
+  constructor(private readonly selects: SelectService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const topics = await this.topicsRepo.findAll();
+
+    // Los selects con encoding inline usan SelectService.build, no buildDynamic
+    const row = await this.selects.build(FilterTopicSelect, { topics, audience: 'pro' });
+
+    await interaction.reply({ content: 'Filtrar por tema:', components: [row] });
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+Nota que _@SelectParams()_ reemplaza _@SelectPayload()_ para selects con codificación inline. Usar _@SelectPayload()_ o _@PayloadRef()_ en un handler inline provoca un error en el bootstrap. El tipo de `params` se infiere del campo `params` devuelto por `render()`, por lo que TypeScript conoce la forma sin ningún casting manual.
+
+Los selects con codificación inline se renderizan con `SelectService.build`, no con `buildDynamic`. El servicio detecta el flag `encoding: 'inline'` automáticamente y enruta hacia el path inline.
+
+## Registro en el módulo
+
+Solo la clase del handler necesita registrarse en el array _handlers_ de un módulo de feature. Esto aplica igual para los cinco tipos de select. Las clases de componente decoradas con _@StringSelect_, _@UserSelect_ y similares existen solo como metadato y nunca entran en ningún módulo. El dispatcher lee todo por la referencia de clase almacenada en el decorator del handler.
+
+```typescript filename="src/modules/settings/settings.module.ts"
+import { Module } from '@spraxium/common';
+import { LanguageSelectHandler } from './components/language-select.handler';
+import { TargetUserSelectHandler } from './components/user-select.handler';
+
+@Module({
+  handlers: [LanguageSelectHandler, TargetUserSelectHandler],
+})
+export class SettingsModule {}
+```
+
+## Siguiente página
+
+Continúa con [Embeds](/guide/components-embeds).

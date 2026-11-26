@@ -10,9 +10,7 @@ Thank you for taking the time to improve the documentation. This guide covers th
 
 ## Language and Tone
 
-Write in a direct, practical tone focused on what the developer needs to know to use the feature. Avoid explaining how the framework works internally. The reader is a consumer of the API, not a contributor to the core.
-
-Avoid repeating the same word or phrase in close succession within a page, and keep descriptions concise. Every sentence should add information.
+Start with a situation the reader may run into. Show where the code goes, how it runs, and what result to expect. Include details that help the reader debug the feature, along with an example and a failure case. Keep archived guides unchanged unless you are fixing a problem in that version.
 
 ## Accentuation and Encoding
 
@@ -55,4 +53,4 @@ Do not add descriptions like "This page covers..." or "Read next..." next to nav
 - Keep each PR focused on a single topic or fix. Avoid combining unrelated changes.
 - If you are fixing an inconsistency, describe what was wrong and what the correct form should be.
 - If you are adding new content, make sure it follows all the standards above before opening the PR.
-- Content is rendered at [spraxium.com/guide](https://spraxium.com/guide).
+- Content is rendered at [spraxium.com/guide](https://spraxium.com/en/guide).

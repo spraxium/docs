@@ -1,0 +1,38 @@
+---
+title: "Configure o gateway RPC"
+description: "Defina o endereço, os limites das chamadas e as permissões de quem pode usar o gateway."
+order: 9
+category: "@spraxium/rpc"
+---
+
+## Comece com os valores locais
+
+Na sua máquina, o gateway escuta em 127.0.0.1:4300. O navegador segue falando com o backend do painel. Só o cliente no servidor precisa saber o endereço do gateway. Mude esses valores em `defineRpc` se já tiver algo usando a porta ou precisar de outro endereço. Fora do loopback, o servidor pede TLS ou um proxy confiável que encerre TLS.
+
+## Dê um prazo para a chamada
+
+O SDK e o gateway aceitam por padrão até 1 MiB por payload e dão 10 segundos para uma chamada. O gateway atende até 100 chamadas ao mesmo tempo e limita cada credencial a 120 requisições por janela de 60 segundos. Se o painel precisa responder em cinco segundos, adote um prazo menor no SDK para sobrar tempo de montar o HTTP. Para respostas grandes, tente devolver páginas. Ao mudar o limite de bytes, confira tanto o backend e o gateway quanto o proxy.
+
+~~~ts filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineRpc } from '@spraxium/rpc';
+
+export default defineConfig({
+  plugins: [defineRpc({
+    token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+    permissions: ['guild:read'],
+    timeoutMs: 4000,
+    maxConcurrentCalls: 40,
+    rateLimit: { maxRequests: 75, windowMs: 60000 },
+    shutdownGraceMs: 7000,
+  })],
+});
+~~~
+
+## Dê tempo para desligar
+
+No desligamento, o gateway dá cinco segundos por padrão ao trabalho em andamento. Ajuste `shutdownGraceMs` junto com o prazo que seu deploy concede ao processo. Use `enabled: false` se um ambiente tiver de ficar com o gateway desligado. `singletonShard` escolhe o filho local para chamadas singleton e começa em zero. As chamadas de guild continuam no shard dono do servidor.
+
+## Escolha o transporte do cliente
+
+Faça uma instância de `createRpcClient` por serviço ou credencial. Para usar gRPC, passe `protocol: 'grpc'` sobre HTTP/2. Com Connect, o transporte padrão, é possível pedir `httpVersion: '1.1'` se a infraestrutura exigir. Você também pode definir prazo e sinal por chamada. Use `allowInsecure` apenas numa rede privada em que os operadores confiem. [Credenciais e TLS](./rpc-authentication) · [Cliente no backend](./rpc-backends)

@@ -1,0 +1,97 @@
+---
+title: "Make your first RPC call"
+description: "Connect a running Spraxium bot to a second Node.js process."
+order: 2
+category: "@spraxium/rpc"
+---
+
+Keep a terminal for the bot and another for the caller. Start with a bot you already know how to run. The first method only reports that the bot finished starting, which makes it easier to sort out connection problems before working with Discord data.
+
+In the bot project, use framework packages starting at 0.10.0 and keep them on the same release in the 0.10 series. Add the adapter there.
+
+~~~sh
+pnpm add @spraxium/rpc@0.10.0
+~~~
+
+Install the client in the separate project that will call the bot. That can be a backend or a dedicated script.
+
+~~~sh
+pnpm add @spraxium/rpc-client@0.10.0
+~~~
+
+## Give the two processes a service credential
+
+Generate a token and make the output available as `SPRAXIUM_RPC_TOKEN` to both processes. For local work, use your shell or an ignored `.env` that your start command actually loads. In a deployment, use its secret store. This credential allows the caller to use the bot methods you grant to it.
+
+~~~sh
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+~~~
+
+Open the bot's `spraxium.config.ts` and add the RPC entry to `plugins`. Keep other entries already in that array. With the default address, the gateway listens on `127.0.0.1:4300`. Plain HTTP is suitable for this test with both processes on one machine.
+
+~~~ts
+import { defineConfig } from '@spraxium/core';
+import { defineRpc } from '@spraxium/rpc';
+
+export default defineConfig({
+  plugins: [
+    defineRpc({
+      token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+      permissions: ['bot:read'],
+    }),
+  ],
+});
+~~~
+
+## Give the caller a method name
+
+Open the module passed to `app.useModule(AppModule)`. Add `RpcModule` to its imports and register the health provider. `@RpcHandler` names the method `bot.health` and binds it to the `bot:read` permission. Singleton routing sends this check to one process when sharding is active.
+
+~~~ts
+import { Module } from '@spraxium/common';
+import { RpcHandler, RpcModule } from '@spraxium/rpc';
+
+class HealthService {
+  @RpcHandler('bot.health', { routing: 'singleton', permissions: ['bot:read'] })
+  health() {
+    return { ready: true };
+  }
+}
+
+@Module({ imports: [RpcModule], providers: [HealthService] })
+export class AppModule {}
+~~~
+
+Start the bot with your normal command and wait for the gateway's listening message. It opens after the providers finish starting. Waiting for that message helps distinguish a slow startup from a wrong port.
+
+## Run the caller
+
+Put this in `check-bot.ts` and use your backend's usual TypeScript build or runner. The `BotRpc` type gives your editor the method name, input, and output. This method takes `null` because it has no input fields.
+
+~~~ts
+import { createRpcClient } from '@spraxium/rpc-client';
+
+type BotRpc = {
+  'bot.health': { input: null; output: { ready: boolean } };
+};
+
+const rpc = createRpcClient<BotRpc>({
+  url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+  token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+});
+
+try {
+  const status = await rpc.call('bot.health', null, { timeoutMs: 3_000 });
+  console.log(status.ready);
+} finally {
+  rpc.close();
+}
+~~~
+
+When the script prints `true`, the client reached the gateway, the gateway accepted the credential, and the handler ran. Here the client closes in `finally`. Inside a backend, create it during startup, reuse it across requests, and close it during shutdown. Set up TLS before calling a bot on another machine. [Credentials and TLS](./rpc-authentication) · [Use the client from a web route](./rpc-backends)
+
+## Know which file the process reads
+
+The token must already be available when the configuration is imported. If both projects have their own `.env`, put the same RPC credential in both and make sure both start commands load their respective files. Start the bot with its normal configuration loader and the caller with your TypeScript toolchain. For a one-off test, compiling the script and starting Node with `--env-file=.env` is enough if it supports that option. A missing or short token is an error at startup, so fix the environment before changing the handler.
+
+Try opening a second terminal and stopping the bot after a successful reply. The caller should now report a connection or availability problem. Start the bot again and it should recover on the next explicit call. That simple check is worth keeping around. Later, if a guild call stops working but `bot.health` still returns `true`, you can narrow your search to that method, its permissions or the shard routing.

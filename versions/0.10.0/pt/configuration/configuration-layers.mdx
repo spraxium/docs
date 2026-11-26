@@ -1,0 +1,150 @@
+---
+title: Visão geral da configuração
+description: |
+  spraxium.config.ts é o arquivo único que governa todo o comportamento de runtime em um projeto Spraxium.
+  Entenda como defineConfig funciona, quando usar a forma com callback e como o framework carrega sua configuração na inicialização.
+order: 1
+category: Configuration
+keywords:
+  - spraxium configuration layers
+  - visão geral da configuração no spraxium
+  - configuration configuration layers guia
+  - configuration layers bot discord
+  - configuration layers typescript
+  - documentacao spraxium configuration
+  - visão geral da configuração configuration
+  - spraxium visão geral da configuração
+---
+
+## O arquivo de configuração
+
+Todo projeto Spraxium tem um arquivo `spraxium.config.ts` na raiz. Esse arquivo é a fonte única de verdade para todo o comportamento de runtime: quais plugins estão ativos, como os commands fazem match, como os erros são apresentados e como o watcher de desenvolvimento local se comporta. O framework lê esse arquivo uma vez na inicialização e armazena o resultado como um snapshot imutável antes que qualquer módulo comece a rodar.
+
+Você escreve esse arquivo usando o helper _defineConfig_ exportado por `@spraxium/core`. Ele aceita tanto um objeto simples quanto um callback que recebe um argumento _ConfigEnv_. As duas formas produzem uma config válida, mas a forma com callback é recomendada sempre que as opções precisarem variar entre ambientes, porque deixa todas as ramificações explícitas em um único lugar.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineSchedule } from '@spraxium/schedule';
+
+export default defineConfig((env) => ({
+  debug: env.isNeutral,
+  plugins: [
+    defineSchedule({ timezone: 'America/Sao_Paulo', disableAll: false }),
+  ],
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+  },
+}));
+```
+
+## Callback vs forma de objeto
+
+A forma com callback recebe um objeto _ConfigEnv_ construído a partir de uma única leitura de `NODE_ENV` na inicialização. Ele expõe _isDev_, _isNeutral_ e _isProd_ para que você possa ramificar por ambiente sem comparar strings cruas. A forma de objeto é adequada para projetos em que a configuração é idêntica em todos os ambientes.
+
+<CodeTabs>
+  <Tab label="Callback" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig((env) => ({
+  debug: env.isNeutral,
+  logger: {
+    maskTokens: true,
+    commandLogging: env.isDev
+  }
+}));
+```
+  </Tab>
+  <Tab label="Object" language="typescript">
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  debug: false,
+  logger: {
+    maskTokens: true
+  }
+});
+```
+  </Tab>
+</CodeTabs>
+
+As flags de _ConfigEnv_ são resolvidas a partir de `NODE_ENV` da seguinte forma.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>NODE_ENV</TableCell>
+      <TableCell header>Flag ativa</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*production*</TableCell>
+      <TableCell>*isProd = true*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*neutral*, *staging* ou *test*</TableCell>
+      <TableCell>*isNeutral = true*</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Qualquer outro valor</TableCell>
+      <TableCell>*isDev = true*</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Sequência de inicialização
+
+O framework conclui estas etapas antes que qualquer módulo da aplicação comece a rodar.
+
+<Steps>
+  <Step title="Descoberta do arquivo de config">
+    O framework examina a raiz do projeto em busca de `spraxium.config.ts`,
+    depois `spraxium.config.js` e então `spraxium.config.mjs`. Em modo de
+    produção, os artefatos compilados em `dist/` e `.spraxium/dist/` são
+    verificados primeiro. O primeiro arquivo encontrado em disco vence, e a
+    busca para imediatamente.
+  </Step>
+  <Step title="Resolução e avaliação do ambiente">
+    `NODE_ENV` é lido uma vez e mapeado para um objeto *ConfigEnv*. Se a sua
+    exportação for uma função, ela é chamada com esse objeto e seu valor de
+    retorno é usado. Se for um objeto simples, ele é usado diretamente. O
+    resultado é armazenado como um singleton imutável pelo restante da vida do
+    processo.
+  </Step>
+  <Step title="Inicialização de módulos e plugins">
+    O framework resolve módulos, providers e hooks de ciclo de vida. Cada
+    plugin lê sua própria fatia de configuração a partir do singleton usando
+    sua factory como chave de lookup. Depois desse ponto, não há novas leituras
+    do arquivo de configuração.
+  </Step>
+</Steps>
+
+<Callout tone="info" title="Não ter arquivo de config não é um erro">
+  Se nenhum arquivo de configuração for encontrado na inicialização, o
+  framework continua com todos os defaults aplicados e registra uma mensagem de
+  debug. Esse é o estado esperado durante o setup inicial do projeto, antes de
+  o arquivo de config ser criado.
+</Callout>
+
+## Uma responsabilidade por bloco
+
+Cada chave de topo no objeto de configuração pertence a um subsistema. As opções de plugin vivem dentro das respectivas factory calls. A política de match de command fica no bloco _prefix_. A renderização de exceções fica no bloco _exceptions_. Manter cada bloco focado significa que alterar uma área não cria efeitos colaterais em outra, e isolar um incidente durante uma indisponibilidade em produção continua sendo rápido.
+
+<FolderStructure title="Organização recomendada para projetos maiores">
+  <Folder name="config" open>
+    <File name="http.config.ts" comment="Factory call do plugin HTTP" />
+    <File name="i18n.config.ts" comment="Factory call do plugin de I18n" />
+    <File name="logger.config.ts" comment="Opções do logger" />
+  </Folder>
+  <File
+    name="spraxium.config.ts"
+    comment="Importa e compõe todos os fragmentos de configuração"
+  />
+</FolderStructure>
+
+## Próxima página
+
+[Campos principais](/guide/config-core-fields)

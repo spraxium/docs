@@ -1,0 +1,32 @@
+---
+title: "Descubre por qué falla una llamada"
+description: "Revisa la conexión, el acceso y el trabajo que ejecuta el bot."
+order: 10
+category: "@spraxium/rpc"
+---
+
+Si una ruta falla, prueba primero una llamada corta desde la máquina del gateway. `bot.health` sirve para ver la conexión sin depender de un servidor de Discord. Si falla, mira la dirección que imprime el bot al arrancar y compárala con la URL del cliente. Cuando funcione, vuelve a llamar con el método y el ID que usa la ruta web.
+
+## Comprueba si la llamada llega
+
+Una conexión rechazada suele apuntar al puerto, al host o a un proceso que todavía no arrancó. Si hay un proxy, revisa que acepte el transporte y que Node pueda verificar el certificado. Busca el ID de la llamada y la hora en los logs si el gateway lo devolvió. Para abrir un reporte, omite el token, los encabezados de autorización y los datos privados.
+
+`Unauthenticated` indica que el bot no aceptó la credencial que recibió. Revisa que ambos procesos hayan cargado su entorno. `PermissionDenied` suele indicar que falta un permiso o que el método queda cerrado. Un 403 del backend puede aparecer antes de hablar con el bot si la persona no puede consultar ese servidor.
+
+## Revisa el handler y el servidor
+
+Con `InvalidArgument`, comprueba el esquema y que `guildId` sea texto en la raíz de la entrada. Con `NotFound`, revisa el nombre del método, el registro del provider y el servidor que buscó el bot. Si solo fallan algunos servidores con sharding, compara los logs del proceso principal con los del hijo que los tiene.
+
+Si aparece un error de compatibilidad del framework, instala versiones compatibles de `@spraxium/common`, `@spraxium/core` y `@spraxium/logger` juntas. Revisa qué versiones resolvió el lockfile. El adaptador necesita los hooks del framework que preparan y cierran el gateway.
+
+## Cuando falta tiempo
+
+Si recibes `DeadlineExceeded`, mide cuánto tarda el handler en hablar con Discord, la base de datos y otros servicios. Reserva tiempo para que la ruta HTTP aún pueda responder. `ResourceExhausted` apunta al tamaño de los datos, a las llamadas simultáneas o al límite del token. Con `Unavailable`, comprueba si el bot o el shard está arrancando.
+
+Si se perdió la respuesta de una lectura, tu backend puede decidir si vale la pena repetirla. Si se perdió la respuesta de una escritura, consulta la clave de la operación para saber si el primer pedido ya se ejecutó. [Handlers y señales de cancelación](./rpc-handlers)
+
+## Compara la comprobación de salud con la ruta que falla
+
+Si `bot.health` responde, reproduce la operación del panel con su configuración de servicio y un servidor que controles. Busca el mismo horario o ID de petición en los registros del backend, el gateway y el bot. Un guard web puede denegar el acceso antes de la llamada. También es posible que el token tenga permiso para comprobar la salud pero no para leer servidores, o que el handler falle al consultar su propia base de datos.
+
+Si sucede al devolver más datos, revisa qué campos devuelve el bot y los límites de los dos procesos. Si ocurre con operaciones lentas, compara los tiempos de espera de la ruta, el SDK y el gateway. Un proxy puede terminar la petición HTTP cuando el bot aún trabaja. En una escritura, consulta el resultado anterior antes de ofrecer otro intento. [Ajustes del gateway](./rpc-configuration)

@@ -1,0 +1,150 @@
+---
+title: Watch de desarrollo y carga de configuración
+description: |
+  Configura el watcher de desarrollo local para reiniciar tu bot de forma predecible cuando cambien archivos.
+  Aprende los campos del bloque dev, los nombres de archivo de configuración admitidos y cómo se resuelven los entornos al iniciar.
+order: 6
+category: Configuration
+---
+
+## El bloque dev
+
+El bloque _dev_ controla el watcher de desarrollo local que reinicia el proceso de tu bot cuando cambian los archivos fuente. Todos los campos son opcionales. El entrypoint predeterminado es `src/main.ts` y el debounce predeterminado es de 300 milisegundos; la mayoría de proyectos solo necesitan ajustar _debounce_ para evitar tormentas de reinicios durante guardados rápidos.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  dev: {
+    entrypoint: 'src/main.ts',
+    debounce: 500,
+    include: ['locales'],
+    exclude: ['.spraxium/**', 'dist/**'],
+  },
+});
+```
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Predeterminado</TableCell>
+      <TableCell header>Finalidad</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*entrypoint*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>src/main.ts</TableCell>
+      <TableCell>
+        Archivo que ejecuta el watcher al reiniciar el proceso.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*include*</TableCell>
+      <TableCell>string[]</TableCell>
+      <TableCell>[]</TableCell>
+      <TableCell>
+        Directorios adicionales que disparan reinicios al cambiar.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exclude*</TableCell>
+      <TableCell>string[]</TableCell>
+      <TableCell>[]</TableCell>
+      <TableCell>Patrones glob que se ignoran durante el file watching.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*debounce*</TableCell>
+      <TableCell>number</TableCell>
+      <TableCell>300</TableCell>
+      <TableCell>
+        Milisegundos a esperar tras un cambio antes de disparar un reinicio.
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<Callout tone="warning" title="Excluye directorios generados">
+  Agrega siempre .spraxium/** y dist/** a la lista *exclude*. Estos
+  directorios cambian durante operaciones de build, y observarlos causa bucles
+  infinitos de reinicio que desestabilizan el proceso del watcher.
+</Callout>
+
+## Nombres de archivo de configuración admitidos
+
+El framework busca tu archivo de configuración usando el siguiente orden de prioridad. En modo producción, primero se comprueba la salida compilada; en todos los demás modos, el código fuente TypeScript tiene prioridad.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Prioridad</TableCell>
+      <TableCell header>Ruta</TableCell>
+      <TableCell header>Modo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>1</TableCell>
+      <TableCell>.spraxium/dist/spraxium.config.js</TableCell>
+      <TableCell>Solo producción</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>2</TableCell>
+      <TableCell>dist/spraxium.config.js</TableCell>
+      <TableCell>Solo producción</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>3</TableCell>
+      <TableCell>spraxium.config.ts</TableCell>
+      <TableCell>Todos los modos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>4</TableCell>
+      <TableCell>spraxium.config.js</TableCell>
+      <TableCell>Todos los modos</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>5</TableCell>
+      <TableCell>spraxium.config.mjs</TableCell>
+      <TableCell>Todos los modos</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Resolución del entorno
+
+`NODE_ENV` se lee una sola vez durante el inicio y se mapea a un objeto _ConfigEnv_. Este valor nunca cambia después de cargar la configuración, por lo que toda bifurcación basada en entorno debe ocurrir dentro de tu callback de _defineConfig_.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>NODE_ENV</TableCell>
+      <TableCell header>Modo</TableCell>
+      <TableCell header>Flags activas</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>production</TableCell>
+      <TableCell>production</TableCell>
+      <TableCell>isProd = true</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>neutral, staging, test</TableCell>
+      <TableCell>neutral</TableCell>
+      <TableCell>isNeutral = true</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>Cualquier otro valor</TableCell>
+      <TableCell>development</TableCell>
+      <TableCell>isDev = true</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Siguiente página
+
+[Visión general de componentes](/components-overview)

@@ -1,0 +1,216 @@
+---
+title: Argumentos y Parsing
+description: |
+  El parser de prefijos tokeniza mensajes y coerciona argumentos a 14 salidas tipadas.
+  Aprende cada tipo de @PrefixArg, sus opciones de validación y cómo funciona el pipeline de parsing.
+order: 3
+category: Prefix Commands
+---
+
+## Cómo la entrada del mensaje se convierte en argv
+
+Después de detectar el prefijo, el parser elimina el prefijo coincidente y tokeniza el texto restante. El primer token se convierte en el nombre del comando y todo lo que sigue se convierte en el arreglo argv. La tokenización soporta strings entre comillas dobles, por lo que `"hello world"` se trata como un único token en lugar de dos. Esto permite que los usuarios pasen argumentos de varias palabras sin usar escapes.
+
+El tokenizador divide por espacios en blanco por defecto. Cuando encuentra una comilla doble de apertura, recopila todos los caracteres hasta la comilla de cierre y los emite como un solo token. Si falta la comilla de cierre, el resto de la entrada se convierte en el token actual. Este comportamiento es intencional y evita desalineaciones silenciosas de argumentos.
+
+Para comandos con subcomandos, el primer token de argv se compara con los nombres de subcomandos registrados antes de que empiece el parsing de argumentos. Si coincide con un subcomando, el framework desplaza el arreglo argv y usa el esquema de argumentos específico de ese subcomando en lugar del esquema raíz. Esto significa que el parser resuelve el enrutamiento antes de resolver argumentos.
+
+## Decoradores de método @PrefixArg
+
+El namespace _@PrefixArg_ proporciona 14 decoradores de método tipados que se apilan sobre un método _build_ (para comandos simples) o sobre métodos _@PrefixSubcommand_ (para comandos con subcomandos). Cada decorador declara un argumento posicional con su nombre, tipo y reglas de validación opcionales. Los decoradores se apilan de arriba hacia abajo para determinar el orden posicional.
+
+<CodeTabs>
+  <Tab label="Simple Command" language="typescript">
+```typescript filename="src/modules/fun/commands/roll.command.ts"
+import { PrefixArg, PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'roll', cooldown: 3 })
+export class RollCommand {
+  @PrefixArg.Integer('sides', { required: false, min: 2, max: 1000 })
+  @PrefixArg.Integer('count', { required: false, min: 1, max: 25 })
+  build() {}
+}
+
+````
+  </Tab>
+  <Tab label="Subcommand" language="typescript">
+```typescript filename="src/modules/moderation/commands/mod.command.ts"
+import { PrefixArg, PrefixCommand, PrefixSubcommand } from '@spraxium/common';
+
+@PrefixCommand({ name: 'mod' })
+export class ModCommand {
+  @PrefixSubcommand({ name: 'ban', description: 'Ban a user' })
+  @PrefixArg.User('target')
+  @PrefixArg.Rest('reason', { required: false })
+  ban() {}
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## Tipos de argumentos soportados
+
+El framework ofrece 14 tipos de argumentos que cubren los patrones de entrada más comunes en bots de Discord. Cada tipo tiene su propio parser que convierte el token de texto sin procesar en una salida tipada. Si la conversión falla, el parser lanza una _ArgumentException_ con un mensaje de error descriptivo.
+
+<DropdownGroup>
+  <Dropdown title="PrefixArg.String">
+    Pasa el token sin procesar como `string` sin coerción. Acepta restricciones de *minLength* y *maxLength* para limitar la cantidad de caracteres. Úsalo para campos de texto libre, etiquetas o cualquier entrada que no necesite conversión numérica o específica de Discord.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Integer">
+    Parsea el token con `parseInt` y devuelve un `number`. Acepta restricciones de *min* y *max* para acotar el entero parseado. Lanza una *ArgumentException* si el token no puede parsearse como número entero.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Number">
+    Parsea el token con `parseFloat` y devuelve un `number`. Acepta restricciones de *min* y *max* para comprobación de límites. Úsalo en lugar de *PrefixArg.Integer* cuando valores decimales como `3.14` sean válidos.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Boolean">
+    Convierte tokens verdaderos (`true`, `yes`, `1`) a `true` y tokens falsos (`false`, `no`, `0`) a `false`. Lanza una *ArgumentException* para cualquier token que no coincida con ninguno de los dos conjuntos. Es útil para flags tipo toggle en comandos de moderación o configuración.
+  </Dropdown>
+  <Dropdown title="PrefixArg.User">
+    Acepta una mención de usuario como `<@123456>` o un ID snowflake en bruto y devuelve el ID `string` extraído. El parser elimina automáticamente el formato de mención. Úsalo cuando necesites el ID de usuario para buscar o apuntar a un miembro.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Channel">
+    Acepta una mención de canal como `<#456789>` o un ID snowflake en bruto y devuelve el ID `string`. El parser elimina el formato de mención. Úsalo para comandos que aceptan un canal objetivo como entrada.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Role">
+    Acepta una mención de rol como `<@&789012>` o un ID snowflake en bruto y devuelve el ID `string`. El parser elimina el formato de mención. Úsalo para comandos que asignan o verifican roles.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Member">
+    Se comporta igual que *PrefixArg.User*: acepta una mención de usuario o snowflake y devuelve el ID `string`. La diferencia es semántica: indica a quien lee que esperas un miembro del servidor en lugar de cualquier usuario.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Snowflake">
+    Valida que el token sea una cadena numérica de 17 a 20 dígitos y la devuelve como `string`. A diferencia de *PrefixArg.User*, este tipo rechaza formato de mención y solo acepta IDs snowflake en bruto. Úsalo para comandos administrativos que apuntan a entidades arbitrarias de Discord por ID bruto.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Url">
+    Valida el token con `new URL()` y lo devuelve como `string` si el parsing tiene éxito. Lanza una *ArgumentException* para cualquier entrada que no sea una URL válida. Úsalo para comandos que aceptan enlaces de imagen, URLs de webhook o cualquier dirección web.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Duration">
+    Parsea strings de duración como `5m`, `1h30m` o `2d` a un `number` de milisegundos. Las unidades soportadas son `ms`, `s`, `m`, `h`, `d` y `w`. Lanza una *ArgumentException* si el token no puede interpretarse como una expresión de duración válida.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Color">
+    Acepta strings de color hex como `#FF0000` o `FF0000` y devuelve una representación entera (`number`). Lanza una *ArgumentException* para entradas que no sean un color hex válido de 6 dígitos. Úsalo para campos de color de embeds o setters de color de roles.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Emoji">
+    Parsea un emoji personalizado de Discord como `<:name:id>` o un emoji unicode estándar y devuelve un objeto `ParsedEmoji` con campos `name`, `id` y `animated`. El campo `id` es `null` para emojis unicode. Úsalo para gestión de reacciones o comandos de configuración basados en emojis.
+  </Dropdown>
+  <Dropdown title="PrefixArg.Rest">
+    Recopila todos los tokens restantes después de la posición del argumento anterior y los une en un único `string`. Esto es útil para campos de texto libre como razones de baneo o contenido de mensajes donde la entrada puede abarcar varias palabras. Solo puede aparecer un *PrefixArg.Rest* por esquema y debe ser el último argumento declarado.
+  </Dropdown>
+</DropdownGroup>
+
+## Opciones de validación
+
+Cada decorador _@PrefixArg_ acepta un objeto opcional de configuración con reglas de validación. Estas reglas se aplican durante la fase de parsing antes de que el handler reciba el valor. Si falla cualquier validación, el parser lanza una _ArgumentException_ que incluye el nombre del argumento, la restricción esperada y la entrada recibida.
+
+<DropdownGroup>
+  <Dropdown title="required (boolean, default true)">
+    Cuando es `true`, el parser lanza una *ArgumentException* si falta el token
+    del argumento o está vacío. Cuando es `false`, un token ausente resulta en
+    `undefined` inyectado y se omite toda validación posterior. Marcar un
+    argumento como opcional es útil para campos como texto de razón o
+    modificadores de cantidad que tienen valores por defecto razonables en el
+    handler.
+  </Dropdown>
+  <Dropdown title="min / max (number)">
+    Límites numéricos aplicados a valores *Integer* y *Number* después de la
+    coerción. Si el número parseado queda por debajo de *min* o por encima de
+    *max*, el parser lanza una *ArgumentException* con la restricción y el valor
+    recibido. Estas opciones no aplican a tipos string ni a tipos de entidad de
+    Discord.
+  </Dropdown>
+  <Dropdown title="minLength / maxLength (number)">
+    Límites de longitud de caracteres aplicados a valores *String* y *Rest*.
+    La comprobación se ejecuta sobre el token sin procesar antes de cualquier
+    procesamiento adicional. Usa *maxLength* para protegerte frente a entradas
+    inesperadamente largas en campos de texto libre.
+  </Dropdown>
+  <Dropdown title="choices (string[])">
+    Una lista permitida de valores de entrada sin procesar válidos. El parser
+    compara el token sin procesar con este arreglo antes de la coerción y lanza
+    una *ArgumentException* si el token no está incluido. Es útil para
+    argumentos tipo enum como nombres de estado, tipos de acción o selectores
+    de modo.
+  </Dropdown>
+  <Dropdown title="validation.pattern (RegExp)">
+    Una expresión regular que el token sin procesar debe cumplir antes de
+    cualquier otro procesamiento. La comprobación se ejecuta sobre el string en
+    bruto, por lo que puede validar restricciones de formato como prefijos,
+    patrones o estructuras específicas que los parsers de tipo integrados no
+    aplican. Si la regex no coincide, se lanza una *ArgumentException*.
+  </Dropdown>
+  <Dropdown title="validation.validate (function)">
+    Una función personalizada que recibe el token sin procesar y devuelve `true`
+    para aprobar o un string de error para fallar. El string de error se incluye
+    en el mensaje de *ArgumentException* para que los usuarios vean tu feedback
+    personalizado. Úsalo para reglas de dominio específicas que no pueden
+    expresarse con una regex ni con las demás opciones de restricción.
+  </Dropdown>
+</DropdownGroup>
+
+## Orden del pipeline de validación
+
+El parser de argumentos aplica validaciones en un orden específico para cada argumento. Entender este orden te ayuda a diseñar esquemas que produzcan mensajes de error claros, porque la primera comprobación que falla es la que verá el usuario. El pipeline hace short-circuit en el primer fallo, así que las comprobaciones posteriores solo se ejecutan si todas las anteriores pasan.
+
+<Steps>
+  <Step title="Comprobación de presencia">
+    Si el argumento es requerido y el token sin procesar falta o está vacío, el
+    parser lanza una *ArgumentException* inmediatamente. Los argumentos
+    opcionales con tokens ausentes reciben `undefined` y omiten todas las
+    comprobaciones restantes. Esta es la primera puerta que evita que valores
+    vacíos lleguen a los parsers específicos de tipo.
+  </Step>
+  <Step title="Validación personalizada">
+    Si se define una regex *validation.pattern*, la entrada sin procesar debe
+    coincidir con ella. Si se define una función *validation.validate*, recibe
+    la entrada sin procesar y debe devolver `true` o un string de error. Ambas
+    comprobaciones se ejecutan sobre el texto en bruto antes de cualquier
+    coerción de tipo, por lo que puedes validar restricciones de formato de
+    forma independiente del parsing de tipo.
+  </Step>
+  <Step title="Comprobación de choices">
+    Si se define un arreglo *choices*, la entrada sin procesar debe coincidir
+    exactamente con uno de los valores permitidos. Esto actúa como una
+    restricción tipo enum y es útil para valores de argumentos que deben provenir
+    de un conjunto fijo como nombres de estado, tipos de acción o selecciones de
+    modo.
+  </Step>
+  <Step title="Coerción de tipo y límites">
+    El parser convierte el token sin procesar al tipo objetivo usando el parser
+    específico de ese tipo. Para tipos numéricos, las comprobaciones de límites
+    (*min*, *max*) se ejecutan después de una coerción exitosa. Para tipos
+    string, se aplican las comprobaciones de longitud (*minLength*,
+    *maxLength*). Si falla la coerción o los límites, el parser lanza una
+    *ArgumentException*.
+  </Step>
+</Steps>
+
+## Decorador de parámetro @PrefixArg
+
+En la clase handler, la función _@PrefixArg_ (sin el namespace) es un decorador de parámetro que inyecta un valor de argumento parseado por nombre. El nombre debe coincidir con un argumento declarado en el esquema del comando. El decorador _@Ctx_ inyecta el objeto _Message_ sin procesar. Juntos, permiten que el handler reciba parámetros completamente tipados sin parsing manual.
+
+```typescript filename="src/modules/fun/handlers/roll-command.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { RollCommand } from '../commands/roll.command';
+
+@PrefixCommandHandler(RollCommand)
+export class RollHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('sides') sides: number | undefined,
+    @PrefixArg('count') count: number | undefined,
+  ): Promise<void> {
+    const faces = sides ?? 6;
+    const rolls = count ?? 1;
+    const results = Array.from(
+      { length: rolls },
+      () => Math.floor(Math.random() * faces) + 1,
+    );
+    await message.reply(`Rolled ${rolls}d${faces}: [${results.join(', ')}]`);
+  }
+}
+```
+
+## Siguiente página
+
+[Ejecución y Prefijos por Guild](/prefix-commands-execution-guild-prefixes)

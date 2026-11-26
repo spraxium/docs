@@ -1,0 +1,171 @@
+---
+title: Campos principais
+description: |
+  Uma referência para todos os campos de topo disponíveis em spraxium.config.ts.
+  Entenda a finalidade, o valor padrão e o escopo esperado de cada campo antes de configurá-lo.
+order: 2
+category: Configuration
+keywords:
+  - spraxium config core fields
+  - campos principais no spraxium
+  - configuration config core fields guia
+  - config core fields bot discord
+  - config core fields typescript
+  - documentacao spraxium configuration
+  - campos principais configuration
+  - spraxium campos principais
+---
+
+## Referência do tipo raiz
+
+O objeto passado para _defineConfig_ precisa satisfazer _SpraxiumCoreConfig_. Todo campo é opcional; quando omitido, o framework aplica um valor padrão sensato. A tabela abaixo cobre todas as chaves de topo.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Padrão</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*debug*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>*false*</TableCell>
+      <TableCell>
+        Aumenta a verbosidade de diagnóstico em todos os subsistemas.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*logger*</TableCell>
+      <TableCell>*SpraxiumLoggerConfig*</TableCell>
+      <TableCell>Defaults embutidos</TableCell>
+      <TableCell>
+        Controla a saída de logs, mascaramento de tokens, rastreamento de
+        commands e transporte para o Discord.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*plugins*</TableCell>
+      <TableCell>*SpraxiumPlugin[]*</TableCell>
+      <TableCell>Lista vazia</TableCell>
+      <TableCell>
+        Entradas tipadas produzidas por helpers de factory, como *defineRpc* e
+        *defineSchedule*.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*prefix*</TableCell>
+      <TableCell>*PrefixConfig*</TableCell>
+      <TableCell>Sem prefix commands</TableCell>
+      <TableCell>
+        Define o caractere de prefix, a política de cooldown e o comportamento
+        de menção.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exceptions*</TableCell>
+      <TableCell>*ExceptionOptions*</TableCell>
+      <TableCell>Layout padrão do framework</TableCell>
+      <TableCell>
+        Mapeia classes de exceção para layouts de resposta e controla o logging
+        de erros.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*dev*</TableCell>
+      <TableCell>*SpraxiumDevConfig*</TableCell>
+      <TableCell>Defaults sensatos para watch</TableCell>
+      <TableCell>
+        Configura o entrypoint do watcher de desenvolvimento local, o debounce e
+        os padrões de arquivo.
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## debug
+
+A flag _debug_ habilita saída extra de diagnóstico em todos os subsistemas. Quando está ativa, o framework emite linhas adicionais de rastreamento durante o carregamento de módulos, a resolução de providers, o registro de commands e o despacho de interações. Essa saída é voltada para troubleshooting e não deve permanecer ativa em implantações de produção com alto volume.
+
+A flag aceita um boolean simples ou qualquer expressão _ConfigEnv_, então você pode limitar a verbosidade a um ambiente específico.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Valor</TableCell>
+      <TableCell header>Quando fica ativo</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*false*</TableCell>
+      <TableCell>
+        Sempre desativado. Esse é o padrão quando o campo é omitido.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*true*</TableCell>
+      <TableCell>
+        Sempre ativado, independentemente do ambiente. Use apenas em ambientes
+        de teste isolados.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*env.isDev*</TableCell>
+      <TableCell>
+        Ativo no desenvolvimento local. Qualquer valor de NODE_ENV diferente de
+        production, neutral, staging ou test.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*env.isNeutral*</TableCell>
+      <TableCell>
+        Ativo em staging e CI. NODE_ENV definido como neutral, staging ou test.
+        É a base recomendada para a maioria dos projetos.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*env.isProd*</TableCell>
+      <TableCell>
+        Ativo somente em produção. Use de forma deliberada e temporária ao
+        diagnosticar um problema em ambiente real.
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## logger
+
+O bloco _logger_ controla a política de saída do logger embutido. Ele não afeta a lógica de negócio. As opções configuradas com mais frequência são _maskTokens_ , que substitui strings parecidas com token por um placeholder seguro, _commandLogging_, que emite uma linha de rastreamento a cada despacho de command, e _discord_, que envia níveis selecionados de log para um canal de webhook.
+
+```typescript filename="config/logger.config.ts"
+import type { SpraxiumLoggerConfig } from '@spraxium/logger';
+
+export const loggerConfig: SpraxiumLoggerConfig = {
+  maskTokens: true,
+  commandLogging: true,
+  discord: {
+    type: 'channel',
+    webhookUrl: process.env.LOGGER_WEBHOOK!,
+    levels: ['error', 'warn'],
+    channelId: '1462519588775395429',
+  },
+};
+```
+
+## plugins
+
+O array _plugins_ reúne as entradas retornadas pelas factories de plugin. Cada entrada carrega uma string _namespace_ e uma carga de configuração tipada; o framework usa o namespace para encaminhar a config ao plugin correto em runtime. As factories de plugin e as opções de primeira parte são abordadas na página de Registro de plugins.
+
+## dev
+
+O bloco _dev_ tem uma página de referência dedicada mais adiante nesta categoria, cobrindo todos os campos do watcher, os nomes de arquivo de configuração aceitos e como os ambientes são resolvidos na inicialização.
+
+O bloco _prefix_ está totalmente documentado na categoria Prefix Commands. O bloco _exceptions_ está totalmente documentado na categoria Exceptions.
+
+## Próxima página
+
+[Registro de plugins](/guide/config-plugins)

@@ -1,0 +1,32 @@
+---
+title: "Como o RPC encontra o shard certo"
+description: "Use o mesmo endereço para o backend quando o bot roda em vários processos."
+order: 5
+category: "@spraxium/rpc"
+---
+
+Imagine um bot com dois shards. O servidor que uma pessoa acabou de abrir no painel está no shard 1. Se o backend tentasse pedir os dados ao shard 0, o bot poderia responder que não conhece aquele servidor. O backend manda o ID para o gateway e o processo principal usa a divisão de shards do Discord.js para achar o dono.
+
+No bot sem sharding, o próprio processo abre o gateway. No sharding nativo do Spraxium, o processo principal abre uma porta e os filhos recebem chamadas por um canal local entre processos. O SDK usa a URL do processo principal nos dois casos. Assim, a rota do painel continua funcionando quando o bot passa de um processo para vários.
+
+## Escolha a rota de acordo com o trabalho
+
+Para ler membros ou moderar um servidor, registre o método com `routing: 'guild'` e mantenha `guildId` na raiz dos dados. O gateway escolhe o shard antes de rodar o handler. O ID é só uma indicação de destino. A rota web ainda confere o acesso do usuário e o handler respeita as permissões do bot.
+
+~~~ts
+const stats = await rpc.call('guild.stats', { guildId }, { timeoutMs: 3_000 });
+~~~
+
+Com `routing: 'singleton'`, a chamada sempre vai para um shard definido na configuração. O padrão é o shard zero. Uma checagem de saúde ou um trabalho que precisa rodar uma vez cabe nesse formato. Ajuste `singletonShard` se o seu bot já tem um shard local responsável por esse trabalho.
+
+## Durante um reinício
+
+Os shards anunciam quais métodos conseguem atender. O processo principal usa essa lista para confirmar que está falando com o mesmo código e espera pelo shard pronto. Quando um shard está reiniciando, uma chamada pode receber `Unavailable`. O painel pode mostrar que o bot está temporariamente ocupado. Antes de repetir uma escrita, verifique se a ação anterior já chegou ao Discord.
+
+No desligamento, o gateway para de aceitar novos pedidos e dá tempo para os que começaram. O handler pode usar `context.signal` para encerrar trabalho que aceite cancelamento nesse prazo. O canal funciona entre o pai e os filhos locais. Se o seu deploy distribui grupos de shards por máquinas, o backend precisa de uma forma de achar o gateway do grupo certo. [Prazos, erros e cancelamento](./rpc-troubleshooting)
+
+## Teste com mais de uma guild
+
+Num painel de tickets, envie no corpo o ID do servidor que é dono do ticket, mesmo quando a tela veio de um link de canal. Mantenha esse ID como string e deixe a escolha do shard para o gateway. Um método singleton pode confirmar que o gateway e seu shard padrão estão vivos. Antes de colocar o painel no ar, tente o método de guild com dois servidores em shards diferentes para verificar também a parte que encaminha a chamada.
+
+O canal entre processos atende os filhos do mesmo gerenciador nativo do Spraxium. Se você distribui grupos de shards em máquinas diferentes, o deploy precisa guardar quem recebe qual grupo e encaminhar cada chamada ao gateway apropriado. Durante a troca de versão, `Unavailable` é uma boa pista para olhar se o filho já iniciou e se todos anunciaram a mesma lista de métodos. No caso de uma ação de moderação, verifique o estado no Discord antes de repetir uma chamada que perdeu a resposta.

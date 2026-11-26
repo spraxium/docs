@@ -1,0 +1,38 @@
+---
+title: "Configura el gateway RPC"
+description: "Elige la dirección y los límites, y da a cada servicio los permisos que necesita."
+order: 9
+category: "@spraxium/rpc"
+---
+
+## Empieza con los valores locales
+
+En tu equipo el gateway escucha en 127.0.0.1:4300. El navegador sigue hablando con el backend del panel. Solo el cliente que corre en el servidor necesita conocer la dirección. Cambia el host o el puerto en `defineRpc` cuando sea necesario. Una escucha fuera de loopback requiere TLS o un proxy de confianza que termine TLS.
+
+## Define un plazo para la llamada
+
+Por defecto el cliente y el gateway admiten 1 MiB por mensaje y esperan hasta 10 segundos. El gateway admite 100 llamadas al mismo tiempo y 120 peticiones por credencial cada 60 segundos. Si el panel promete responder en cinco segundos, da menos tiempo al cliente para que la ruta pueda preparar el HTTP. Para respuestas grandes, empieza por paginar. Si cambias el tamaño máximo, revisa ambos extremos y el proxy.
+
+~~~ts filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineRpc } from '@spraxium/rpc';
+
+export default defineConfig({
+  plugins: [defineRpc({
+    token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+    permissions: ['guild:read'],
+    timeoutMs: 4000,
+    maxConcurrentCalls: 40,
+    rateLimit: { maxRequests: 75, windowMs: 60000 },
+    shutdownGraceMs: 7000,
+  })],
+});
+~~~
+
+## Deja tiempo para apagar el proceso
+
+El gateway concede cinco segundos al trabajo en curso cuando se apaga. Ajusta `shutdownGraceMs` con el plazo que permite el despliegue. Usa `enabled: false` si el gateway debe quedar apagado en un entorno concreto. `singletonShard` elige el hijo local para métodos singleton y vale cero inicialmente. Las llamadas por servidor siguen llegando al dueño de esa guild.
+
+## Elige el transporte del cliente
+
+Reutiliza una instancia de `createRpcClient` por servicio o credencial. Usa `protocol: 'grpc'` con HTTP/2 para gRPC. Con Connect, el valor por defecto, puedes configurar `httpVersion: '1.1'` si tu infraestructura lo requiere. Cada llamada puede pasar su propio plazo y señal. `allowInsecure` se reserva para redes privadas de confianza. [Credenciales y TLS](./rpc-authentication) · [Cliente en el backend](./rpc-backends)

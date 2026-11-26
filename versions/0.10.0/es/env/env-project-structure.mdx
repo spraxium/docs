@@ -1,0 +1,87 @@
+---
+title: "Organiza los validadores de entorno"
+description: "Agrupa los validadores en env/, reutiliza un esquema base e inyecta el entorno validado en el bot."
+order: 4
+category: "Environment"
+---
+
+## Agrupa las variables de cada parte del bot
+
+Un bot pequeño puede reunir todas las variables en `app.env.ts`. Cuando aparecen una base de datos, los informes y varios entornos, cuesta menos encontrar cada dato si los validadores viven juntos por función. Coloca las clases en `src/env/validators/` y deja que `AppEnv` reúna lo que usa ese proceso. Spraxium sigue la herencia de la clase que pasas a `EnvValidator.validate`. Los archivos de la carpeta no se registran por sí solos.
+
+~~~text
+src/
+  env/
+    validators/database.env.ts
+    app.env.ts
+  app.module.ts
+  main.ts
+~~~
+
+En este ejemplo, `DatabaseEnv` añade la conexión de MongoDB a los campos de Discord de `SpraxiumBaseEnv`. `AppEnv` amplía esa clase con una opción de informes. Si un worker solo necesita el banco, crea un esquema para ese proceso sin heredar el token de Discord. Puede reutilizar los decoradores. TypeScript admite un solo padre por clase, por lo que una cadena corta suele ser más fácil de mantener.
+
+~~~ts filename="src/env/validators/database.env.ts"
+import { Env, EnvSchema, IsMongoUri, Secret, SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class DatabaseEnv extends SpraxiumBaseEnv {
+  @Env('MONGO_URI')
+  @Secret()
+  @IsMongoUri()
+  mongoUri!: string;
+}
+~~~
+
+~~~ts filename="src/env/app.env.ts"
+import { Env, EnvSchema, IsBoolean } from '@spraxium/env';
+import { DatabaseEnv } from './validators/database.env';
+
+@EnvSchema()
+export class AppEnv extends DatabaseEnv {
+  @Env('ENABLE_REPORTS', { default: 'false', secret: false })
+  @IsBoolean()
+  enableReports!: boolean;
+}
+~~~
+
+## Valida una vez e inyecta el resultado
+
+Lee el entorno antes de conectar el bot a Discord y registra el valor con `AppEnv` como token. Los servicios reciben esa instancia y usan `mongoUri` ya validado, sin volver a leer `process.env` en cada operación. Si cambias las variables de un despliegue, reinicia el proceso. En desarrollo, el validador puede esperar a que arregles el archivo. En los demás entornos, una variable inválida detiene el arranque.
+
+~~~ts filename="src/main.ts"
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './env/app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const env = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: env.token });
+  app.useModule(AppModule);
+  app.provide(AppEnv, env);
+  app.intents(IntentPreset.Standard);
+  await app.listen();
+}
+
+void main();
+~~~
+
+~~~ts filename="src/modules/database/database.settings.ts"
+import { Inject, Injectable } from '@spraxium/common';
+import { AppEnv } from '../../env/app.env';
+
+@Injectable()
+export class DatabaseSettings {
+  constructor(@Inject(AppEnv) private readonly env: AppEnv) {}
+
+  get connectionUri(): string {
+    return this.env.mongoUri;
+  }
+}
+~~~
+
+Registra DatabaseSettings en los providers del módulo que abre la base de datos. Exporta el provider cuando otro módulo necesite esos datos de conexión.
+
+## Mantén los valores separados del esquema
+
+Deja `.env` y `.env.local` fuera de Git y guarda un `.env.example` con los nombres y los valores de ejemplo. El validador carga el primer archivo disponible, primero `.env.local` y luego `.env`. Al arrancar conserva las variables que ya existen en el proceso. La ubicación de las clases no cambia esa búsqueda. Un script independiente puede cargar otro archivo con `loadEnv({ path })`. En pruebas, `silent: true` omite la tabla de éxito y mantiene el manejo habitual de errores.

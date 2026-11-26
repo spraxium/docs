@@ -1,0 +1,59 @@
+---
+title: "Credenciais e conexão segura"
+description: "Dê a cada backend o acesso que ele precisa e saiba onde verificar o usuário."
+order: 3
+category: "@spraxium/rpc"
+---
+
+O token RPC identifica um serviço, como o backend do painel. Quem entrou no painel tem uma identidade diferente. Quando uma pessoa abre `/guilds/:guildId`, é a rota web que pode conferir a sessão dela e o acesso àquele servidor. O gateway usa o token do backend para decidir se o serviço pode chamar o método. Se o método altera algo no Discord, o bot também precisa conferir suas permissões e a hierarquia de cargos.
+
+Quando o método tem `permissions: ['guild:read']`, o token precisa ter `guild:read`. Se ele pede vários nomes, a credencial precisa ter todos. O gateway rejeita uma declaração sem permissões quando `allowAuthenticated` não está habilitado. Use `allowAuthenticated: true` para um método que todos os seus serviços autenticados podem chamar, como uma checagem interna de disponibilidade.
+
+## Um token por serviço
+
+Para um backend só, `token` com `permissions` costuma ser suficiente. Quando entrar um segundo serviço, use `auth.tokens` para dar a cada um seu segredo, um ID próprio e as permissões que usa. Assim você consegue trocar a credencial do worker sem mexer no painel. Escolha esse formato inteiro na configuração do gateway. Ele substitui os campos curtos.
+
+~~~ts
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  auth: {
+    tokens: [
+      { id: 'dashboard', value: process.env.DASHBOARD_RPC_TOKEN ?? '', permissions: ['guild:read'] },
+      { id: 'worker', value: process.env.WORKER_RPC_TOKEN ?? '', permissions: ['bot:read'] },
+    ],
+  },
+});
+~~~
+
+Para fazer a troca sem parar as chamadas, adicione a credencial nova com outro ID e as mesmas permissões. Depois do deploy do bot com as duas entradas, atualize o backend. Confirme que as chamadas estão passando com a nova credencial e remova a antiga numa próxima atualização. As duas entradas precisam ter valores diferentes.
+
+## Entre máquinas, use HTTPS
+
+O padrão em loopback serve quando os processos dividem a mesma máquina. Para aceitar conexões remotas, aponte o cliente para `https://` e forneça chave e certificado PEM ao gateway, ou termine TLS num proxy confiável. Use os caminhos da sua instalação no lugar dos caminhos do exemplo.
+
+~~~ts
+import { readFileSync } from 'node:fs';
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  host: '0.0.0.0',
+  port: 4300,
+  token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+  permissions: ['guild:read'],
+  tls: {
+    key: readFileSync('/etc/tls/rpc.key'),
+    cert: readFileSync('/etc/tls/rpc.crt'),
+  },
+});
+~~~
+
+Se o proxy termina TLS, use `tlsTerminationProxy: true` no gateway e restrinja o trecho em HTTP ao proxy. Deixe o backend falar HTTPS com a ponta pública. Para uma CA privada em Node.js, use `NODE_EXTRA_CA_CERTS` em vez de desabilitar a verificação do certificado.
+
+O gateway limita o tamanho da mensagem, o prazo, as chamadas concorrentes e a taxa por credencial. O firewall ou proxy controla quem chega à porta e protege conexões antes da autenticação. Guarde os tokens no servidor e trate os logs de forma que a autorização e os dados do usuário fiquem fora deles. [Rotas de backend e conexões](./rpc-backends)
+
+## Separe quem consulta de quem pode mudar algo
+
+Pense num worker que calcula relatórios e num painel que também troca cargos. Dê ao worker uma credencial que só tem `guild:read` e ao painel outra que inclua a permissão de escrita exigida pelo método. O backend confere a sessão e o acesso da pessoa à guild. O bot confere suas permissões e a hierarquia de cargos do Discord antes de tentar a ação. Você pode testar a divisão tentando chamar um método de escrita com a credencial do relatório e conferindo se a chamada recebe `PermissionDenied`.
+
+Cada token precisa ser diferente, ter de 32 a 4096 caracteres ASCII imprimíveis e vir sem espaços. Use o ID da credencial para acompanhar uma troca pelos logs e guarde o valor em segredo. Na rotação, mantenha as duas chaves ativas só pelo tempo de atualizar aquele serviço e confirmar a chamada. Entre máquinas, prefira o endpoint HTTPS do gateway e preserve a credencial no processo servidor. [Opções e limites do gateway](./rpc-configuration)

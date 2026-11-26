@@ -1,0 +1,32 @@
+---
+title: "Spraxium RPC"
+description: "Veja como um painel, um script ou um worker pode pedir dados ao bot."
+order: 1
+category: "@spraxium/rpc"
+---
+
+Imagine a página de um painel que precisa mostrar quantas pessoas estão num servidor Discord. O bot já está conectado e tem acesso a esse número. O painel tem o login do usuário e sabe quais servidores ele pode ver. Com Spraxium RPC, o backend do painel pede `guild.stats` ao bot e recebe um objeto com os dados que a página precisa.
+
+~~~text
+Painel -> backend HTTP -> gateway RPC -> método do bot -> Discord.js
+~~~
+
+## O caminho de uma chamada
+
+Quando o painel abre a página, o navegador faz a requisição HTTP de sempre. A rota do backend confere a sessão e o acesso ao servidor. Em seguida, o SDK envia o nome do método, o ID e a credencial do backend para o gateway do bot. O gateway confere a credencial e as permissões do método, escolhe onde rodar o código e devolve o resultado. A rota pega esse resultado e monta a resposta HTTP que o painel já entende.
+
+O bot continua cuidando do Discord. Ele pode usar os services, a configuração e os providers que já tem. Se roda com vários shards iniciados pelo mesmo processo principal, o gateway encaminha a chamada ao shard que conhece aquele servidor. Para o backend, o endereço continua o mesmo. [Como o RPC encontra o shard certo](./rpc-sharding)
+
+## Onde muda o projeto
+
+Use `@spraxium/rpc` no bot para registrar os métodos. Use `@spraxium/rpc-client` no backend Node.js, num worker ou num script que precisa desses métodos. O pacote `@spraxium/rpc-protocol` traz o esquema Protobuf para quem precisa integrar outro cliente. Para um comando que já roda dentro do bot, normalmente basta injetar o service que ele usa.
+
+O antigo `@spraxium/http` reunia servidor web, roteamento, middleware e a ponte com o bot. Esse conjunto repetia partes que NestJS, Express, Hono e outros frameworks já mantêm. Com RPC, o seu framework web cuida de URLs, sessões, CORS e respostas públicas. O Spraxium cuida de descobrir os métodos, falar com os shards e tratar prazos e desligamento no bot. Uma alteração na API do painel pode ficar no projeto do painel.
+
+Se você já tem um bot no ar, experimente primeiro uma chamada que só confirma que ele está pronto. Ela ajuda a conferir instalação, endereço e credencial antes de mexer numa rota real. [Faça a primeira chamada](./rpc-quickstart) · [Migre do HTTP](./rpc-http-migration)
+
+## Quando vale fazer uma chamada
+
+Imagine um painel de tickets que quer mostrar o nome atual do canal e quem ainda consegue acessá-lo no Discord. O bot já tem a conexão e sabe consultar esses dados, então um método como `ticket.channelSummary` faz sentido. O painel pode continuar guardando o título do ticket e a sessão da pessoa na própria base. Se os dados já estão no backend, faça a consulta ali. Se você está num slash command, normalmente dá para chamar o serviço do bot direto por injeção de dependências.
+
+RPC funciona bem quando o backend precisa da resposta enquanto atende a pessoa. Para algo demorado, como recalcular meses de métricas, vale guardar o trabalho numa fila e devolver um ID que o painel consiga consultar. Se o que você quer é encaminhar um evento com seu próprio ciclo de entrega, veja a [documentação de Signal](./signal-overview). Na primeira integração, faça uma leitura funcionar e teste o que o painel recebe com o bot desligado antes de ligar ações de moderação.

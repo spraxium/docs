@@ -1,0 +1,166 @@
+---
+title: Modules
+description: |
+  Build feature modules with clear boundaries, wire them into the root module, and understand DI resolution.
+  Learn the recommended folder structure, module properties, global modules, and the rules that keep your bot maintainable.
+order: 3
+category: Getting Started
+keywords:
+  - spraxium modules
+  - modules in spraxium
+  - getting started modules guide
+  - modules discord bot
+  - modules typescript
+  - spraxium getting started documentation
+  - modules getting started
+---
+
+## Why modules matter
+
+Every feature in your bot belongs to exactly one module. Each module declares what it provides, what it imports, and what it exposes. That boundary lets you grow the bot by adding new modules without touching existing ones.
+
+## Recommended module architecture
+
+The standard layout isolates each feature behind a module boundary with its own folder containing at minimum a module file and a service file. Modules evolve independently from each other, and the DI container handles all the wiring between them at boot time without any manual configuration or factory functions.
+
+<FolderStructure title="Module-first architecture">
+  <Folder name="src" open>
+    <File
+      name="main.ts"
+      comment="Application bootstrap and root module binding"
+    />
+    <File
+      name="app.module.ts"
+      comment="Central module that composes features"
+    />
+    <Folder name="modules" open>
+      <Folder name="module-name" open>
+        <File
+          name="module-name.module.ts"
+          comment="Feature boundary and module wiring"
+        />
+        <File
+          name="module-name.service.ts"
+          comment="Business logic and providers"
+        />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+## Declare the root module
+
+The bootstrap file _main.ts_ is the entry point where you validate the environment, create the application instance, load the root module, and start listening for Discord events. The `app.useModule(AppModule)` call is the composition entry point, and from there Spraxium loads all imported modules recursively, resolves providers through dependency injection, and binds every registered listener to the Discord client automatically.
+
+```typescript filename="src/main.ts"
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { Logger } from '@spraxium/logger';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const logger = new Logger('Main');
+  const environment = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: environment.token });
+
+  app.useModule(AppModule);
+  app.intents(IntentPreset.Standard);
+
+  logger.info('Starting application...');
+  await app.listen();
+}
+
+main();
+```
+
+## Build the composition root
+
+The root module _AppModule_ composes features by importing other modules but should never contain feature logic itself. Add a new domain by creating a feature module and importing it here.
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ModuleNameModule } from './modules/module-name/module-name.module';
+
+@Module({
+  imports: [AnalyticsModule, ModuleNameModule],
+})
+export class AppModule {}
+```
+
+## Module properties reference
+
+<DropdownGroup>
+  <Dropdown title="imports, load modules before the current one">
+    Registers the modules the current module depends on. Spraxium loads and
+    initializes them in the correct order before instantiating the importing
+    module's providers. Use it in *AppModule* to compose all feature modules,
+    and in any feature module that depends on providers exported by another.
+  </Dropdown>
+  <Dropdown title="providers, register injectable classes in the container">
+    Lists classes decorated with *@Injectable()* that the DI container should
+    instantiate and manage. Each provider is created once per module and shared
+    across all classes that inject it. Use it for services, repositories, and
+    any runtime class with dependencies.
+  </Dropdown>
+  <Dropdown title="exports, expose providers to other modules">
+    Makes the listed providers available to any module that imports this one.
+    Without exports, providers are private to the module that declares them. Use
+    it when a service needs to be shared across module boundaries without making
+    it globally available.
+  </Dropdown>
+  <Dropdown title="listeners, register Discord event handlers">
+    Binds listener classes to the Discord client to react to gateway events like
+    *messageCreate* or *guildMemberAdd*. Listeners are instantiated with full DI
+    support, so they can inject any exported provider available in the module.
+  </Dropdown>
+  <Dropdown title="commands, register command metadata">
+    Registers *SlashCommand* and *PrefixCommand* metadata classes that describe
+    the command name, description, and options. Spraxium uses this metadata to
+    sync commands with Discord and route incoming interactions to the correct
+    handler.
+  </Dropdown>
+  <Dropdown title="handlers, register command execution logic">
+    Registers *SlashCommandHandler* and *PrefixCommandHandler* classes that
+    contain the actual execution logic. Handlers receive the interaction context
+    with full access to the module's DI, which keeps them focused and easy to
+    test in isolation.
+  </Dropdown>
+</DropdownGroup>
+
+## Global modules
+
+By default, a module's providers are only available to modules that explicitly import it, which is the desired behavior for most feature modules because it keeps dependencies visible and traceable. Marking a module with _@Global()_ makes its exports available everywhere in the application without requiring explicit imports, but this should be reserved exclusively for cross-cutting concerns like logging, analytics, or shared configuration services that genuinely need to be accessed from every part of the codebase.
+
+<Callout tone="warning" title="Use @Global() sparingly">
+  Marking too many modules as global bypasses the encapsulation that makes the
+  module system valuable and makes dependency tracking harder as the project
+  grows. Reserve *@Global()* for infrastructure that every module genuinely
+  needs, such as logging or analytics, and keep feature-specific services scoped
+  to their own module with explicit exports.
+</Callout>
+
+```typescript filename="src/modules/analytics/analytics.module.ts"
+import { Global, Module } from '@spraxium/common';
+import { AnalyticsService } from './analytics.service';
+
+@Global()
+@Module({
+  providers: [AnalyticsService],
+  exports: [AnalyticsService],
+})
+export class AnalyticsModule {}
+```
+
+Use global modules sparingly because they bypass the encapsulation boundaries that make the module system valuable in the first place. Feature-specific services should always stay local to their own module with explicit exports, and only truly universal infrastructure should be marked as global. If you find yourself marking several modules as global, it usually indicates that module boundaries need to be redesigned rather than bypassed.
+
+## Rules to keep modules maintainable
+
+One business boundary per module folder. Export only what other modules must consume. Separate command and listener declarations from service internals. Prefer many small focused modules composed by _AppModule_ over a few large shared ones.
+
+When a single domain grows beyond its original scope, split it into two focused modules. The module system makes this straightforward because each module already owns its own folder and dependencies.
+
+## Next page
+
+Continue with [Providers and Lifecycle](/guide/providers-and-lifecycle).

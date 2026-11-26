@@ -1,0 +1,87 @@
+---
+title: "Organize environment validators by feature"
+description: "Keep validators under env/, reuse a base schema and inject one validated instance into the bot."
+order: 4
+category: "Environment"
+---
+
+## Give each set of variables a home
+
+A small example can keep all its variables in one `app.env.ts`. As soon as a bot needs a database, an optional reporting endpoint, and a second deployment, it becomes easier to read if each piece has a place. Put the validator classes under `src/env/validators/` and let a concrete `AppEnv` collect the ones your process uses. The framework follows TypeScript inheritance from the class you pass to `EnvValidator.validate`. It doesn't scan folders for schemas.
+
+~~~text
+src/
+  env/
+    validators/database.env.ts
+    app.env.ts
+  app.module.ts
+  main.ts
+~~~
+
+In this bot, `DatabaseEnv` adds the MongoDB connection to the Discord fields from `SpraxiumBaseEnv`. `AppEnv` extends it and adds a feature flag. If a separate worker uses only database settings, give it its own schema and bootstrap instead of extending the Discord base class. That way it won't require a Discord token just to run a report. TypeScript supports one parent class, so keep the chain shallow and use shared validator decorators when features don't need to share an entire schema.
+
+~~~ts filename="src/env/validators/database.env.ts"
+import { Env, EnvSchema, IsMongoUri, Secret, SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class DatabaseEnv extends SpraxiumBaseEnv {
+  @Env('MONGO_URI')
+  @Secret()
+  @IsMongoUri()
+  mongoUri!: string;
+}
+~~~
+
+~~~ts filename="src/env/app.env.ts"
+import { Env, EnvSchema, IsBoolean } from '@spraxium/env';
+import { DatabaseEnv } from './validators/database.env';
+
+@EnvSchema()
+export class AppEnv extends DatabaseEnv {
+  @Env('ENABLE_REPORTS', { default: 'false', secret: false })
+  @IsBoolean()
+  enableReports!: boolean;
+}
+~~~
+
+## Validate once, then inject the result
+
+Read the environment before connecting to Discord. Register the value under the concrete `AppEnv` token. Services import `AppEnv` and use it as a dependency. A service shouldn't call `EnvValidator.validate` on every request or assume TypeScript converted a string read from `process.env`. Restart the service when its deployed environment changes. In development, an invalid startup can wait for an edit to the environment file. Outside development, validation errors stop the process.
+
+~~~ts filename="src/main.ts"
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './env/app.env';
+import { AppModule } from './app.module';
+
+async function main() {
+  const env = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: env.token });
+  app.useModule(AppModule);
+  app.provide(AppEnv, env);
+  app.intents(IntentPreset.Standard);
+  await app.listen();
+}
+
+void main();
+~~~
+
+~~~ts filename="src/modules/database/database.settings.ts"
+import { Inject, Injectable } from '@spraxium/common';
+import { AppEnv } from '../../env/app.env';
+
+@Injectable()
+export class DatabaseSettings {
+  constructor(@Inject(AppEnv) private readonly env: AppEnv) {}
+
+  get connectionUri(): string {
+    return this.env.mongoUri;
+  }
+}
+~~~
+
+Register DatabaseSettings in the module that opens the database. Export the provider from that module when another feature genuinely needs the connection settings.
+
+## Keep the configuration readable
+
+Keep `.env` and `.env.local` out of Git and commit a `.env.example` with names and placeholders. The validator reads the first file it finds, with `.env.local` before `.env`, and initially leaves variables already set in the process alone. The folder for schema classes doesn't change where those files are loaded. `loadEnv({ path })` is separately available for a script that loads a custom path. In a test, give the process explicit values and use `silent: true` if you want to hide the success table. Errors still follow the usual exit or development behavior.

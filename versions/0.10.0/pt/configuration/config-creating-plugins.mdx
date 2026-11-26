@@ -1,0 +1,158 @@
+---
+title: Criando um plugin
+description: |
+  Use definePlugin para expor uma factory tipada para o seu próprio pacote de plugin Spraxium.
+  Aprenda a definir a interface de config, criar a factory, registrá-la e ler a configuração em runtime.
+order: 4
+category: Configuration
+keywords:
+  - spraxium config creating plugins
+  - criando um plugin no spraxium
+  - configuration config creating plugins guia
+  - config creating plugins bot discord
+  - config creating plugins typescript
+  - documentacao spraxium configuration
+  - criando um plugin configuration
+  - spraxium criando um plugin
+---
+
+## O que uma factory de plugin faz
+
+Uma factory de plugin é uma função que aceita um objeto de configuração e retorna uma entrada `{ namespace, config }` para o array _plugins_. Ao usar o helper _definePlugin_ de `@spraxium/core`, você cria essa factory com inferência completa de TypeScript: a string de namespace fica presa a um tipo literal, a carga de configuração é validada em tempo de compilação e _ConfigStore.getPluginConfig_ infere automaticamente o tipo de retorno quando você passa a factory como chave.
+
+Escrever uma factory significa que quem consome o plugin nunca toca em strings cruas de namespace. A mesma referência, a função de factory exportada, serve tanto como entrada de registro em `spraxium.config.ts` quanto como chave de lookup dentro do código do seu serviço. Se o namespace mudar algum dia, só o arquivo de definição da factory precisa ser atualizado.
+
+<Steps>
+  <Step title="Defina a interface de configuração">
+    Crie uma interface TypeScript que descreva todas as opções de que o plugin
+    precisa em runtime. Mantenha-a plana e focada no que o plugin realmente
+    consome. Adicione comentários JSDoc para que o editor mostre tooltips
+    quando outras pessoas configurarem o plugin.
+
+```typescript filename="src/interfaces/my-plugin-config.interface.ts"
+export interface MyPluginConfig {
+  enabled: boolean;
+  apiKey: string;
+  retries?: number;
+}
+```
+
+  </Step>
+  <Step title="Crie a factory com definePlugin">
+    Chame *definePlugin* com a string literal do namespace como primeiro
+    parâmetro de tipo e a interface de configuração como segundo. Exporte a
+    factory resultante para que quem usa o plugin possa importá-la em
+    `spraxium.config.ts`. O namespace precisa ser único entre todos os plugins
+    registrados no mesmo projeto.
+
+```typescript filename="src/my-plugin.config.ts"
+import { definePlugin } from '@spraxium/core';
+import type { MyPluginConfig } from './interfaces/my-plugin-config.interface';
+
+export const defineMyPlugin = definePlugin<'my-plugin', MyPluginConfig>(
+  'my-plugin',
+);
+```
+
+  </Step>
+  <Step title="Registre em spraxium.config.ts">
+    Importe a factory e chame-a dentro do array *plugins*. O TypeScript impõe
+    o formato do objeto de configuração e rejeita chaves inválidas ou tipos de
+    valor incorretos em tempo de compilação, antes que qualquer código rode.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineMyPlugin } from './src/my-plugin.config';
+
+export default defineConfig({
+  plugins: [
+    defineMyPlugin({
+      enabled: true,
+      apiKey: process.env.MY_PLUGIN_API_KEY ?? '',
+      retries: 3,
+    }),
+  ],
+});
+```
+
+  </Step>
+  <Step title="Leia a config em runtime">
+    Dentro do serviço do plugin, chame *ConfigStore.getPluginConfig* com a
+    factory como argumento. O tipo de retorno é inferido automaticamente como
+    `MyPluginConfig | undefined`. Se o plugin não tiver sido registrado, o
+    método retorna `undefined`, então você sempre deve tratar esse caso antes
+    de acessar os campos.
+
+```typescript filename="src/my-plugin.service.ts"
+import { Injectable } from '@spraxium/common';
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from './my-plugin.config';
+
+@Injectable()
+export class MyPluginService {
+  private readonly config = ConfigStore.getPluginConfig(defineMyPlugin);
+
+  initialize(): void {
+    if (!this.config?.enabled) return;
+    // Use this.config.apiKey, this.config.retries, etc.
+  }
+}
+```
+
+  </Step>
+</Steps>
+
+<Callout tone="warning" title="O namespace precisa ser único">
+  Se dois plugins compartilharem a mesma string de namespace, a segunda entrada
+  no array *plugins* vai sobrescrever a primeira. As duas continuarão presentes
+  no array, mas somente a última com aquele namespace será retornada por
+  *getPluginConfig*. Escolha namespaces que reflitam o nome do pacote para
+  evitar colisões.
+</Callout>
+
+## Lendo a config fora de um serviço
+
+_ConfigStore.getPluginConfig_ é um método estático que pode ser chamado em qualquer lugar depois que a config é carregada. Isso inclui guards, interceptors e código em nível de módulo. A função de factory é o único argumento necessário; não há lookup por string nem cast manual de tipo.
+
+```typescript filename="src/guards/plugin-enabled.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+import { ConfigStore } from '@spraxium/core';
+import { defineMyPlugin } from '../my-plugin.config';
+
+@Guard()
+export class PluginEnabledGuard implements SpraxiumGuard {
+  canActivate(_ctx: ExecutionContext): boolean {
+    const config = ConfigStore.getPluginConfig(defineMyPlugin);
+    return config?.enabled === true;
+  }
+}
+```
+
+## Organizando o arquivo da factory
+
+Em pacotes publicados, a factory e a interface de configuração normalmente ficam lado a lado na raiz do pacote e são reexportadas pelo índice do pacote. Assim, quem consome importa tudo o que precisa em uma única linha.
+
+<FolderStructure title="Exemplo de estrutura de pacote de plugin">
+  <Folder name="src" open>
+    <File
+      name="index.ts"
+      comment="Reexporta defineMyPlugin e MyPluginConfig"
+    />
+    <File
+      name="my-plugin.config.ts"
+      comment="Factory criada com definePlugin"
+    />
+    <Folder name="interfaces" open>
+      <File name="my-plugin-config.interface.ts" comment="Interface de config" />
+    </Folder>
+    <File
+      name="my-plugin.service.ts"
+      comment="Serviço que lê do ConfigStore"
+    />
+  </Folder>
+</FolderStructure>
+
+## Próxima página
+
+[Watch de desenvolvimento e carregamento da config](/guide/config-dev-loading)

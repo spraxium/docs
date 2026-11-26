@@ -1,0 +1,191 @@
+---
+title: Advanced Patterns
+description: |
+  Advanced environment variable patterns including custom validators, schema inheritance, and error handling.
+  Learn how to compose validators, build validation pipelines, and integrate the env schema into your bot.
+order: 3
+category: Environment
+keywords:
+  - spraxium env advanced
+  - advanced patterns in spraxium
+  - environment env advanced guide
+  - env advanced discord bot
+  - env advanced typescript
+  - spraxium environment documentation
+  - advanced patterns environment
+  - spraxium advanced patterns
+---
+
+## Composing multiple validators
+
+Spraxium runs all transforms on a field before validating the result. `@IsPort()` can turn the string `3000` into a number, which a custom `@Validate()` can check against the range your app accepts. The same two passes let you trim text before checking its format.
+
+The order matters when you stack transforms that depend on one another. Legacy TypeScript property decorators run from the bottom up, and Spraxium records their rules in that order. Put dependent steps in one `@Transform()` if you want the sequence to be easy to follow. Use `@Secret()` on credentials and keep the raw values out of validator messages.
+
+You can also combine built-in type validators with custom checks. For example, _IsPort_ already validates that the value is an integer between 1 and 65535. Adding a _Validate_ on top lets you further restrict the range, like rejecting ports below 1024 to enforce non-privileged binding.
+
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv {
+  @Env('HTTP_PORT', { secret: false })
+  @IsPort()
+  @Validate((value) =>
+    (value as number) >= 1024 ? true : 'Port must be 1024 or higher',
+  )
+  HTTP_PORT!: number;
+}
+```
+
+## Schema inheritance
+
+Environment schemas support class inheritance. A child class extends a parent and adds its own fields. The validation pipeline traverses the full prototype chain, collecting fields from every ancestor. This makes it possible to build layered schemas where a base class defines shared fields and feature-specific classes add their own.
+
+The most common pattern is extending _SpraxiumBaseEnv_, which provides `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and `NODE_ENV`. You apply _@EnvSchema_ to the child class only. The parent already has its own _@EnvSchema_, and both metadata entries are recognized during validation.
+
+When two classes in the chain declare a field with the same property key, the child wins. This lets you override a parent default, for example changing the `NODE_ENV` default from `"development"` to `"production"` in a deployment-specific schema. Fields with different property keys merge normally regardless of which class declares them.
+
+<CodeTabs>
+  <Tab label="Base" language="typescript">
+```typescript filename="src/base.env.ts"
+import { EnvSchema, Env, IsString, IsOptional } from '@spraxium/env';
+import { SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class BaseEnv extends SpraxiumBaseEnv {
+  @Env('LOG_LEVEL', { default: 'info', secret: false })
+  @IsString()
+  LOG_LEVEL!: string;
+
+  @Env('SENTRY_DSN')
+  @IsString()
+  @IsOptional()
+  SENTRY_DSN?: string;
+}
+
+````
+  </Tab>
+  <Tab label="Child" language="typescript">
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsMongoUri, IsRedisUri } from '@spraxium/env';
+import { BaseEnv } from './base.env';
+
+@EnvSchema()
+export class AppEnv extends BaseEnv {
+  @Env('MONGO_URI')
+  @IsMongoUri()
+  MONGO_URI!: string;
+
+  @Env('REDIS_URI')
+  @IsRedisUri()
+  REDIS_URI!: string;
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## The validation error flow
+
+A required field without input or a default reports `missing`. A failed transform or a validator rejection reports `invalid_value`, including a rejected enum and a custom `@Validate()`. The error includes the environment key and can include a validator message. Secret fields omit the received value.
+
+Outside `NODE_ENV=development`, Spraxium reports errors on stderr and exits with code 1. In development, it checks the first available `.env.local` or `.env` file every 500 milliseconds for up to five minutes. Save your changes to continue startup when validation passes. This uses `process.env.NODE_ENV`. A default on the schema only fills that property.
+
+## Silent validation
+
+Use silent mode to skip the success table. The validators still run. Invalid values stop startup outside development, or enter the recovery loop when NODE_ENV is development.
+
+```typescript filename="src/test/setup.ts"
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from '../app.env';
+
+const env = EnvValidator.validate(AppEnv, { silent: true });
+```
+
+The _validate_ method returns a fully populated instance of your schema class. Every property holds its validated, transformed value. You can use this instance directly in tests or pass it to services that need configuration without going through the dependency injection container.
+
+## DotEnv file loading
+
+On startup, Spraxium reads the first available file, .env.local followed by .env. Existing process variables take precedence on that first read. Only the development recovery loop rereads file values over the failed configuration.
+
+The parser handles comments (lines starting with `#`), quoted values (single or double quotes are stripped), and inline comments after unquoted values. It does not support multi-line values or variable interpolation. For complex values like JSON objects, wrap them in quotes and use _IsJson_ to parse them.
+
+<DropdownGroup>
+<Dropdown title="1. System environment and CI variables">
+  Set production credentials in the deployment environment. They are picked up before the local file is read at startup.
+</Dropdown>
+
+<Dropdown title="2. .env.local">
+  Loaded first among file sources when the file exists at the project root. Use
+  this file for local developer overrides that should not be committed to
+  version control. Add `.env.local` to your `.gitignore` to keep
+  developer-specific values out of the repository.
+</Dropdown>
+
+<Dropdown title="3. .env">
+  Use .env for local values when .env.local is absent. Ignore both files in Git and commit a .env.example with the variable names and placeholders.
+</Dropdown>
+</DropdownGroup>
+
+## Full example
+
+This example shows a complete schema that combines inheritance, multiple validator types, custom transforms, and secret masking. The schema extends _SpraxiumBaseEnv_ for the token and node environment, adds database and API fields, and includes a custom transform that splits a comma-separated list into an array.
+
+```typescript filename="src/app.env.ts"
+import {
+  EnvSchema,
+  Env,
+  SpraxiumBaseEnv,
+  IsMongoUri,
+  IsRedisUri,
+  IsPort,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  Secret,
+  Default,
+  Transform,
+  Validate,
+} from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv extends SpraxiumBaseEnv {
+  @Env('MONGO_URI')
+  @IsMongoUri()
+  MONGO_URI!: string;
+
+  @Env('REDIS_URI')
+  @IsRedisUri()
+  @IsOptional()
+  REDIS_URI?: string;
+
+  @Env('API_PORT', { default: '3000', secret: false })
+  @IsPort()
+  API_PORT!: number;
+
+  @Env('ENABLE_METRICS', { default: 'false', secret: false })
+  @IsBoolean()
+  ENABLE_METRICS!: boolean;
+
+  @Env('LOG_LEVEL', { default: 'info', secret: false })
+  @IsEnum(['debug', 'info', 'warn', 'error'])
+  LOG_LEVEL!: string;
+
+  @Env('WEBHOOK_SECRET')
+  @IsOptional()
+  @Secret()
+  WEBHOOK_SECRET?: string;
+
+  @Env('CORS_ORIGINS', { default: 'http://localhost:3000', secret: false })
+  @Transform((raw) => raw.split(',').map((s) => s.trim()))
+  @Validate((value) =>
+    Array.isArray(value) && value.length > 0 ? true : 'Need at least one origin',
+  )
+  CORS_ORIGINS!: string[];
+}
+```
+
+## Next page
+
+Continue with [Configuration Overview](/guide/configuration-layers).

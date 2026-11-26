@@ -1,0 +1,61 @@
+---
+title: "Handlers, input, and responses"
+description: "Expose a bot operation with a name and a JSON contract."
+order: 4
+category: "@spraxium/rpc"
+---
+
+Start in the part of the bot that already knows how to do the job. If the dashboard needs a member count, the handler can ask the same service used by a Discord command. Put the RPC decorator on a provider method and choose a name, such as `guild.stats`, that describes the operation. The name must be unique in the application.
+
+When the work belongs to a Discord guild, use `routing: 'guild'` and put `guildId` at the top level of the input. Discord IDs need to stay strings because a JavaScript number may lose some digits. The gateway routes the original ID before running the schema, so a schema must preserve that ID. Use singleton routing for work that belongs to one process, such as the health check from the quickstart.
+
+## Check the JSON contract
+
+The stats example uses Zod for the input and response. RPC accepts a schema with a synchronous `parse` method. The client's TypeScript contract helps at the call site. Input and output schemas check what actually goes through the gateway. This example returns three fields from the guild service so the caller gets just the numbers and flag it displays.
+
+~~~ts
+import { Inject, Injectable } from '@spraxium/common';
+import { Code, RpcError, RpcHandler } from '@spraxium/rpc';
+import { z } from 'zod';
+import { GuildService } from './guild.service.ts';
+
+const input = z.object({ guildId: z.string() }).strict();
+const output = z.object({
+  members: z.number().int().nonnegative(),
+  premium: z.boolean(),
+  shardId: z.number().int().nonnegative(),
+}).strict();
+
+@Injectable()
+export class GuildRpcService {
+  constructor(@Inject(GuildService) private readonly guilds: GuildService) {}
+
+  @RpcHandler('guild.stats', {
+    routing: 'guild',
+    permissions: ['guild:read'],
+    schema: input,
+    responseSchema: output,
+  })
+  stats({ guildId }: z.infer<typeof input>) {
+    const stats = this.guilds.findStats(guildId);
+    if (!stats) throw new RpcError('Guild not found.', Code.NotFound);
+    return stats;
+  }
+}
+~~~
+
+Register this class as a provider in the guilds module. Import that module and `RpcModule` in the bot. With native sharding, only the process that owns the guild handles its call. [Guild service and module in the example bot](https://github.com/spraxium/rpc/tree/main/examples/bot/src)
+
+## What a caller sees when something fails
+
+When a lookup finds no guild, throw `RpcError` with `Code.NotFound`. Its message can reach a caller, so keep private details in your logs. An unexpected exception produces a generic failure. In the backend, look at the error code before deciding which HTTP response to return.
+
+A method can accept `RpcContext` as its second parameter when it needs the request ID, deadline, or cancellation signal. Pass the signal to work that can stop. A client can stop waiting even after Discord accepted a change, so give a retried write an application key and a way to check whether it already happened. [Trace failures and timeouts](./rpc-troubleshooting)
+
+## Add a second operation without duplicating the bot
+
+If you already have a `/ticket close` command, keep the code that closes a ticket in a provider and call that provider from both the command and your RPC handler. Set a write-specific permission on the handler and keep the dashboard's guild access check in the backend. It helps to give the method an input with a stable ticket or operation ID, so the service can distinguish a new request from one it already handled. Store that decision where all relevant requests can see it if the bot can restart. RPC does not store this record for you.
+
+Treat the response like your public data model. A Discord.js object can include more fields than the caller should see and may be awkward to serialize. Return the fields you decided to share. Use a response schema when those fields matter to another project, and keep TypeScript definitions in sync with the validator. If you change a reply while bot and backend deploy separately, add fields in a compatible way or introduce a new method until both have moved.
+
+A handler's second argument can be typed as `RpcContext` from `@spraxium/rpc`. Its `identity` is the verified service, distinct from a Discord user. Its `requestId` connects logs, `deadline` gives the time budget, and `signal` lets a capable database or HTTP call stop waiting. Check this at the point you start expensive work. Cancellation cannot reverse a write already accepted by Discord.

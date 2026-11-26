@@ -1,0 +1,97 @@
+---
+title: "Faça a primeira chamada RPC"
+description: "Ligue um bot Spraxium a um processo Node.js e confirme que eles conseguem conversar."
+order: 2
+category: "@spraxium/rpc"
+---
+
+Separe dois terminais. No primeiro fica o bot que você já sabe iniciar. No segundo fica um script ou o backend que vai conversar com ele. Começar com um método sem acesso a dados do Discord ajuda a achar erros de instalação e conexão antes de envolver um servidor de verdade.
+
+No projeto do bot, use os pacotes do framework a partir da 0.10.0, todos na mesma versão da série 0.10. Instale o adapter ali.
+
+~~~sh
+pnpm add @spraxium/rpc@0.10.0
+~~~
+
+No projeto do backend, instale o SDK. O backend pode continuar com as dependências que já usa para servir as rotas.
+
+~~~sh
+pnpm add @spraxium/rpc-client@0.10.0
+~~~
+
+## Carregue a credencial nos dois processos
+
+Gere um segredo e coloque a saída em `SPRAXIUM_RPC_TOKEN` nos dois ambientes. Para um teste local, pode ser num arquivo `.env` ignorado pelo Git, desde que o comando de inicialização carregue o arquivo. Em produção, passe pelo gerenciador de segredos do seu deploy. A credencial que você está criando serve para o backend falar com o bot.
+
+~~~sh
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+~~~
+
+No arquivo `spraxium.config.ts` do bot, adicione o plugin à lista `plugins`. Se já houver outros plugins e opções, mantenha-os. Com essa configuração, o gateway usa `127.0.0.1:4300`. O endereço local permite usar HTTP no teste da mesma máquina.
+
+~~~ts
+import { defineConfig } from '@spraxium/core';
+import { defineRpc } from '@spraxium/rpc';
+
+export default defineConfig({
+  plugins: [
+    defineRpc({
+      token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+      permissions: ['bot:read'],
+    }),
+  ],
+});
+~~~
+
+## Registre um método para chamar
+
+Abra o módulo que o bot passa para `app.useModule(AppModule)`. Coloque `RpcModule` nos imports e `HealthService` nos providers. O decorator dá ao método o nome `bot.health` e pede que a credencial autorize `bot:read`. Com `singleton`, o pedido fica num só processo mesmo quando o bot usa sharding.
+
+~~~ts
+import { Module } from '@spraxium/common';
+import { RpcHandler, RpcModule } from '@spraxium/rpc';
+
+class HealthService {
+  @RpcHandler('bot.health', { routing: 'singleton', permissions: ['bot:read'] })
+  health() {
+    return { ready: true };
+  }
+}
+
+@Module({ imports: [RpcModule], providers: [HealthService] })
+export class AppModule {}
+~~~
+
+Salve a configuração e o módulo. Inicie o bot pelo comando que ele já usa e aguarde a mensagem de que o gateway está escutando. O Spraxium abre o gateway depois que os providers ficam prontos. Se a sua aplicação demora para ligar, esperar essa mensagem evita confundir inicialização com problema de conexão.
+
+## Execute o script no segundo terminal
+
+Coloque o próximo trecho em `check-bot.ts` e rode com o mesmo processo de build ou execução TypeScript que o backend usa. O tipo `BotRpc` ajuda no editor a conferir nome, entrada e saída. A chamada passa `null` porque esse método só informa que o bot ficou pronto.
+
+~~~ts
+import { createRpcClient } from '@spraxium/rpc-client';
+
+type BotRpc = {
+  'bot.health': { input: null; output: { ready: boolean } };
+};
+
+const rpc = createRpcClient<BotRpc>({
+  url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+  token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+});
+
+try {
+  const status = await rpc.call('bot.health', null, { timeoutMs: 3_000 });
+  console.log(status.ready);
+} finally {
+  rpc.close();
+}
+~~~
+
+Ao imprimir `true`, você confirmou que o cliente chegou ao gateway e que o bot aceitou a credencial e o método. O script fecha a conexão no `finally`. Num servidor que atende várias requisições, crie uma instância no início e feche no desligamento. Se a comunicação for entre máquinas, ajuste TLS antes de mudar o endereço. [Conexão e credenciais](./rpc-authentication) · [Coloque a chamada numa rota existente](./rpc-backends)
+
+## Confira de onde cada processo lê o token
+
+A credencial precisa estar carregada quando o bot lê a configuração. Se o bot e o painel têm arquivos `.env` separados, coloque a mesma credencial de serviço nos dois e confira se cada comando de inicialização lê o arquivo do seu projeto. Para o script de teste, você também pode compilar o TypeScript e rodar o arquivo de saída com `node --env-file=.env`, se sua versão do Node tiver essa opção. Se a configuração reclamar de chave ausente ou curta, resolva isso antes de mexer no handler.
+
+Depois que a primeira chamada responder, pare o bot e rode o script de novo. Você deve ver um erro de conexão ou de disponibilidade. Inicie o bot e confirme que o próximo teste volta a retornar `true`. Vale guardar esse script. Se a rota de guild falhar mais tarde mas `bot.health` funcionar, você já sabe que o endereço e a conexão básicos estão de pé. O próximo passo é conferir o método, suas permissões e o shard de destino.

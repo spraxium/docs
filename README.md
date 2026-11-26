@@ -1,21 +1,14 @@
 # spraxium/docs
 
-This repository contains the public documentation content for [Spraxium](https://spraxium.com/guide), a TypeScript framework for building Discord bots.
+The [Spraxium site](https://spraxium.com/en/guide) builds its guides, release notes, roadmap and coding-agent skills from this repository.
 
-The framework is currently at version **0.1.0**. The documentation has gone through several revision cycles, but may still contain inconsistencies or inaccuracies. If you find anything that looks wrong or unclear, contributions are welcome via pull request.
+- `versions.json` selects the current version and lists the archived versions.
+- `versions/0.10.0/{en,pt,es}/` contains the active guides.
+- `versions/0.9.0/{en,pt,es}/` preserves the older docs.
+- `changelogs/` contains release notes. Place translations with the same filename under `changelogs/pt/` or `changelogs/es/`.
+- `roadmap/data.json` contains the project status.
+- `skills/manifest.json` defines the skills catalog. Keep each served file under `skills/<slug>/SKILL.md` and match its frontmatter name to the slug. The [HTTP-to-RPC migration skill](https://github.com/spraxium/rpc/blob/main/SKILL.md) lives in the RPC repository.
 
-## Structure
+A merge to the docs main branch triggers the website content sync. The site build publishes the catalog, the Markdown and [the skills index](https://spraxium.com/skills/index.json).
 
-```
-en/           → English content (MDX)
-pt/           → Portuguese content (MDX)
-es/           → Spanish content (MDX)
-changelogs/   → version changelogs (MDX)
-roadmap/      → public roadmap entries
-```
-
-Each language folder mirrors the same category structure: getting-started, configuration, slash-commands, prefix-commands, listeners, guards, components, modals, http, i18n, schedule, signal, env, logger, presence, exceptions, sharding, and cli.
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full contribution guide.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for writing and review guidelines.

@@ -1,0 +1,142 @@
+---
+title: "Integrate RPC with NestJS"
+description: "Register the client in a Nest module, inject it into a service, and call the bot from a dashboard route."
+order: 7
+category: "@spraxium/rpc"
+---
+
+When someone opens a guild page, the browser calls `GET /guilds/:guildId/stats`. Nest takes the ID from the URL and passes it to a service. The service calls `guild.stats` on the bot, then returns the result for Nest to send as JSON. There are two processes involved: Nest serves the dashboard, and Spraxium runs the internal gateway. Start with the bot from the [handler guide](./rpc-handlers) or run the example bot. Give the backend token the `guild:read` permission.
+
+## Define the contract and injection token
+
+Install `@spraxium/rpc-client@0.10.0` in the Nest project. Load `SPRAXIUM_RPC_URL` and `SPRAXIUM_RPC_TOKEN` the same way as the rest of your backend configuration. The local URL is `http://127.0.0.1:4300` by default. Keep the Discord login token in the bot process. The TypeScript contract defines the values that go across the connection. In a workspace, put that type somewhere that both projects can import it. The symbol identifies the client inside Nest's container.
+
+~~~ts filename="src/guilds/bot-rpc-client.ts"
+export const BOT_RPC_CLIENT = Symbol('BOT_RPC_CLIENT');
+
+export type BotRpcContract = {
+  'guild.stats': {
+    input: { guildId: string };
+    output: { members: number; premium: boolean; shardId: number };
+  };
+};
+~~~
+
+## Register the factory in the module
+
+Nest runs `useFactory` at startup with its default singleton scope. Several people can request guilds at the same time and their routes still reuse one client. If the project uses `ConfigModule`, add `ConfigService` to the factory's `inject` list and get the settings from there. That also helps catch invalid configuration during startup, before the first request.
+
+~~~ts filename="src/guilds/guild.module.ts"
+import { Module } from '@nestjs/common';
+import { createRpcClient } from '@spraxium/rpc-client';
+import { BotRpcService } from './bot-rpc.service';
+import { BOT_RPC_CLIENT, type BotRpcContract } from './bot-rpc-client';
+import { GuildController } from './guild.controller';
+
+@Module({
+  controllers: [GuildController],
+  providers: [
+    BotRpcService,
+    {
+      provide: BOT_RPC_CLIENT,
+      useFactory: () => createRpcClient<BotRpcContract>({
+        url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+        token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+        timeoutMs: 3000,
+      }),
+    },
+  ],
+})
+export class GuildModule {}
+~~~
+
+## Inject the client and call the bot
+
+The service receives the instance registered under the symbol and calls `guild.stats`. It translates an invalid ID to HTTP 400 and a missing guild to 404. Other RPC failures become 503 in this example. If your public API distinguishes a missed deadline, map `Code.DeadlineExceeded` to 504. Record the error code in the backend when you need to investigate, keeping the service token and raw gateway errors out of the public response.
+
+~~~ts filename="src/guilds/bot-rpc.service.ts"
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  type OnApplicationShutdown,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { Code, RpcClientError, type RpcClient } from '@spraxium/rpc-client';
+import { BOT_RPC_CLIENT, type BotRpcContract } from './bot-rpc-client';
+
+@Injectable()
+export class BotRpcService implements OnApplicationShutdown {
+  constructor(@Inject(BOT_RPC_CLIENT) private readonly rpc: RpcClient<BotRpcContract>) {}
+
+  /** Returns the guild counters used by the dashboard. */
+  async getGuildStats(guildId: string): Promise<BotRpcContract['guild.stats']['output']> {
+    try {
+      return await this.rpc.call('guild.stats', { guildId });
+    } catch (error) {
+      if (!(error instanceof RpcClientError)) throw error;
+      if (error.code === Code.InvalidArgument) throw new BadRequestException('Invalid guild ID');
+      if (error.code === Code.NotFound) throw new NotFoundException('Guild not found');
+      throw new ServiceUnavailableException('Bot unavailable');
+    }
+  }
+
+  /** Releases the SDK after Nest has closed its HTTP server. */
+  onApplicationShutdown(): void {
+    this.rpc.close();
+  }
+}
+~~~
+
+## Wire the module and HTTP route
+
+The controller below is useful for trying the integration on localhost. Before connecting it to a real dashboard, apply the dashboard's session guard and check whether the user has access to the guild before making the RPC call. A service token represents the backend and grants access to selected methods. It cannot tell who is using the dashboard. Import `GuildModule` in `AppModule` and enable Nest's shutdown hooks so the service can close the SDK on exit.
+
+~~~ts filename="src/guilds/guild.controller.ts"
+import { Controller, Get, Inject, Param } from '@nestjs/common';
+import { BotRpcService } from './bot-rpc.service';
+
+@Controller('guilds')
+export class GuildController {
+  constructor(@Inject(BotRpcService) private readonly bot: BotRpcService) {}
+
+  /** Reads guild stats through the application-wide bot client. */
+  @Get(':guildId/stats')
+  stats(@Param('guildId') guildId: string) {
+    return this.bot.getGuildStats(guildId);
+  }
+}
+~~~
+
+~~~ts filename="src/app.module.ts"
+import { Module } from '@nestjs/common';
+import { GuildModule } from './guilds/guild.module';
+
+@Module({ imports: [GuildModule] })
+export class AppModule {}
+~~~
+
+~~~ts filename="src/main.ts"
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
+  await app.listen(3000, '127.0.0.1');
+}
+
+void bootstrap();
+~~~
+
+## Try the same request as the dashboard
+
+Start the bot, wait for the gateway's startup message, and start Nest in another terminal. Replace the placeholder below with the ID of a guild the bot has joined. The reply includes `members`, `premium` and `shardId`. Then test a missing guild, the bot being offline, and a signed-in user without guild access once your guard is in place. Those failures exercise three different parts of the request.
+
+~~~bash
+curl http://127.0.0.1:3000/guilds/YOUR_GUILD_ID/stats
+~~~
+
+[NestJS custom providers](https://docs.nestjs.com/fundamentals/custom-providers) · [NestJS lifecycle events](https://docs.nestjs.com/fundamentals/lifecycle-events) · [Full example source](https://github.com/spraxium/rpc/tree/main/examples/nestjs/src)
