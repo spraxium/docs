@@ -9,16 +9,21 @@ category: "Environment"
 
 A small example can keep all its variables in one `app.env.ts`. As soon as a bot needs a database, an optional reporting endpoint, and a second deployment, it becomes easier to read if each piece has a place. Put the validator classes under `src/env/validators/` and let a concrete `AppEnv` collect the ones your process uses. The framework follows TypeScript inheritance from the class you pass to `EnvValidator.validate`. It doesn't scan folders for schemas.
 
+## Build a schema from two, three or more groups
+
+Start with the Discord settings in `SpraxiumBaseEnv`. `DatabaseEnv` extends that class to add MongoDB. For two feature groups, `ReportsEnv` extends `DatabaseEnv`. For a third, `CacheEnv` extends `ReportsEnv` and adds Redis. The diagram shows the full bot. Each validator lives in a separate file, and `AppEnv` is the only class the startup code needs to import.
+
 ~~~text
 src/
   env/
-    validators/database.env.ts
+    validators/
+      database.env.ts
+      reports.env.ts
+      cache.env.ts
     app.env.ts
   app.module.ts
   main.ts
 ~~~
-
-In this bot, `DatabaseEnv` adds the MongoDB connection to the Discord fields from `SpraxiumBaseEnv`. `AppEnv` extends it and adds a feature flag. If a separate worker uses only database settings, give it its own schema and bootstrap instead of extending the Discord base class. That way it won't require a Discord token just to run a report. TypeScript supports one parent class, so keep the chain shallow and use shared validator decorators when features don't need to share an entire schema.
 
 ~~~ts filename="src/env/validators/database.env.ts"
 import { Env, EnvSchema, IsMongoUri, Secret, SpraxiumBaseEnv } from '@spraxium/env';
@@ -32,17 +37,50 @@ export class DatabaseEnv extends SpraxiumBaseEnv {
 }
 ~~~
 
-~~~ts filename="src/env/app.env.ts"
-import { Env, EnvSchema, IsBoolean } from '@spraxium/env';
-import { DatabaseEnv } from './validators/database.env';
+~~~ts filename="src/env/validators/reports.env.ts"
+import { Env, EnvSchema, IsBoolean, IsOptional, IsUrl, Secret } from '@spraxium/env';
+import { DatabaseEnv } from './database.env';
 
 @EnvSchema()
-export class AppEnv extends DatabaseEnv {
+export class ReportsEnv extends DatabaseEnv {
   @Env('ENABLE_REPORTS', { default: 'false', secret: false })
   @IsBoolean()
   enableReports!: boolean;
+
+  @Env('REPORTS_WEBHOOK_URL')
+  @Secret()
+  @IsOptional()
+  @IsUrl({ https: true })
+  reportsWebhookUrl?: string;
 }
 ~~~
+
+~~~ts filename="src/env/validators/cache.env.ts"
+import { Env, EnvSchema, IsRedisUri, Secret } from '@spraxium/env';
+import { ReportsEnv } from './reports.env';
+
+@EnvSchema()
+export class CacheEnv extends ReportsEnv {
+  @Env('REDIS_URL')
+  @Secret()
+  @IsRedisUri()
+  redisUrl!: string;
+}
+~~~
+
+For a bot with just MongoDB, extend `DatabaseEnv` in `AppEnv`. To add reports, change that single `extends` to `ReportsEnv`. To add Redis too, use `CacheEnv`, as shown below. If you add a fourth group, put it in its own file, extend `CacheEnv` there, then point `AppEnv` at the new class. TypeScript allows one parent per class. Spraxium reads the `@Env` fields from that parent and every class above it, so you still call `EnvValidator.validate(AppEnv)` once.
+
+~~~ts filename="src/env/app.env.ts"
+import { EnvSchema } from '@spraxium/env';
+import { CacheEnv } from './validators/cache.env';
+
+@EnvSchema()
+export class AppEnv extends CacheEnv {}
+~~~
+
+Set `MONGO_URI` in the bot environment and add `REDIS_URL` when you use `CacheEnv`. If you leave `ENABLE_REPORTS` out, its value is `false`. `REPORTS_WEBHOOK_URL` is optional. When you supply it, it must use HTTPS. If you want to require it only when reports are enabled, check those two values together when starting the reports service. The field decorators here check each variable on its own.
+
+Keep the chain for settings that go together in this bot. If a separate worker only needs Redis, give it a `WorkerEnv` that declares its own `REDIS_URL` with the same decorators and validate it in the worker entry point. Extending the bot’s `CacheEnv` would also require the bot’s Discord and MongoDB settings. Give each feature its own property names and environment keys. This way, adding a class does not accidentally replace a setting from a parent class.
 
 ## Validate once, then inject the result
 

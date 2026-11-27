@@ -9,16 +9,21 @@ category: "Environment"
 
 Um bot pequeno pode colocar tudo no `app.env.ts`. Quando entram banco, relatórios e mais de um ambiente, fica bem mais fácil achar uma variável se ela está junto das outras da mesma parte do app. Coloque as classes em `src/env/validators/` e deixe `AppEnv` reunir o que aquele processo realmente usa. O Spraxium segue a herança da classe que você passa para `EnvValidator.validate`. Só criar uma pasta ou um arquivo ali não registra nada.
 
+## Monte um schema com dois, três ou mais grupos
+
+Comece pelas configurações do Discord em `SpraxiumBaseEnv`. `DatabaseEnv` estende essa classe para acrescentar o MongoDB. Para ter dois grupos de funcionalidades, `ReportsEnv` estende `DatabaseEnv`. Para acrescentar um terceiro, `CacheEnv` estende `ReportsEnv` e inclui o Redis. A estrutura abaixo mostra o bot com os três grupos. Cada validador fica em seu próprio arquivo, e o ponto de entrada só precisa importar `AppEnv`.
+
 ~~~text
 src/
   env/
-    validators/database.env.ts
+    validators/
+      database.env.ts
+      reports.env.ts
+      cache.env.ts
     app.env.ts
   app.module.ts
   main.ts
 ~~~
-
-Neste caso, `DatabaseEnv` acrescenta o MongoDB aos campos de Discord de `SpraxiumBaseEnv`. `AppEnv` estende essa classe e acrescenta uma opção de relatórios. Se um worker só usa o banco, faça um schema para ele e valide no próprio ponto de entrada. Ele pode reutilizar os decorators de validação sem herdar um schema que exige token do Discord. Uma classe TypeScript tem um único pai, então mantenha a cadeia curta e prefira compartilhar os validadores quando a divisão não encaixar em herança.
 
 ~~~ts filename="src/env/validators/database.env.ts"
 import { Env, EnvSchema, IsMongoUri, Secret, SpraxiumBaseEnv } from '@spraxium/env';
@@ -32,17 +37,50 @@ export class DatabaseEnv extends SpraxiumBaseEnv {
 }
 ~~~
 
-~~~ts filename="src/env/app.env.ts"
-import { Env, EnvSchema, IsBoolean } from '@spraxium/env';
-import { DatabaseEnv } from './validators/database.env';
+~~~ts filename="src/env/validators/reports.env.ts"
+import { Env, EnvSchema, IsBoolean, IsOptional, IsUrl, Secret } from '@spraxium/env';
+import { DatabaseEnv } from './database.env';
 
 @EnvSchema()
-export class AppEnv extends DatabaseEnv {
+export class ReportsEnv extends DatabaseEnv {
   @Env('ENABLE_REPORTS', { default: 'false', secret: false })
   @IsBoolean()
   enableReports!: boolean;
+
+  @Env('REPORTS_WEBHOOK_URL')
+  @Secret()
+  @IsOptional()
+  @IsUrl({ https: true })
+  reportsWebhookUrl?: string;
 }
 ~~~
+
+~~~ts filename="src/env/validators/cache.env.ts"
+import { Env, EnvSchema, IsRedisUri, Secret } from '@spraxium/env';
+import { ReportsEnv } from './reports.env';
+
+@EnvSchema()
+export class CacheEnv extends ReportsEnv {
+  @Env('REDIS_URL')
+  @Secret()
+  @IsRedisUri()
+  redisUrl!: string;
+}
+~~~
+
+Se o bot só usa MongoDB, faça `AppEnv` estender `DatabaseEnv`. Para incluir relatórios, troque esse `extends` por `ReportsEnv`. Para incluir Redis também, use `CacheEnv`, como no exemplo abaixo. Se entrar um quarto grupo, crie um arquivo para ele, estenda `CacheEnv` nesse arquivo e aponte `AppEnv` para a classe nova. O TypeScript aceita um pai por classe. O Spraxium lê os campos com `@Env` do pai e das classes acima dele, então você continua chamando `EnvValidator.validate(AppEnv)` uma vez só.
+
+~~~ts filename="src/env/app.env.ts"
+import { EnvSchema } from '@spraxium/env';
+import { CacheEnv } from './validators/cache.env';
+
+@EnvSchema()
+export class AppEnv extends CacheEnv {}
+~~~
+
+Defina `MONGO_URI` no ambiente do bot e acrescente `REDIS_URL` se usar `CacheEnv`. Se você omitir `ENABLE_REPORTS`, o valor será `false`. `REPORTS_WEBHOOK_URL` é opcional. Quando informada, a URL precisa usar HTTPS. Se quiser exigir a URL só quando os relatórios estiverem ativos, confira os dois valores juntos na inicialização do serviço de relatórios. Os decorators deste exemplo validam cada variável por conta própria.
+
+Use a cadeia para as configurações que andam juntas nesse bot. Se um worker separado só usa Redis, crie um `WorkerEnv` com seu próprio `REDIS_URL` e os mesmos decorators. Valide essa classe no ponto de entrada do worker. Herdar `CacheEnv` do bot também exigiria as configurações de Discord e de MongoDB. Use propriedades e chaves de ambiente diferentes para cada funcionalidade, assim um grupo novo não sobrescreve um campo herdado sem querer.
 
 ## Valide uma vez e injete o ambiente
 

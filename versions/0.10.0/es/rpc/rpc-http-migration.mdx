@@ -29,7 +29,9 @@ export class GuildController {
   @HttpGet('/:guildId')
   async get(@HttpParam('guildId') guildId: string) {
     const guild = await this.bot.getGuild(guildId);
+
     if (!guild) throw new NotFoundError('Guild not found');
+
     return { id: guild.id, name: guild.name };
   }
 }
@@ -53,7 +55,9 @@ export class GuildRpcService {
   @RpcHandler('guild.get', { routing: 'guild', permissions: ['guild:read'] })
   get({ guildId }: { guildId: string }) {
     const guild = this.discord.guilds.cache.get(guildId);
+
     if (!guild) throw new RpcError('Guild not found.', Code.NotFound);
+
     return { id: guild.id, name: guild.name };
   }
 }
@@ -79,6 +83,7 @@ export function guildRoutes(
 
   routes.get('/guilds/:guildId', async (context) => {
     const guildId = context.req.param('guildId');
+
     if (!(await canReadGuild(context.req.raw, guildId))) {
       return context.json({ error: 'Forbidden' }, 403);
     }
@@ -93,6 +98,7 @@ export function guildRoutes(
       if (!(error instanceof RpcClientError)) throw error;
       if (error.code === Code.InvalidArgument) return context.json({ error: 'Invalid guild ID' }, 400);
       if (error.code === Code.NotFound) return context.json({ error: 'Guild not found' }, 404);
+
       return context.json({ error: 'Bot unavailable' }, 503);
     }
   });
@@ -117,6 +123,7 @@ export function mountGuildRoutes(
     token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
   });
   app.route('/', guildRoutes(rpc, canReadGuild));
+
   return rpc;
 }
 ~~~

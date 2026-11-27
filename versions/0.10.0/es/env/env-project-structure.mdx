@@ -9,16 +9,21 @@ category: "Environment"
 
 Un bot pequeño puede reunir todas las variables en `app.env.ts`. Cuando aparecen una base de datos, los informes y varios entornos, cuesta menos encontrar cada dato si los validadores viven juntos por función. Coloca las clases en `src/env/validators/` y deja que `AppEnv` reúna lo que usa ese proceso. Spraxium sigue la herencia de la clase que pasas a `EnvValidator.validate`. Los archivos de la carpeta no se registran por sí solos.
 
+## Combina dos, tres o más grupos en un esquema
+
+Empieza por los ajustes de Discord en `SpraxiumBaseEnv`. `DatabaseEnv` amplía esa clase para añadir MongoDB. Para reunir dos grupos, `ReportsEnv` hereda de `DatabaseEnv`. Para añadir un tercero, `CacheEnv` hereda de `ReportsEnv` e incluye Redis. La estructura de abajo muestra el bot con los tres grupos. Cada validador tiene su propio archivo y el punto de entrada solo importa `AppEnv`.
+
 ~~~text
 src/
   env/
-    validators/database.env.ts
+    validators/
+      database.env.ts
+      reports.env.ts
+      cache.env.ts
     app.env.ts
   app.module.ts
   main.ts
 ~~~
-
-En este ejemplo, `DatabaseEnv` añade la conexión de MongoDB a los campos de Discord de `SpraxiumBaseEnv`. `AppEnv` amplía esa clase con una opción de informes. Si un worker solo necesita el banco, crea un esquema para ese proceso sin heredar el token de Discord. Puede reutilizar los decoradores. TypeScript admite un solo padre por clase, por lo que una cadena corta suele ser más fácil de mantener.
 
 ~~~ts filename="src/env/validators/database.env.ts"
 import { Env, EnvSchema, IsMongoUri, Secret, SpraxiumBaseEnv } from '@spraxium/env';
@@ -32,17 +37,50 @@ export class DatabaseEnv extends SpraxiumBaseEnv {
 }
 ~~~
 
-~~~ts filename="src/env/app.env.ts"
-import { Env, EnvSchema, IsBoolean } from '@spraxium/env';
-import { DatabaseEnv } from './validators/database.env';
+~~~ts filename="src/env/validators/reports.env.ts"
+import { Env, EnvSchema, IsBoolean, IsOptional, IsUrl, Secret } from '@spraxium/env';
+import { DatabaseEnv } from './database.env';
 
 @EnvSchema()
-export class AppEnv extends DatabaseEnv {
+export class ReportsEnv extends DatabaseEnv {
   @Env('ENABLE_REPORTS', { default: 'false', secret: false })
   @IsBoolean()
   enableReports!: boolean;
+
+  @Env('REPORTS_WEBHOOK_URL')
+  @Secret()
+  @IsOptional()
+  @IsUrl({ https: true })
+  reportsWebhookUrl?: string;
 }
 ~~~
+
+~~~ts filename="src/env/validators/cache.env.ts"
+import { Env, EnvSchema, IsRedisUri, Secret } from '@spraxium/env';
+import { ReportsEnv } from './reports.env';
+
+@EnvSchema()
+export class CacheEnv extends ReportsEnv {
+  @Env('REDIS_URL')
+  @Secret()
+  @IsRedisUri()
+  redisUrl!: string;
+}
+~~~
+
+Si el bot solo usa MongoDB, haz que `AppEnv` herede de `DatabaseEnv`. Para añadir informes, cambia ese `extends` por `ReportsEnv`. Para incluir Redis, usa `CacheEnv`, como en el ejemplo de abajo. Cuando añadas un cuarto grupo, dale su propio archivo, haz que herede de `CacheEnv` y actualiza `AppEnv` para que herede de la nueva clase. TypeScript admite una sola clase padre. Spraxium lee los campos con `@Env` de toda la cadena, así que basta con llamar una vez a `EnvValidator.validate(AppEnv)`.
+
+~~~ts filename="src/env/app.env.ts"
+import { EnvSchema } from '@spraxium/env';
+import { CacheEnv } from './validators/cache.env';
+
+@EnvSchema()
+export class AppEnv extends CacheEnv {}
+~~~
+
+Define `MONGO_URI` en el entorno del bot y añade `REDIS_URL` si usas `CacheEnv`. Si omites `ENABLE_REPORTS`, su valor será `false`. `REPORTS_WEBHOOK_URL` es opcional. Si la defines, la URL debe usar HTTPS. Si quieres exigirla solo cuando los informes estén activados, comprueba ambos valores al iniciar el servicio de informes. Los decoradores de este ejemplo validan cada variable por separado.
+
+Usa la cadena para los ajustes que van juntos en este bot. Si un proceso separado solo necesita Redis, crea un `WorkerEnv` con su propio `REDIS_URL` y los mismos decoradores. Valida esa clase en el punto de entrada de ese proceso. Si heredas de `CacheEnv` del bot, también tendrás que darle las opciones de Discord y MongoDB. Usa nombres de propiedad y claves de entorno distintos para que un grupo nuevo no sustituya por accidente un campo heredado.
 
 ## Valida una vez e inyecta el resultado
 
