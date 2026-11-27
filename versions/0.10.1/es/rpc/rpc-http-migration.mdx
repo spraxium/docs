@@ -1,0 +1,145 @@
+---
+title: "Migra de @spraxium/http a RPC"
+description: "Mueve las llamadas al bot al backend y conserva el contrato que usan tus clientes."
+order: 7
+category: "@spraxium/rpc"
+---
+
+Tu panel puede hacer `GET /guilds/:guildId` para mostrar el nombre de un servidor. Con el paquete HTTP, esa dirección llega a un controlador dentro del bot. Después del cambio, el backend responde la misma URL. Comprueba el acceso de la persona y llama a `guild.get` en el bot. El navegador sigue recibiendo el mismo JSON.
+
+`@spraxium/http` incluía un puente hacia el bot y también un servidor web. El proyecto tenía que mantener rutas, guards, middleware, CORS, validación y respuestas HTTP. Los frameworks web ya mantienen esas piezas. Con RPC puedes separar el trabajo de tu panel del acceso al bot. El backend se queda con las reglas web y Spraxium con el ciclo de vida del bot y la comunicación con sus shards.
+
+## Empieza por una ruta de lectura
+
+Busca los controladores que llaman a `BotBridge` o que usan el cliente de Discord. Elige uno que solo consulte datos. Apunta el verbo, la ruta, los parámetros, lo que devuelve, los códigos de error y quién puede llamarlo. Estudia también los guards globales, el proxy y la configuración de la API. Un límite de peticiones o una comprobación de sesión puede estar fuera del controlador.
+
+El inicio de sesión, las cargas de archivos y los webhooks siguen siendo rutas HTTP. Llévalos al backend junto con sus reglas. Por ejemplo, un webhook firmado puede necesitar leer el cuerpo sin modificar y sus cabeceras para verificar el origen. Llama al bot desde esa ruta si el evento necesita una acción en Discord.
+
+Si el controlador antiguo usa `@HttpParam` o `@HttpBody`, lee los mismos valores con la API de tu framework web. Mantén allí la validación y los códigos de respuesta. Un `POST` que antes devolvía 201 puede hacerlo después de llamar a un método del bot. El nombre de `@RpcHandler` es el que usa el SDK.
+
+En el ejemplo, el controlador devuelve `{ id, name }` y da 404 si el bot no encuentra el servidor. Si tu API ya devuelve otros datos, respeta lo que el panel consume.
+
+~~~ts
+import { BotBridge, HttpController, HttpGet, HttpParam, NotFoundError } from '@spraxium/http';
+
+@HttpController('/guilds')
+export class GuildController {
+  constructor(private readonly bot: BotBridge) {}
+
+  @HttpGet('/:guildId')
+  async get(@HttpParam('guildId') guildId: string) {
+    const guild = await this.bot.getGuild(guildId);
+
+    if (!guild) throw new NotFoundError('Guild not found');
+
+    return { id: guild.id, name: guild.name };
+  }
+}
+~~~
+
+## Dale al bot un método RPC
+
+Instala `@spraxium/rpc` con una versión compatible del framework. Añade `defineRpc` al archivo de configuración, importa `RpcModule` y registra el provider en el módulo que se ocupa de la consulta. Da `guild:read` a la credencial que va a usar el backend. [Prepara la primera llamada](./rpc-quickstart)
+
+El gateway usa el ID de texto para enviar el trabajo al shard adecuado. Este método lee la misma caché que el ejemplo anterior. Si el controlador antiguo tenía un servicio con las reglas de tu aplicación, haz que el provider RPC llame a ese servicio. Así los comandos del bot siguen usando el mismo código.
+
+~~~ts
+import { Inject, Injectable } from '@spraxium/common';
+import { Code, RpcError, RpcHandler } from '@spraxium/rpc';
+import { Client } from 'discord.js';
+
+@Injectable()
+export class GuildRpcService {
+  constructor(@Inject(Client) private readonly discord: Client) {}
+
+  @RpcHandler('guild.get', { routing: 'guild', permissions: ['guild:read'] })
+  get({ guildId }: { guildId: string }) {
+    const guild = this.discord.guilds.cache.get(guildId);
+
+    if (!guild) throw new RpcError('Guild not found.', Code.NotFound);
+
+    return { id: guild.id, name: guild.name };
+  }
+}
+~~~
+
+## Coloca la ruta en el backend
+
+Crea un cliente `@spraxium/rpc-client` cuando arranque el backend. El tipo declara los datos y el resultado de `guild.get`. Conserva la URL pública y los controles de acceso que tenía la ruta. En el siguiente ejemplo de Hono, `canReadGuild` representa la función de tu aplicación que consulta la sesión y el acceso al servidor. El ejemplo devuelve 403 cuando falta permiso. Mantén 401 para sesiones ausentes si así funciona tu API.
+
+~~~ts
+import { Code, type RpcClient, RpcClientError } from '@spraxium/rpc-client';
+import { Hono } from 'hono';
+
+export type GuildRpc = {
+  'guild.get': { input: { guildId: string }; output: { id: string; name: string } };
+};
+
+export function guildRoutes(
+  rpc: RpcClient<GuildRpc>,
+  canReadGuild: (request: Request, guildId: string) => Promise<boolean>,
+) {
+  const routes = new Hono();
+
+  routes.get('/guilds/:guildId', async (context) => {
+    const guildId = context.req.param('guildId');
+
+    if (!(await canReadGuild(context.req.raw, guildId))) {
+      return context.json({ error: 'Forbidden' }, 403);
+    }
+
+    try {
+      const guild = await rpc.call('guild.get', { guildId }, {
+        timeoutMs: 3_000,
+        signal: context.req.raw.signal,
+      });
+      return context.json(guild);
+    } catch (error) {
+      if (!(error instanceof RpcClientError)) throw error;
+      if (error.code === Code.InvalidArgument) return context.json({ error: 'Invalid guild ID' }, 400);
+      if (error.code === Code.NotFound) return context.json({ error: 'Guild not found' }, 404);
+
+      return context.json({ error: 'Bot unavailable' }, 503);
+    }
+  });
+
+  return routes;
+}
+~~~
+
+Al arrancar, pasa la aplicación y su comprobación de acceso a la siguiente función. Guarda el cliente que devuelve y ciérralo cuando el servidor HTTP termine las peticiones en curso. Usa la URL HTTPS del gateway si el bot y el backend están en máquinas distintas. [Credenciales y conexión](./rpc-authentication)
+
+~~~ts
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { Hono } from 'hono';
+import { type GuildRpc, guildRoutes } from './guild.routes.ts';
+
+export function mountGuildRoutes(
+  app: Hono,
+  canReadGuild: (request: Request, guildId: string) => Promise<boolean>,
+) {
+  const rpc = createRpcClient<GuildRpc>({
+    url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+    token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+  });
+  app.route('/', guildRoutes(rpc, canReadGuild));
+
+  return rpc;
+}
+~~~
+
+En NestJS, puedes conservar el controlador y sus guards e inyectar un servicio que use el SDK. En Express o Koa, el router puede mantener la URL existente. En Fastify, conserva el esquema HTTP y registra la llamada en el plugin de rutas. Los ejemplos muestran dónde crear el cliente y qué hace cada framework con los errores. [Ejemplos por framework](./rpc-backends)
+
+## Comprueba el cambio mientras puedes volver atrás
+
+Compara el resultado de la ruta nueva con el que ya devuelve la anterior. Prueba un ID inválido, sesión ausente, usuario sin permiso, un servidor que el bot no conoce y una caída del bot. Si usas sharding, incluye un servidor asignado a otro shard. Para una escritura, comprueba cómo reconocer si el pedido anterior ya se aplicó. Un plazo vencido no te dice si Discord alcanzó a recibirlo.
+
+Si despliegas las dos rutas durante la transición, usa el backend o el proxy para elegir una y conserva la URL. Mueve una lectura primero. Cuando funcione puedes pasar a las escrituras, una por una. Para volver, dirige la ruta al servicio HTTP anterior antes de apagarlo. Una misma escritura debe pasar por un solo camino.
+
+Después de migrar la última ruta, quita los controladores y guards viejos que quedaron sin uso, `HttpModule`, la entrada de `defineHttp` y la dependencia `@spraxium/http`. Ajusta el entorno y el despliegue para que el backend reciba la dirección anterior. Busca referencias restantes en el código y en el lockfile. Si trabajas con un agente, la skill indica dónde mirar en tu proyecto y cómo adaptar la llamada en cada framework. [Skill para migrar de HTTP a RPC](https://github.com/spraxium/rpc/blob/main/SKILL.md)
+
+## Conserva el contrato durante el cambio
+
+Toma una respuesta representativa de la ruta anterior en un entorno de prueba. Apunta su estado, sus campos, quién puede acceder y qué ocurre si el bot está apagado. Repite esa prueba en la ruta nueva. Si antes devolvía `{ data: stats }` y el handler devuelve las estadísticas, conserva ese envoltorio en el controlador web.
+
+Para un bot de tickets, empieza por una lectura, como listar tickets abiertos o mostrar los datos de un canal. Mantén ambos caminos durante las pruebas. Prueba una sesión sin acceso, un servidor ausente y el bot apagado. Si migras el cierre de tickets, guarda un ID de operación que la aplicación pueda consultar. Discord podría aceptar el cierre aunque se pierda la respuesta al panel. Cambia el tráfico por etapas y retira las rutas anteriores, el puerto y la dependencia cuando tengas comprobado el recorrido nuevo.

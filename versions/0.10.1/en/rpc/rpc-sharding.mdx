@@ -1,0 +1,32 @@
+---
+title: "How RPC finds the right shard"
+description: "Keep one backend address while the bot runs across Discord shard processes."
+order: 5
+category: "@spraxium/rpc"
+---
+
+Picture a bot with two shards. The guild someone opens in the dashboard belongs to shard 1. Asking shard 0 directly could make a real guild look missing. An RPC guild call carries the guild ID to the gateway. The parent uses Discord.js's shard routing to send the work to its owner.
+
+An unsharded bot opens its own listener. With Spraxium's native process sharding, the parent opens one listener and the children receive requests over a local process channel. Your backend uses the same gateway address either way. The route can keep working when you change how many child processes the bot uses.
+
+## Which routing option fits the job?
+
+For work about a particular guild, like reading its members or moderating it, set `routing: 'guild'` and send a top-level string `guildId`. The gateway picks the shard before running the handler. Routing answers where the method runs. The backend and bot still apply their own authorization checks.
+
+~~~ts
+const stats = await rpc.call('guild.stats', { guildId }, { timeoutMs: 3_000 });
+~~~
+
+For a health check or work that belongs to one process, use `routing: 'singleton'`. The default is shard zero. Set `singletonShard` if a different local child already owns the job.
+
+## During a restart
+
+Shards report which methods they can handle. The parent compares these lists and waits until a shard is ready to receive guild calls. A restart or mismatch can produce `Unavailable`. Use the gateway and shard logs to tell a temporary restart from deploying different bot builds. Check the outcome of a previous write before attempting it again.
+
+On shutdown, the gateway stops accepting new work and gives active calls time to finish. Pass `context.signal` to work that can cancel. The process channel reaches the parent's local children. If you run groups of shards on different machines, your backend needs a way to select the gateway for the right group. [Diagnose RPC failures](./rpc-troubleshooting)
+
+## Decide what to do when a guild moves or is unavailable
+
+For a ticket viewer, send the guild ID that owns the ticket in the request body, even if the page was opened from a channel link. Avoid taking the snowflake from a number field or asking every shard for the same answer. Routing by guild already finds the owning child. A singleton can report that the gateway and its chosen child are up, but it says little about a different guild shard. Test with two guilds on different shards before using the gateway for moderation.
+
+The local IPC route covers the children of one native Spraxium manager. In a multi-host fleet, keep shard allocation and gateway selection in your own deployment, and send the call to the right group first. During a rolling restart, use `Unavailable` as a signal to check readiness and release consistency. Have the panel surface a temporary error for reads while the targeted child is coming up. A retry for a write should first verify the result of the original operation.

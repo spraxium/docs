@@ -1,0 +1,34 @@
+---
+title: "Switch Spraxium versions"
+description: "Try a preview in a copy of your bot, pin a build to reproduce a bug, or return to the stable release."
+order: 7
+category: "CLI"
+---
+
+## Start with the release you want to test
+
+Use `next` when you want to see how your bot runs on the current preview. Use `stable` to follow the npm `latest` tag. An exact version gives everyone the same build even if one of those tags moves. Run the command inside the bot package that declares the dependencies. In a workspace, the CLI checks the package manager and lockfile from the workspace root. It resolves the target and checks every package it intends to switch is published at that version.
+
+## Preview the changes from a branch
+
+Before switching, make sure you can recover the current bot code, manifest and lockfile together. A review branch works well. Use a development bot token and a server where you can call a couple of commands without affecting users. The dry run shows the resolved version and the package changes. It leaves the manifest and lockfile alone, so you can stop and investigate a missing version before the install. The examples use a CLI release that provides `use`. Your project's package manager still performs the install.
+
+~~~bash
+pnpm dlx @spraxium/cli@0.10.0 use next --dry-run
+pnpm dlx @spraxium/cli@0.10.0 use next
+~~~
+
+## Check the bot after installing
+
+The CLI pins the framework packages in dependencies, devDependencies and optionalDependencies. It installs, checks what the project actually resolves, and tries to restore the previous manifest and lockfile if the switch fails. Check the diff, build your project and run one command, one component callback and whatever the release changes for your bot. If you're adopting RPC, make an actual request from the backend against a test guild too. The RPC packages have a release of their own. Change them explicitly when needed.
+
+## Choose a repeatable rollback
+
+For a report, record the exact version from the dry run or startup notice. When you want to track stable again, use `stable`. When you need to recover exactly what was deployed, restore the known-good code and lockfile or pin the released version you saved. The CLI changes dependencies. A TypeScript migration or a database change made while testing needs its own rollback. The background upgrade notice caches its check for 24 hours. To keep the installed version line but skip the registry request, set `SPRAXIUM_NO_UPGRADE_NOTIFIER=1`.
+
+~~~bash
+pnpm dlx @spraxium/cli@0.10.0 use stable
+pnpm dlx @spraxium/cli@0.10.0 use 0.10.0 --dry-run
+~~~
+
+If the registry publishes every framework package your bot uses at 0.10.0, the last command displays the exact switch. Once reviewed, apply it by removing --dry-run. Read the release notes for the version you chose before reconnecting the production bot.

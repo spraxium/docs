@@ -1,0 +1,59 @@
+---
+title: "Credenciales y conexión segura"
+description: "Da acceso al servicio y comprueba los permisos de la persona en el backend."
+order: 3
+category: "@spraxium/rpc"
+---
+
+Un token RPC identifica a un servicio, por ejemplo al backend del panel. La persona que entra al panel tiene su propia sesión. La ruta conoce esa sesión y puede comprobar si esa persona tiene acceso a `/guilds/:guildId`. El gateway comprueba que el token del servicio pueda ejecutar el método. Si el bot va a hacer cambios en Discord, también cuenta lo que permiten sus roles.
+
+Si un handler pide `permissions: ['guild:read']`, la entrada del token debe incluir `guild:read`. Si pide varios permisos, el servicio necesita todos. El gateway rechaza una declaración sin permisos si falta `allowAuthenticated`. Configura `allowAuthenticated: true` para un método que cualquier servicio con credencial válida deba poder llamar.
+
+## Da un token distinto a cada servicio
+
+Con un solo cliente basta el formato corto, `token` con `permissions`. Si el panel y un worker llaman al mismo bot, usa una lista `auth.tokens` en su lugar. Cada entrada tiene un ID, un valor secreto y los permisos que necesita ese servicio. Así puedes cambiar el token del worker sin tocar el del panel.
+
+~~~ts
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  auth: {
+    tokens: [
+      { id: 'dashboard', value: process.env.DASHBOARD_RPC_TOKEN ?? '', permissions: ['guild:read'] },
+      { id: 'worker', value: process.env.WORKER_RPC_TOKEN ?? '', permissions: ['bot:read'] },
+    ],
+  },
+});
+~~~
+
+Cuando toque rotar una credencial, crea una segunda entrada con un ID distinto y los mismos permisos. Sube esa configuración al bot y después actualiza el backend. Comprueba que sigue funcionando con el token nuevo y quita el anterior.
+
+## Protege el tráfico entre máquinas
+
+La dirección local por defecto sirve si los procesos comparten máquina. Si están en hosts distintos, usa HTTPS. Puedes dar al gateway una clave y un certificado PEM, como en este ejemplo, o terminar TLS en un proxy de confianza. Cambia las rutas de los archivos para que coincidan con tu despliegue.
+
+~~~ts
+import { readFileSync } from 'node:fs';
+import { defineRpc } from '@spraxium/rpc';
+
+export const rpcConfig = defineRpc({
+  host: '0.0.0.0',
+  port: 4300,
+  token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+  permissions: ['guild:read'],
+  tls: {
+    key: readFileSync('/etc/tls/rpc.key'),
+    cert: readFileSync('/etc/tls/rpc.crt'),
+  },
+});
+~~~
+
+Si el proxy termina TLS, configura `tlsTerminationProxy: true` en el bot y permite que solo el proxy llegue al tramo en HTTP. El backend se conecta al proxy por HTTPS. Para una CA privada, deja que Node la cargue con `NODE_EXTRA_CA_CERTS` y mantén la verificación de certificados.
+
+El gateway aplica límites de tamaño, tiempo, llamadas simultáneas y peticiones por credencial. El proxy y el firewall también pueden limitar quién llega al puerto antes de que RPC compruebe el token. Deja las credenciales en el servidor y evita que los encabezados de autorización o los datos privados entren en los logs. [Usa RPC desde tu backend](./rpc-backends)
+
+## Separa la lectura de las acciones
+
+Un worker que prepara informes puede usar una credencial con `guild:read`. El panel de moderación necesita otra para los métodos que cambian datos. El backend sigue comprobando la sesión y el acceso al servidor. El bot comprueba su permiso y la jerarquía de roles de Discord antes de ejecutar un cambio. Para probar la separación, intenta llamar a un método de escritura con la credencial del worker y espera `PermissionDenied`.
+
+Todos los tokens deben ser distintos, tener entre 32 y 4096 caracteres ASCII imprimibles y no llevar espacios. Usa el ID de la credencial en los registros cuando necesites seguir una rotación y guarda el valor en un gestor de secretos. Mantén las dos credenciales activas mientras el servicio cambia de una a otra y comprueba la primera llamada con la nueva. Cuando los procesos viven en máquinas distintas, conecta el cliente servidor por HTTPS. [Opciones y límites del gateway](./rpc-configuration)

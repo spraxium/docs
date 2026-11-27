@@ -1,0 +1,375 @@
+---
+title: Validators Reference
+description: |
+  Every built-in validator decorator for @spraxium/env explained with types and behavior.
+  Learn string, number, boolean, network, Discord, data, and common validators including MinLength, MaxLength, Matches, Min, Max, IsPositive, IsNegative, IsDiscordWebhookUrl, and IsDiscordClientSecret.
+order: 2
+category: Environment
+keywords:
+  - spraxium env validators
+  - validators reference in spraxium
+  - environment env validators guide
+  - env validators discord bot
+  - env validators typescript
+  - spraxium environment documentation
+  - validators reference environment
+  - spraxium validators reference
+---
+
+## How validators work
+
+Every validator is a property decorator that attaches a validation rule to the field metadata. When the schema runs at boot time, rules execute in the order they were declared on the property. Each rule can include a _transform_ step that converts the raw string into the target type and a _validate_ step that checks whether the converted value is acceptable. If any rule returns an error message, the field fails validation.
+
+You can stack multiple validators on a single property. A field like a Redis URI might use _IsRedisUri_ for format checking and _Secret_ for masking. The pipeline runs every rule sequentially, so _Transform_ runs its conversion before _Validate_ sees the value. Understanding this order matters when you combine custom transforms with built-in type validators.
+
+The validators are organized into six families: string, number, boolean, network, Discord, and data validators. A seventh group, common validators, contains utility decorators that modify field behavior without checking types.
+
+## Choosing validators well
+
+Start with the validator that matches the *runtime type* you want in the application, then add constraint validators for tighter business rules. In other words, first decide whether the field should become a string, number, or boolean, and only then add checks like minimum length, pattern matching, or numeric bounds.
+
+That order keeps schemas easier to read. Anyone opening the env file can quickly understand what the field becomes in code and which extra rules it must satisfy.
+
+## String validators
+
+_IsString_ confirms that the value is a non-empty string. Use it for any free-form text field. Three constraint validators can be stacked on top to further restrict the value.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Arguments</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsString()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the value is a non-empty string.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MinLength(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Validates that the string has at least the given number of characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*MaxLength(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Validates that the string has at most the given number of characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Matches(pattern, message?)*</TableCell>
+      <TableCell>pattern: RegExp, message?: string</TableCell>
+      <TableCell>Validates that the string matches the given regular expression. Accepts an optional custom error message.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="src/app.env.ts"
+@Env('APP_NAME')
+@IsString()
+@MinLength(3)
+@MaxLength(64)
+APP_NAME!: string;
+
+@Env('SLUG', { secret: false })
+@IsString()
+@Matches(/^[a-z0-9-]+$/, 'Must be lowercase alphanumeric with hyphens')
+SLUG!: string;
+```
+
+## Number validators
+
+Three validators handle numeric values. Each one transforms the raw string into a JavaScript number before validating its shape. They differ in what they accept after conversion.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Accepts</TableCell>
+      <TableCell header>Example values</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsNumber*</TableCell>
+      <TableCell>Any finite number, including decimals</TableCell>
+      <TableCell>"3.14", "42", "-1.5"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsInteger*</TableCell>
+      <TableCell>Whole numbers only</TableCell>
+      <TableCell>"42", "-7", "0"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsPort*</TableCell>
+      <TableCell>Integer between 1 and 65535</TableCell>
+      <TableCell>"3000", "8080", "443"</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+All three transform the string with `Number()` before validating. _IsNumber_ rejects `NaN` and empty strings. _IsInteger_ further requires `Number.isInteger()` to pass. _IsPort_ adds a range check from 1 to 65535 on top of the integer requirement.
+
+Four constraint validators work on top of any numeric field and must be applied after the type validator:
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Arguments</TableCell>
+      <TableCell header>Description</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*Min(min)*</TableCell>
+      <TableCell>min: number</TableCell>
+      <TableCell>Validates that the numeric value is greater than or equal to the given minimum.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*Max(max)*</TableCell>
+      <TableCell>max: number</TableCell>
+      <TableCell>Validates that the numeric value is less than or equal to the given maximum.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsPositive()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the numeric value is greater than zero.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsNegative()*</TableCell>
+      <TableCell>None</TableCell>
+      <TableCell>Validates that the numeric value is less than zero.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+```typescript filename="src/app.env.ts"
+@Env('RATE_LIMIT')
+@IsNumber()
+@Min(1)
+@Max(1000)
+RATE_LIMIT!: number;
+
+@Env('MAX_RETRIES')
+@IsInteger()
+@IsPositive()
+MAX_RETRIES!: number;
+
+@Env('HTTP_PORT', { secret: false })
+@IsPort()
+HTTP_PORT!: number;
+```
+
+## Boolean validator
+
+The _IsBoolean_ validator transforms string representations into native booleans. It accepts four raw values: `"true"`, `"false"`, `"1"`, and `"0"`. The comparison is case-insensitive and trims whitespace, so `" TRUE "` resolves to `true`. Any other value fails validation.
+
+After transformation, the property holds a real JavaScript boolean. You never need to compare against the string `"true"` in your code. This is the recommended way to handle feature flags and toggle switches stored in environment variables.
+
+```typescript filename="src/app.env.ts"
+@Env('ENABLE_METRICS', { default: 'false', secret: false })
+@IsBoolean()
+ENABLE_METRICS!: boolean;
+```
+
+## Network validators
+
+Five validators cover common network-related formats. Each one checks the string against a specific pattern without transforming the value, since network URIs and addresses remain as strings.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Validates</TableCell>
+      <TableCell header>Example</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsUrl(options?)*</TableCell>
+      <TableCell>Any parseable URL via the URL constructor. Pass the https option to reject non-HTTPS URLs.</TableCell>
+      <TableCell>"https://api.example.com"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsEmail*</TableCell>
+      <TableCell>Basic email format like user@domain.tld</TableCell>
+      <TableCell>"bot@spraxium.dev"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsHost*</TableCell>
+      <TableCell>Hostname, IPv4, or IPv6 address</TableCell>
+      <TableCell>"localhost", "192.168.1.1"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsMongoUri*</TableCell>
+      <TableCell>URI starting with mongodb:// or mongodb+srv://</TableCell>
+      <TableCell>"mongodb+srv://user:pass@cluster.net/db"</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsRedisUri*</TableCell>
+      <TableCell>URI starting with redis:// or rediss://</TableCell>
+      <TableCell>"redis://localhost:6379"</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+Network validators work well with _Secret_ to mask credentials in the startup log. A MongoDB connection string contains a password, so the default masking behavior protects it automatically. Hostnames and ports are safe to display, so mark them with `secret: false` in the _@Env_ options.
+
+```typescript filename="src/app.env.ts"
+@Env('CALLBACK_URL', { secret: false })
+@IsUrl({ https: true })
+CALLBACK_URL!: string;
+
+@Env('MONGO_URI')
+@IsMongoUri()
+MONGO_URI!: string;
+
+@Env('REDIS_URI')
+@IsRedisUri()
+REDIS_URI!: string;
+
+@Env('API_HOST', { default: 'localhost', secret: false })
+@IsHost()
+API_HOST!: string;
+```
+
+## Discord validators
+
+Four validators target Discord-specific formats. They are strict about shape because invalid tokens, IDs, or webhook URLs cause hard-to-debug authentication failures at connect time.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Decorator</TableCell>
+      <TableCell header>Validates</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*IsDiscordToken()*</TableCell>
+      <TableCell>Three-segment base64url string, 59–100 chars. Validates each segment uses only base64url characters.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordId()*</TableCell>
+      <TableCell>Numeric snowflake, 17–19 digits. Rejects non-digit characters and out-of-range lengths.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordWebhookUrl()*</TableCell>
+      <TableCell>Full Discord webhook URL matching the Discord webhook path on discord.com, canary.discord.com, or ptb.discord.com. Always mark this field with *@Secret()* because the URL embeds a token.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*IsDiscordClientSecret()*</TableCell>
+      <TableCell>OAuth2 client secret: non-empty URL-safe string of 24–64 characters without whitespace. Always mark this field with *@Secret()*.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+For Discord-specific values, strict validation is worth the extra ceremony. A malformed webhook URL or client secret often fails far away from the env file, which makes startup validation one of the cheapest places to catch the mistake.
+
+```typescript filename="src/app.env.ts"
+@Env('DISCORD_TOKEN')
+@IsDiscordToken()
+TOKEN!: string;
+
+@Env('GUILD_ID', { secret: false })
+@IsDiscordId()
+GUILD_ID!: string;
+
+@Env('ALERT_WEBHOOK')
+@IsDiscordWebhookUrl()
+@Secret()
+ALERT_WEBHOOK!: string;
+
+@Env('DISCORD_CLIENT_SECRET')
+@IsDiscordClientSecret()
+@Secret()
+CLIENT_SECRET!: string;
+```
+
+## Data validators
+
+Two validators handle structured data stored as strings in environment variables.
+
+_IsJson_ parses the raw value with `JSON.parse` during the transform phase. If parsing succeeds, the property holds the parsed JavaScript object or array. If parsing fails, the raw string passes through and the validate phase rejects it. This is useful for complex configuration that you want to store as a JSON string in a single environment variable.
+
+_IsEnum_ accepts an array of allowed values and checks that the resolved value matches one of them. It does not transform the value, so it works on strings by default. You can combine it with a type validator like _IsNumber_ if your enum values are numeric, since _IsEnum_ runs its check after all transforms complete.
+
+```typescript filename="src/app.env.ts"
+@Env('FEATURE_FLAGS')
+@IsJson()
+FEATURE_FLAGS!: Record<string, boolean>;
+
+@Env('LOG_LEVEL', { default: 'info', secret: false })
+@IsEnum(['debug', 'info', 'warn', 'error'])
+LOG_LEVEL!: string;
+```
+
+## Common validators
+
+The common validators do not check types. Instead they modify how the field behaves in the pipeline. You use them alongside type validators to control optionality, masking, defaults, and custom logic.
+
+<DropdownGroup>
+<Dropdown title="IsOptional">
+  Marks the field so it does not fail validation when the environment variable is absent or empty. Without this decorator, every field is required by default and the schema throws an error during boot if the variable is missing. Use *IsOptional* for fields that have no meaningful default but should not block startup.
+</Dropdown>
+
+<Dropdown title="Secret">
+  Forces masking of the field value in the startup log, regardless of the *@Env*
+  `secret` option. By default, fields with the *@Env* decorator mask their
+  values unless `secret: false` is set explicitly. Use *Secret* as a
+  decorator-level override when you want to guarantee masking even if someone
+  changes the *@Env* options later.
+</Dropdown>
+
+<Dropdown title="Default">
+  Sets a static fallback value and automatically marks the field as optional. If
+  the environment variable is absent, the field resolves to the provided default
+  instead of failing validation. This combines the behavior of *IsOptional* with
+  a concrete fallback, so the property always has a value at runtime.
+</Dropdown>
+
+<Dropdown title="Transform">
+  Runs a custom function on the raw string before any validation step in the
+  same rule and before rules declared below it. The function receives the raw
+  string and returns the transformed value, which becomes the new input for
+  subsequent validators. Use this to normalize data like trimming whitespace,
+  splitting comma-separated lists, or converting formats.
+</Dropdown>
+
+<Dropdown title="Validate">
+  Runs a custom check on the already-transformed value. The function receives the value and must return `true` when it is acceptable or a string error message when it is not. This is the escape hatch for business rules that the built-in validators do not cover, such as checking value ranges, format patterns, or cross-field dependencies.
+</Dropdown>
+</DropdownGroup>
+
+_IsOptional_ and _Default_ both make the field optional, but _Default_ also provides a concrete fallback. If you use _Default_, the field always resolves to a value. If you use _IsOptional_ alone, the property can be `undefined` at runtime.
+
+_Transform_ intercepts the raw string and returns the new value. It runs before any _validate_ step in the same rule and before rules declared below it. This lets you normalize data, like trimming whitespace or splitting comma-separated lists, before the type validator sees the value.
+
+_Validate_ adds a custom check to the pipeline. The function receives the already-transformed value and returns `true` when it is acceptable or a string error message when it is not. This is the escape hatch for business rules that the built-in validators do not cover.
+
+<CodeTabs>
+  <Tab label="Transform" language="typescript">
+```typescript filename="src/app.env.ts"
+@Env('ALLOWED_ORIGINS', { secret: false })
+@Transform((raw) => raw.split(',').map((s) => s.trim()))
+@Validate((value) => Array.isArray(value) && value.length > 0 ? true : 'Expected at least one origin')
+ALLOWED_ORIGINS!: string[];
+```
+  </Tab>
+  <Tab label="Default + Secret" language="typescript">
+```typescript filename="src/app.env.ts"
+@Env('ENCRYPTION_KEY')
+@IsString()
+@Default('dev-key-not-for-production')
+@Secret()
+ENCRYPTION_KEY!: string;
+```
+  </Tab>
+</CodeTabs>
+
+## Next page
+
+Continue with [Advanced Patterns](/guide/env-advanced).

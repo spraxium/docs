@@ -1,0 +1,143 @@
+---
+title: Start
+description: |
+  Architecture-first introduction to building a Spraxium bot from zero to a running module graph.
+  Covers prerequisites, project scaffolding, folder structure, bootstrap flow, and the core architectural rules.
+order: 1
+category: Getting Started
+keywords:
+  - spraxium getting started
+  - start in spraxium
+  - getting started getting started guide
+  - getting started discord bot
+  - getting started typescript
+  - spraxium getting started documentation
+  - start getting started
+  - spraxium start
+---
+
+## What is Spraxium
+
+Spraxium is a TypeScript framework that sits on top of Discord.js and provides the architecture layer that Discord.js intentionally leaves out. Discord.js handles the low-level gateway communication, covering WebSocket connections, REST calls, raw events, and data models. Spraxium takes over from there and gives you modules, dependency injection, a guard pipeline, lifecycle hooks, and a deterministic boot sequence that ensures your bot starts the same way every time.
+
+Each feature lives in its own module with clear boundaries and explicit dependencies. The DI container resolves and injects everything automatically; you declare what each class needs and the framework handles the wiring.
+
+## Prerequisites
+
+You need three things before starting:
+
+- **A supported Node.js release.** Use Node.js 22.23.4 or newer on 22.x, 24.22.1 or newer on 24.x, or 26.12.1 or newer on 26.x. Run `node -v` before creating the project to see what version your terminal uses.
+- **A Discord bot token.** Create a new application at [Discord Developer Portal](https://discord.com/developers/applications), add a Bot to it, and copy the token. This token is what allows your bot to authenticate with the Discord gateway.
+- **TypeScript project.** The CLI scaffold automatically sets up _tsconfig.json_ with _experimentalDecorators_ and _emitDecoratorMetadata_ enabled, which are required for the decorator-based dependency injection system that Spraxium relies on.
+
+<Callout tone="warning" title="Never expose your bot token">
+  The token acts as your bot's password, anyone who has it can take full control
+  of the bot. Always keep it in .env and ensure .env is listed in .gitignore.
+  The Spraxium scaffold adds that rule to the generated .gitignore
+  automatically.
+</Callout>
+
+<Callout tone="info" title="Using a test server">
+  During development, always point your bot at a private Discord server you own.
+  That way you can register slash commands instantly with guild-scoped
+  registration and test interactions without affecting any real users. Keep it
+  separate from any production server to avoid accidental command conflicts or
+  rate limit issues.
+</Callout>
+
+## Scaffold the project
+
+Run the create command to scaffold a project with the correct folder structure, TypeScript configuration, and all dependencies pre-installed. The CLI asks for a template, package manager, and whether to initialize a Git repository.
+
+<CodeTabs>
+  <Tab label="npm" language="bash">
+    ```bash
+    npx @spraxium/cli@0.10.0 new my-bot
+    ```
+  </Tab>
+  <Tab label='pnpm' language='bash'>
+    ```bash
+    pnpm dlx @spraxium/cli@0.10.0 new my-bot
+    ```
+  </Tab>
+  <Tab label='bun' language='bash'>
+    ```bash
+    bunx @spraxium/cli@0.10.0 new my-bot
+    ```
+  </Tab>
+</CodeTabs>
+
+## Starter structure
+
+Each file has a specific architectural role:
+
+<FolderStructure title='Minimal structure'>
+  <Folder name='src' open>
+    <File name='main.ts' />
+    <File name='app.env.ts' />
+    <File name='app.module.ts' />
+    <Folder name='modules' open>
+      <Folder name='default' open>
+        <File name='default.module.ts' />
+      </Folder>
+    </Folder>
+  </Folder>
+  <File name='spraxium.config.ts' />
+  <File name='.env' />
+</FolderStructure>
+
+- _main.ts_: bootstrap only; validates env and starts the framework
+- _app.env.ts_: typed env schema validated before Discord connects
+- _app.module.ts_: composition root, imports feature modules, no business logic
+- _modules/_: one folder per feature domain
+
+## Bootstrap
+
+_main.ts_ is the only file that touches the framework factory. It validates environment variables, creates the application, loads the module graph, and opens the Discord connection.
+
+```typescript filename='src/main.ts'
+import { IntentPreset, SpraxiumFactory } from '@spraxium/core';
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from './app.env';
+import { AppModule } from './app.module';
+
+async function main(): Promise<void> {
+  const env = EnvValidator.validate(AppEnv);
+  const app = await SpraxiumFactory.create({ token: env.token });
+
+  app.useModule(AppModule);
+  app.intents(IntentPreset.Standard);
+
+  await app.listen();
+}
+
+main();
+```
+
+`EnvValidator.validate(AppEnv)` loads `.env.local` or `.env` and checks each field before the bot logs in. With `NODE_ENV=development`, you can correct a value in the file while the process waits. In other environments, invalid settings end startup with exit code 1. After validation, `app.listen()` resolves the dependencies, registers the handlers and listeners, and waits for the Discord client to be ready.
+
+## Root module
+
+_AppModule_ is the composition root: it imports feature modules but contains no providers or listeners. Adding features means adding module imports here.
+
+```typescript filename="src/app.module.ts"
+import { Module } from '@spraxium/common';
+import { DefaultModule } from './modules/default/default.module';
+
+@Module({
+  imports: [DefaultModule],
+})
+export class AppModule {}
+```
+
+## Core architectural rules
+
+Three rules that underpin how the framework operates:
+
+- **One module per feature domain.** Each domain in your bot, whether it handles moderation, commands, events, or external integrations, gets its own dedicated module folder with its own service, listener, and module files. Cross-feature dependencies go through explicit imports and exports rather than shared global state, which makes it easy to understand exactly what each module depends on.
+- **Dependency injection for everything.** You should never instantiate services manually with the _new_ keyword. Instead, declare dependencies as constructor parameters and let the DI container resolve them automatically. This keeps coupling explicit, makes testing straightforward with mock injection, and ensures the framework controls the lifecycle of every service.
+- **Startup validation before Discord.** The entire DI graph is resolved and all providers are instantiated before the Discord login happens. If any service has invalid configuration or a missing dependency, the error surfaces at boot time with a clear message rather than appearing after deployment when a user triggers the affected command.
+
+## Next page
+
+Continue with [Modules](/guide/modules).

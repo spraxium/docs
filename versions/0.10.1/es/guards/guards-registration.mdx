@@ -1,0 +1,170 @@
+---
+title: Registro y alcance de guards
+description: |
+  Crea guards personalizados con el decorador Guard y aplícalos mediante UseGuards.
+  Entiende cómo los alcances global, de clase y de método se combinan para formar una política de acceso completa.
+order: 2
+category: Guards
+---
+
+## Crear un guard con @Guard
+
+Para crear un guard, escribes una clase decorada con _@Guard()_ que implemente la interfaz _SpraxiumGuard_. El decorador marca la clase como guard en el sistema de metadatos del framework, y la interfaz exige el método _canActivate_ que el pipeline invoca en runtime. Este es el mismo patrón para cualquier guard que escribas, tanto si comprueba una propiedad simple como si consulta un servicio externo.
+
+Spraxium crea el guard con un constructor sin argumentos cuando lo ejecuta. Usa `ExecutionContext` para consultar quién ejecutó el comando y `withOptions` para ajustes fijos. Si la decisión requiere una base de datos u otra dependencia inyectada, llama a un proveedor dentro del handler antes de ejecutar la acción.
+
+```typescript filename="guild-only.guard.ts"
+import { Guard } from '@spraxium/common';
+import type { ExecutionContext, SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class GuildOnlyGuard implements SpraxiumGuard {
+  canActivate(ctx: ExecutionContext): boolean {
+    return ctx.getGuildId() !== null;
+  }
+}
+```
+
+El guard de arriba comprueba si el comando se activó dentro de una guild. Si _getGuildId_ devuelve null, el usuario está en un DM y el guard deniega la ejecución. Observa que el guard no envía respuestas ni registra nada cuando deniega. Es intencional: el único trabajo del guard es decidir permitir o denegar, y el framework se ocupa del resto mediante el pipeline de excepciones.
+
+Mantén cada guard enfocado en una sola responsabilidad. Un guard que comprueba tanto membresía de rol como tipo de canal es más difícil de reutilizar que dos guards separados, uno para el rol y otro para el canal. Los guards más pequeños componen mejor y son más fáciles de testear porque cada uno tiene exactamente una razón para fallar.
+
+## Aplicar guards con @UseGuards
+
+El decorador _@UseGuards_ adjunta guards a una clase o a un método específico. Cuando se coloca en una clase, todos los métodos de esa clase pasan por esos guards. Cuando se coloca en un método, solo ese método específico recibe esos guards adicionales. Puedes usar ambos a la vez, y los guards de clase siempre se ejecutan antes que los de método.
+
+También puedes apilar varios guards en una sola llamada a _@UseGuards_. Se evaluarán en el orden en que los listes, así que controlas explícitamente la secuencia de evaluación. Coloca las comprobaciones baratas antes de las costosas para que el pipeline pueda cortar pronto sin ejecutar trabajo innecesario. Cuando necesitas guards de método encima de guards de clase, los de clase siguen ejecutándose primero. Los guards de método añaden una capa extra de restricción que solo se aplica a ese método concreto, útil cuando un módulo de comandos tiene un requisito general de acceso pero un subcomando en particular necesita permisos adicionales.
+
+<CodeTabs>
+  <Tab label="Alcance de clase" language="typescript">
+```typescript filename="moderation.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { RoleGuard } from '@spraxium/core';
+
+@UseGuards(withOptions(RoleGuard, { roles: ['Moderator'] }))
+export class ModerationHandler {
+  async handle() {
+    // every method in this class requires the Moderator role
+  }
+}
+
+````
+  </Tab>
+  <Tab label="Guards apilados" language="typescript">
+```typescript filename="admin.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard, RoleGuard } from '@spraxium/core';
+
+@UseGuards(
+  GuildOnly,
+  withOptions(RoleGuard, { roles: ['Admin'] }),
+  withOptions(PermissionGuard, { permissions: ['BanMembers'] }),
+)
+export class AdminHandler {
+  async handle() {
+    // guild check runs first, then role, then permission
+  }
+}
+````
+
+  </Tab>
+  <Tab label="Clase + método" language="typescript">
+```typescript filename="settings.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { GuildOnly, PermissionGuard } from '@spraxium/core';
+
+@UseGuards(GuildOnly)
+export class SettingsHandler {
+  async viewSettings() {
+    // only requires guild context from the class guard
+  }
+
+  @UseGuards(withOptions(PermissionGuard, { permissions: ['ManageGuild'] }))
+  async editSettings() {
+    // requires guild context AND ManageGuild permission
+  }
+}
+
+````
+  </Tab>
+</CodeTabs>
+
+## Guards globales con useGlobalGuards
+
+Los guards globales se ejecutan antes que cualquier guard de clase y de método en toda la aplicación. Los registras durante el bootstrap en la instancia de *SpraxiumApplication* usando el método *useGlobalGuards*. Este es el lugar correcto para reglas que aplican en todas partes, como bloquear cuentas bot, restringir el bot a owner IDs concretos durante desarrollo o aplicar un modo de mantenimiento global.
+
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { NoBotGuard, OwnerOnly } from '@spraxium/core';
+
+const app = await SpraxiumFactory.create({ token: process.env.DISCORD_TOKEN! });
+
+app.useGlobalGuards(NoBotGuard);
+app.useGlobalGuards(OwnerOnly, { ownerIds: ['123456789', '987654321'] });
+
+await app.listen();
+````
+
+El método acepta una clase guard como primer argumento y un objeto de opciones opcional como segundo. Si el guard requiere opciones, como _OwnerOnly_ que necesita un arreglo de owner IDs, las pasas directamente como segundo parámetro. Si el guard no tiene opciones, como _NoBotGuard_, pasas solo la clase.
+
+Sé intencional con lo que entra en alcance global. Un guard que solo importa para comandos de moderación no debería registrarse globalmente, porque se ejecutaría en todos los comandos incluidos los que no son de moderación. Mueve los guards específicos de funcionalidad a alcance de clase o método, y reserva el alcance global para reglas realmente universales.
+
+## Entender el pipeline combinado
+
+Cuando existen guards globales, de clase y de método al mismo tiempo, forman un único pipeline ordenado que se ejecuta como una cadena continua. El framework no los separa en comprobaciones independientes. Los procesa secuencialmente: primero todos los guards globales, luego todos los de clase y después todos los de método. Si cualquier guard en cualquier punto de la cadena deniega, todo lo que venga después se omite.
+
+```typescript filename="example-pipeline.ts"
+// Global: NoBotGuard -> OwnerOnly
+// Class:  RoleGuard({ roles: ['Moderator'] })
+// Method: PermissionGuard({ permissions: ['BanMembers'] })
+
+// Runtime order:
+// 1. NoBotGuard.canActivate(ctx)
+// 2. OwnerOnly.canActivate(ctx)
+// 3. RoleGuard.canActivate(ctx)
+// 4. PermissionGuard.canActivate(ctx)
+// 5. handler executes
+```
+
+Este orden predecible permite que tu equipo siempre pueda razonar qué guards se ejecutan y en qué orden mirando tres lugares: el archivo de bootstrap para guards globales, el decorador de clase para guards de clase y el decorador de método para guards de método. No hay sorpresas ocultas de orden ni rutas condicionales de evaluación.
+
+<Callout tone="warning" title="Evita duplicar la política entre alcances">
+  Si un guard ya corre en alcance global, no adjuntes el mismo guard otra vez en
+  alcance de clase o de método. Duplicar guards desperdicia ciclos en runtime y
+  genera confusión sobre dónde se aplica realmente la política.
+</Callout>
+
+## Guards en handlers de componentes
+
+_@UseGuards_ también funciona en handlers de componentes. `@ButtonHandler`, `@StringSelectHandler` (y todas las variantes de select) y `@ModalHandler` ejecutan el mismo pipeline de _GuardExecutor_ usado por slash commands y context-menu commands.
+
+```typescript filename="src/modules/vip/handlers/vip-claim-button.handler.ts"
+import { UseGuards, withOptions } from '@spraxium/common';
+import { ButtonHandler } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import type { ButtonInteraction } from 'discord.js';
+import { VipClaimButton } from '../components/vip-claim.button';
+import { VipRoleGuard } from '../guards/vip-role.guard';
+
+@UseGuards(withOptions(VipRoleGuard, { roleId: '123456789' }))
+@ButtonHandler(VipClaimButton)
+export class VipClaimButtonHandler {
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    await interaction.reply({ content: '✅ VIP perk claimed!', flags: 'Ephemeral' });
+  }
+}
+```
+
+Los guards en handlers de componentes reciben la misma interfaz _ExecutionContext_ que los guards en command handlers. Cualquier guard que llame a `ctx.getMember()`, `ctx.getGuildId()` o `ctx.getMemberPermissions()` funciona de forma idéntica en slash commands y en handlers de componentes sin ninguna modificación.
+
+Los guards globales registrados con `useGlobalGuards()` durante el bootstrap ahora se disparan para **todos** los tipos de interacción: slash commands, context menu commands, listeners, buttons, selects y modals. Esto cierra el hueco donde un `@UseGuards` en un `@SlashCommandHandler` protegía el comando pero no el botón que contenía su respuesta.
+
+<Callout tone="info" title="Los guards corren antes de consumir payloads en componentes dinámicos">
+  Para `@DynamicButtonHandler` y `@DynamicSelectHandler`, los guards se ejecutan
+  antes de que se consuma el payload. Si un guard deniega, el payload queda
+  intacto y la interacción recibe la respuesta de denegación del guard.
+</Callout>
+
+## Siguiente página
+
+Continúa con [Opciones y guards integrados](/guards-options-built-ins).

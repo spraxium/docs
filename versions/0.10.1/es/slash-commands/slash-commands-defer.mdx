@@ -1,0 +1,131 @@
+---
+title: Respuestas Diferidas
+description: |
+  Usa @Defer y @AutoDefer para manejar handlers lentos sin dejar interacciones de Discord sin respuesta.
+  Aprende cuándo aplicar cada decorador, la opción ephemeral, el umbral de AutoDefer y cómo las respuestas diferidas interactúan con el pipeline de guards.
+order: 7
+category: Slash Commands
+---
+
+## Por qué importan las respuestas diferidas
+
+Discord exige una respuesta para cualquier interacción dentro de tres segundos. Si el bot no llama a `reply()`, `deferReply()` u otro método de respuesta a tiempo, Discord marca la interacción como fallida y el usuario ve un error. Para handlers que llaman APIs externas, ejecutan consultas a base de datos o realizan cómputo costoso, ese límite es fácil de incumplir.
+
+La solución ingenua es llamar `interaction.deferReply()` al inicio de cada handler y luego `interaction.editReply()` con el contenido final. Funciona, pero es repetitivo y significa que _todos_ los handlers muestran "Thinking..." al usuario, incluso los rápidos que responden en menos de 50 ms, donde ese parpadeo parece un bug y no una funcionalidad.
+
+Spraxium ofrece dos decoradores de clase, _@Defer_ y _@AutoDefer_, que resuelven ambos escenarios de forma limpia, sin necesidad de la secuencia manual `deferReply()` / `editReply()` dentro del cuerpo del handler.
+
+## @Defer
+
+_@Defer_ difiere la interacción de inmediato y sin condiciones antes de ejecutar el handler. El usuario ve el estado "Thinking..." desde el momento en que invoca el comando. Cuando el handler llama `interaction.reply()`, el framework lo redirige transparentemente a `interaction.editReply()` porque la interacción ya está diferida.
+
+Usa _@Defer_ cuando tu handler siempre vaya a tardar más de unos cientos de milisegundos, por ejemplo un comando que consulta una API externa en cada invocación. No hay lógica de umbral: el defer ocurre antes de llamar al método del handler.
+
+```typescript filename="src/modules/stats/handlers/stats-command.handler.ts"
+import { SlashCommandHandler, Ctx, Defer } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { StatsCommand } from '../commands/stats.command';
+
+@SlashCommandHandler(StatsCommand)
+@Defer()
+export class StatsCommandHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const data = await this.api.fetchStats(); // always slow
+    await interaction.reply({ embeds: [buildEmbed(data)] }); // routes to editReply
+  }
+}
+```
+
+La opción _ephemeral_ hace que el estado diferido y la respuesta final sean visibles solo para el usuario que invocó el comando. Es equivalente a pasar `{ ephemeral: true }` a un `deferReply()` manual.
+
+```typescript
+@Defer({ ephemeral: true })
+```
+
+## @AutoDefer
+
+_@AutoDefer_ adopta un enfoque distinto: inicia un temporizador en segundo plano cuando llega la interacción. Si el handler responde dentro de la ventana de _threshold_ (por defecto: 2000 ms), el temporizador se cancela y Discord nunca ve un defer, así que el usuario obtiene la respuesta directamente sin estado "Thinking...". Si el handler tarda más que el umbral, el framework difiere automáticamente antes de que venza el límite de Discord.
+
+El handler siempre llama `interaction.reply()` sin importar si hubo defer. Si la interacción se diferió detrás de escena, el framework parchea `interaction.reply()` en esa instancia para enrutar la llamada a `interaction.editReply()` de forma transparente.
+
+```typescript filename="src/modules/leaderboard/handlers/leaderboard-command.handler.ts"
+import { SlashCommandHandler, Ctx, AutoDefer } from '@spraxium/common';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { LeaderboardCommand } from '../commands/leaderboard.command';
+
+@SlashCommandHandler(LeaderboardCommand)
+@AutoDefer({ ephemeral: true, threshold: 1500 })
+export class LeaderboardCommandHandler {
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const data = await this.db.fetchLeaderboard(); // may resolve in 200ms or 2000ms
+    await interaction.reply({ embeds: [buildLeaderboard(data)] }); // always safe
+  }
+}
+```
+
+<Callout tone="warning">
+  El límite estricto de Discord es 3000 ms. Configura _threshold_ bastante por
+  debajo de eso; 2000 ms es el valor por defecto y una opción segura para la
+  mayoría de los casos. Configurarlo demasiado cerca de 3000 ms arriesga una
+  carrera entre la llamada defer del framework y el timeout de Discord.
+</Callout>
+
+## Referencia de opciones
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Opción</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Decorador</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*ephemeral*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>Ambos</TableCell>
+      <TableCell>Si la respuesta diferida y la respuesta final son visibles solo para el usuario que invocó el comando. Por defecto es *false*.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*threshold*</TableCell>
+      <TableCell>*number* (ms)</TableCell>
+      <TableCell>*@AutoDefer*</TableCell>
+      <TableCell>Milisegundos a esperar antes de diferir automáticamente. Si el handler responde dentro de esta ventana, no se envía defer. Por defecto es 2000.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Interacción con el pipeline de guards
+
+Ambos decoradores difieren la interacción _después_ de completar el pipeline de guards, no antes. Esto es intencional: si un guard deniega la interacción, llama `interaction.reply()` con un mensaje de error directamente. Si la interacción ya estuviera diferida, esa respuesta tendría que ser un `editReply()`, lo que implica que el propio guard tendría que conocer el estado deferido. Al diferir después de que pasen los guards, el framework mantiene los guards simples; siempre llaman `interaction.reply()` y nunca necesitan manejar por sí mismos el caso diferido.
+
+La consecuencia práctica es que los usuarios no autorizados ven una respuesta de error inmediata del guard, no el estado "Thinking...". Ese es el comportamiento correcto: decirle a un usuario "no tienes permisos" debe ser instantáneo, no algo por lo que espere dos segundos.
+
+## Elegir entre @Defer y @AutoDefer
+
+La elección correcta depende de qué tan predecible sea el tiempo de respuesta del handler.
+
+Usa _@Defer_ cuando el handler sea confiable y consistentemente lento, como una consulta pesada a base de datos, una llamada a API externa sin caché o una operación con múltiples pasos asíncronos. Dado que el handler siempre necesitará defer, optimizar la ruta rápida no aporta valor.
+
+Usa _@AutoDefer_ cuando el tiempo de respuesta del handler varíe. Un comando que devuelve datos en caché en 20 ms la mayoría de las veces pero ocasionalmente consulta base de datos en 1500 ms es un buen candidato. Con _@AutoDefer_, las respuestas rápidas se sienten instantáneas y las lentas degradan con elegancia sin fallar.
+
+## Comandos de menú contextual
+
+_@Defer_ y _@AutoDefer_ también funcionan en handlers de comandos de menú contextual. Aplícalos a la clase handler del mismo modo.
+
+```typescript filename="src/modules/user/handlers/user-info.handler.ts"
+@ContextMenuCommandHandler(UserInfoCommand)
+@AutoDefer({ ephemeral: true })
+export class UserInfoHandler {
+  async handle(@Ctx() interaction: UserContextMenuCommandInteraction): Promise<void> {
+    const data = await this.db.fetchProfile(interaction.targetUser.id);
+    await interaction.reply({ embeds: [buildProfileEmbed(data)] });
+  }
+}
+```
+
+## Siguiente página
+
+Continúa con [Context Menu Commands](/guide/context-menu-overview).

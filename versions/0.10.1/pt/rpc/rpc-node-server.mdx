@@ -1,0 +1,61 @@
+---
+title: "Receba chamadas RPC em um backend Node.js"
+description: "Adicione um servidor RPC ao lado do Express, Fastify, Hono com Node.js ou de um serviço Node sem framework."
+order: 9
+category: "@spraxium/rpc"
+---
+
+Se a sua API em Express ou Fastify já cuida dos tickets, o bot pode chamar um método nesse projeto do mesmo jeito que chamaria o Nest. O pacote `@spraxium/rpc-server` roda em Node.js. As rotas atuais continuam no framework web, enquanto o RPC usa outra porta. Inicie os dois servidores juntos e feche ambos quando o processo terminar.
+
+Instale `@spraxium/rpc-server@0.10.1` no processo que recebe e `@spraxium/rpc-client@0.10.1` no que chama. Passe `BACKEND_RPC_TOKEN` aos dois. No Express ou no Node puro, chame `start()` e `close()` na função que gerencia o servidor HTTP. No Fastify, você pode usar os hooks de ciclo de vida. No Hono, use o adaptador para Node, onde o processo pode abrir uma porta TCP. Se o ambiente serverless não puder escutar numa porta extra, hospede o RPC num serviço Node separado.
+
+~~~ts filename="backend-rpc.ts"
+import { createRpcServer } from '@spraxium/rpc-server';
+
+export type BackendRpc = {
+  'backend.status': { input: null; output: { ready: boolean } };
+};
+
+const server = createRpcServer<BackendRpc>({
+  host: '127.0.0.1',
+  port: 4400,
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+  permissions: ['status:read'],
+});
+
+server.register('backend.status', {
+  permissions: ['status:read'],
+  schema: {
+    parse(input) {
+      if (input !== null) throw new Error('Expected null.');
+      return input;
+    },
+  },
+  handle: () => ({ ready: true }),
+});
+
+await server.start();
+~~~
+
+~~~ts filename="call-backend.ts"
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { BackendRpc } from './backend-rpc.ts';
+
+const rpc = createRpcClient<BackendRpc>({
+  url: 'http://127.0.0.1:4400',
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+});
+
+try {
+  const status = await rpc.call('backend.status', null);
+  console.log(status.ready);
+} finally {
+  rpc.close();
+}
+~~~
+
+Num método de verdade, use um esquema que valide os dados no lugar do `null` do exemplo e delegue a operação ao mesmo serviço que suas rotas usam. Defina as permissões de cada método. O token do RPC identifica o serviço que chamou. Quem recebe o pedido original ainda precisa verificar as permissões da pessoa que iniciou a ação. Use rede privada e TLS quando a ligação atravessar máquinas.
+
+## Próxima página
+
+[Use RPC nos dois sentidos com NestJS](./rpc-nestjs-two-way)

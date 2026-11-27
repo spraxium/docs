@@ -1,0 +1,63 @@
+---
+title: "Handlers, dados de entrada e respostas"
+description: "Escolha uma operação do bot, dê um nome para ela e defina os dados que entram e saem."
+order: 4
+category: "@spraxium/rpc"
+---
+
+Abra o código do bot e encontre o service que já sabe fazer o trabalho. Se o painel só precisa de uma contagem, o handler pode chamar esse service e devolver a contagem. Os comandos do Discord podem continuar usando o mesmo service. O nome registrado no decorator, como `guild.stats`, vira o nome que o backend usa em `rpc.call`. Ele precisa ser único na aplicação.
+
+Para uma operação que depende de um servidor Discord, escolha `routing: 'guild'` e coloque `guildId` como texto no nível principal da entrada. Os IDs do Discord podem ter mais dígitos do que um número JavaScript guarda com exatidão. O gateway usa esse texto para selecionar o shard antes de chamar o handler, então preserve o ID se um esquema transformar os demais campos. Para uma operação que roda uma vez no bot, como `bot.health`, escolha `singleton`.
+
+## Valide o que chega, devolva só o que usa
+
+O exemplo de `guild.stats` usa Zod para checar os formatos. O RPC aceita qualquer schema com um método síncrono `parse`. A saída tipada no cliente ajuda quem chama o método. `responseSchema` confere o formato que realmente sai do bot. Neste caso o service já devolve um objeto com três campos, o que evita carregar um objeto inteiro do Discord para o backend.
+
+~~~ts
+import { Inject, Injectable } from '@spraxium/common';
+import { Code, RpcError, RpcHandler } from '@spraxium/rpc';
+import { z } from 'zod';
+import { GuildService } from './guild.service.ts';
+
+const input = z.object({ guildId: z.string() }).strict();
+const output = z.object({
+  members: z.number().int().nonnegative(),
+  premium: z.boolean(),
+  shardId: z.number().int().nonnegative(),
+}).strict();
+
+@Injectable()
+export class GuildRpcService {
+  constructor(@Inject(GuildService) private readonly guilds: GuildService) {}
+
+  @RpcHandler('guild.stats', {
+    routing: 'guild',
+    permissions: ['guild:read'],
+    schema: input,
+    responseSchema: output,
+  })
+  stats({ guildId }: z.infer<typeof input>) {
+    const stats = this.guilds.findStats(guildId);
+
+    if (!stats) throw new RpcError('Guild not found.', Code.NotFound);
+
+    return stats;
+  }
+}
+~~~
+
+Essa classe fica nos providers do módulo de guilds, e quem importa esse módulo também registra `RpcModule`. O mesmo esquema funciona no bot sem sharding. Quando há vários shards, apenas o que recebeu o pedido faz a leitura. [Provider e módulo usados pelo bot de exemplo](https://github.com/spraxium/rpc/tree/main/examples/bot/src)
+
+## Ausência, falhas e cancelamento
+
+Quando o bot não conhece o servidor, use `RpcError` com `Code.NotFound`. O texto desse erro pode chegar ao cliente, então escreva algo que possa sair do bot. Uma exceção que o handler não esperava vira um erro genérico para quem chama. O backend consegue distinguir a ausência de um servidor de uma falha do bot olhando o código retornado.
+
+Se o método espera outra operação longa, ele pode receber `RpcContext` no segundo parâmetro. Passe `context.signal` para chamadas que aceitam cancelamento e use o ID da chamada para achar o caminho nos logs. O prazo marca até quando o cliente pode esperar. Uma ação que o Discord já aceitou pode terminar depois desse prazo. Para operações que alteram dados, defina como reconhecer um pedido repetido com uma chave da operação. [Saiba como testar erros e prazos](./rpc-troubleshooting)
+
+## Aproveite o código que o bot já tem
+
+Se o bot já fecha tickets em um comando, mantenha a regra de fechar o ticket num serviço e injete esse serviço tanto no comando quanto no handler de RPC. Dê ao método de escrita uma permissão própria e mantenha no backend a verificação de acesso ao servidor. Passe um ID de ticket ou de operação que continue igual se o painel precisar consultar o resultado de novo. Se o bot reinicia e ainda precisa saber que a ação já ocorreu, guarde esse registro no banco. O transporte não registra ações concluídas.
+
+Pense nos dados que o backend realmente precisa receber. Para mostrar nome e quantidade de membros, devolva esses campos em um objeto simples. Uma instância inteira do Discord.js contém muito mais coisa e pode dar trabalho para serializar. Use um schema de resposta se outro projeto depende desse formato. Se o bot e o painel saem em deploys separados, planeje uma resposta compatível ou faça um método novo quando a mudança for incompatível.
+
+Quando você precisa acompanhar uma chamada, aceite um segundo argumento do tipo `RpcContext`, exportado por `@spraxium/rpc`. `identity` identifica o serviço, `requestId` ajuda a cruzar logs e `deadline` diz até quando ainda faz sentido trabalhar. Envie `signal` para uma consulta que sabe cancelar. Se a chamada já mudou um canal no Discord, perder a conexão com o painel não volta a mudança.

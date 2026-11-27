@@ -1,0 +1,226 @@
+---
+title: Decoradores y jobs
+description: |
+  Cinco decoradores definen jobs de schedule: cron, interval, timeout, retrasos post-conexión y fechas absolutas de un solo disparo.
+  Aprende las opciones de cada decorador, los helpers tipo enum y cómo combinar múltiples jobs en un mismo servicio.
+order: 2
+category: Schedule
+---
+
+## @Cron y @Interval
+
+Los dos tipos de jobs repetitivos cubren la gran mayoría de necesidades de programación. _@Cron_ se ejecuta en calendarios basados en expresiones cron estándar de 5 o 6 campos. _@Interval_ se repite con un offset fijo en milisegundos respecto de la ejecución anterior. Ambos decoradores aceptan un objeto de opciones para nombrar, deshabilitar y controlar si el job se ejecuta inmediatamente al iniciar.
+
+La opción _name_ es importante porque es la clave que usas para pausar, reanudar o destruir el job en runtime a través de _ScheduleService_. Si omites el nombre, el framework genera uno automáticamente a partir del nombre de la clase y del método, pero los nombres explícitos son más fáciles de referenciar en comandos de administración y dashboards. La opción _disabled_ te permite definir un job en código pero impedir que arranque, lo cual es útil para feature flags.
+
+El decorador _@Cron_ también acepta una opción _timezone_ que sobrescribe la zona horaria global de la configuración de schedule. Esto es útil cuando un mismo bot atiende comunidades en distintas zonas horarias y necesitas que un resumen diario se envíe a las 9 AM hora local en cada región.
+
+<CodeTabs>
+  <Tab label="Job cron" language="typescript">
+```typescript filename="src/modules/tasks/services/cleanup.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Cron, CronExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class CleanupService {
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    name: 'cleanup-expired-warnings',
+    timezone: 'UTC',
+  })
+  async cleanExpiredWarnings(): Promise<void> {
+    // Remove warnings older than 30 days
+  }
+}
+
+````
+  </Tab>
+  <Tab label="Job de intervalo" language="typescript">
+```typescript filename="src/modules/tasks/services/sync.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Interval, IntervalExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class SyncService {
+  @Interval(IntervalExpression.EVERY_5_MINUTES, {
+    name: 'sync-member-count',
+  })
+  async syncMemberCount(): Promise<void> {
+    // Update cached member counts from the API
+  }
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## @Timeout y @AfterOnline
+
+Los dos tipos de jobs de un solo disparo cubren patrones de inicialización diferida. _@Timeout_ se dispara una vez después de un retraso fijo desde el arranque de la aplicación. _@AfterOnline_ se dispara una vez después de que el cliente de Discord emite su evento _ready_ más un retraso adicional opcional. Ninguno de los dos jobs se repite; se ejecutan exactamente una vez y luego el framework los elimina del registro.
+
+La diferencia clave entre _@Timeout_ y _@AfterOnline_ es el punto inicial del retraso. Un timeout empieza a contar desde el momento en que arranca la aplicación, lo que significa que el cliente de Discord puede no estar conectado todavía. Un job after-online empieza a contar desde el evento _ready_, garantizando que el cliente, los guilds y los canales estén disponibles cuando se ejecute el método. Usa _@AfterOnline_ siempre que tu job necesite llamar métodos de la API de Discord.
+
+Ambos decoradores aceptan las mismas opciones _name_ y _disabled_. El decorador _@Timeout_ no soporta _runOnInit_ porque, por naturaleza, es un timer de un solo disparo que siempre se ejecuta una vez. El valor del retraso está en milisegundos para ambos decoradores.
+
+<CodeTabs>
+  <Tab label="Timeout" language="typescript">
+```typescript filename="src/modules/tasks/services/init.service.ts"
+import { Injectable } from '@spraxium/common';
+import { Timeout, TimeoutExpression } from '@spraxium/schedule';
+
+@Injectable()
+export class InitService {
+  @Timeout(TimeoutExpression.AFTER_30_SECONDS, {
+    name: 'deferred-cache-warmup',
+  })
+  async warmCache(): Promise<void> {
+    // Populate caches 30 seconds after boot
+  }
+}
+
+````
+  </Tab>
+  <Tab label="After online" language="typescript">
+```typescript filename="src/modules/tasks/services/welcome.service.ts"
+import { Injectable } from '@spraxium/common';
+import { AfterOnline } from '@spraxium/schedule';
+
+@Injectable()
+export class WelcomeService {
+  @AfterOnline(5000, {
+    name: 'post-online-announcement',
+  })
+  async announceOnline(): Promise<void> {
+    // Send 'bot is online' message 5 seconds after ready
+  }
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## @RunOnce
+
+_@RunOnce_ programa un método para ejecutarse exactamente una vez en un momento absoluto del futuro. A diferencia de los decoradores repetitivos y de retraso relativo, aquí pasas una instancia de `Date` en lugar de una duración o una expresión cron. Después de que el job se dispara, el framework lo desregistra automáticamente y no aparecerá en _ScheduleService.getAll()_ después.
+
+Si la fecha proporcionada ya está en el pasado cuando inicia el bot, el job se registra pero nunca se ejecuta. El framework emite una advertencia en logs para que la mala configuración sea visible, pero no lanza una excepción ni impide el arranque.
+
+<CodeTabs>
+  <Tab label="Fecha fija" language="typescript">
+```typescript filename="src/modules/tasks/services/launch.service.ts"
+import { Injectable } from '@spraxium/common';
+import { RunOnce } from '@spraxium/schedule';
+
+const LAUNCH_DATE = new Date('2026-06-01T20:00:00Z');
+
+@Injectable()
+export class LaunchService {
+  @RunOnce(LAUNCH_DATE, { name: 'product-launch-ping' })
+  async pingLaunch(): Promise<void> {
+    // Fires once at 20:00 UTC on 2026-06-01
+    await this.notifier.ping();
+  }
+}
+```
+  </Tab>
+  <Tab label="Fecha dinámica" language="typescript">
+```typescript filename="src/modules/tasks/services/event.service.ts"
+import { Injectable } from '@spraxium/common';
+import { RunOnce } from '@spraxium/schedule';
+
+@Injectable()
+export class EventService {
+  @RunOnce(new Date('2026-12-31T23:00:00Z'), { name: 'new-year-announcement' })
+  async sendNewYearMessage(): Promise<void> {
+    await this.channel.send('🎉 Happy New Year!');
+  }
+}
+```
+  </Tab>
+</CodeTabs>
+
+<Callout tone="warning">
+  _@RunOnce_ requiere una instancia `Date` válida. Pasar un string de fecha o
+  una fecha inválida lanza una `ConfigurationException` al arrancar, antes de
+  que el bot siquiera se conecte a Discord.
+</Callout>
+
+## Referencia de opciones de decoradores
+
+Los cinco decoradores comparten una interfaz base de opciones comunes, con campos adicionales para tipos de job específicos. La siguiente tabla lista cada opción disponible y qué decoradores la soportan.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Opción</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Decoradores</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*name*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>Todos</TableCell>
+      <TableCell>Identificador único para la gestión en runtime</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*disabled*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>Todos</TableCell>
+      <TableCell>Omite el registro (útil para feature flags)</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*runOnInit*</TableCell>
+      <TableCell>*boolean*</TableCell>
+      <TableCell>*@Cron*, *@Interval*</TableCell>
+      <TableCell>Ejecuta inmediatamente durante la fase de arranque</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*timezone*</TableCell>
+      <TableCell>*string*</TableCell>
+      <TableCell>*@Cron*</TableCell>
+      <TableCell>Sobrescribe la zona horaria global para este job</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*date*</TableCell>
+      <TableCell>*Date*</TableCell>
+      <TableCell>*@RunOnce*</TableCell>
+      <TableCell>Fecha absoluta en la que se dispara el job. Se pasa como primer argumento posicional, no dentro del objeto de opciones.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Helpers tipo enum
+
+El módulo schedule ofrece tres objetos tipo enum con constantes nombradas para valores de tiempo comunes. Usar estas constantes hace que tu código sea más legible que usar números crudos y strings cron. Cada helper cubre los valores más frecuentes que usarías en el contexto de un bot de Discord.
+
+_CronExpression_ ofrece más de 45 presets como `EVERY_DAY_AT_MIDNIGHT`, `EVERY_HOUR`, `EVERY_MONDAY_AT_MIDNIGHT` y `EVERY_5_MINUTES`. _IntervalExpression_ ofrece más de 25 presets en milisegundos como `EVERY_MINUTE`, `EVERY_5_MINUTES` y `EVERY_HOUR`. _TimeoutExpression_ ofrece más de 20 presets como `AFTER_10_SECONDS`, `AFTER_5_MINUTES` y `AFTER_1_HOUR`.
+
+Siempre puedes pasar valores crudos en lugar de constantes de enum. Los helpers tipo enum son solo reexports de conveniencia que mejoran la legibilidad y previenen errores tipográficos en expresiones cron.
+
+```typescript filename="src/modules/tasks/services/example.service.ts"
+import { Injectable } from '@spraxium/common';
+import {
+  Cron,
+  CronExpression,
+  Interval,
+  IntervalExpression,
+} from '@spraxium/schedule';
+
+@Injectable()
+export class ExampleService {
+  @Cron(CronExpression.EVERY_WEEKDAY)
+  async weekdayReport(): Promise<void> {}
+
+  @Cron('0 */6 * * *')
+  async customCron(): Promise<void> {}
+
+  @Interval(IntervalExpression.EVERY_30_SECONDS)
+  async frequentPoll(): Promise<void> {}
+}
+```
+
+## Siguiente página
+
+Continúa con [Drivers y operaciones](/guide/schedule-drivers-ops).

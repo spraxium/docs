@@ -1,0 +1,145 @@
+---
+title: "Migre do @spraxium/http para RPC"
+description: "Passe uma rota por vez para o backend e mantenha o contrato que seus clientes usam."
+order: 7
+category: "@spraxium/rpc"
+---
+
+Suponha que seu painel chame `GET /guilds/:guildId` e o bot devolva o nome do servidor. Hoje essa URL chega a um controller dentro do bot. Com RPC, a URL vai para o seu backend. Ele confere o usuário e pede `guild.get` ao Spraxium. O navegador continua vendo a mesma rota e o mesmo JSON.
+
+O `@spraxium/http` juntava um servidor web e uma ponte com o bot. Manter o servidor significava acompanhar roteamento, guards, middleware, CORS, validação, autenticação e erros HTTP, coisas que os frameworks web já mantêm. Com a mudança, quem cuida da API do painel continua no framework web, e o Spraxium pode cuidar da parte que depende do ciclo de vida do bot e dos shards.
+
+## Escolha uma leitura e anote o que a rota faz hoje
+
+Procure os controllers que chamam `BotBridge` ou usam o cliente Discord. Para a primeira troca, pegue uma leitura. Abra o código e um teste da API, se existir. Anote URL, verbo, parâmetros, formato do JSON, códigos de erro e os guards usados. Veja também se algum middleware ou proxy valida sessão, cookies, cabeçalho de API, limite de requisições ou origem. Essas regras fazem parte da rota mesmo quando estão declaradas longe do controller.
+
+Rotas de login, upload e webhooks continuam sendo HTTP. Coloque-as no backend, com a validação e a resposta que os clientes esperam. Um webhook que verifica assinatura precisa manter o corpo bruto e seus cabeçalhos. Ele só precisa chamar o bot se o evento tiver trabalho para fazer no Discord.
+
+Se a rota anterior usava `@HttpParam` ou `@HttpBody`, o backend passa a ler esses valores com a API do seu framework. Mantenha a validação da requisição e o código de resposta no HTTP. Por exemplo, um `POST` que devolvia 201 pode continuar devolvendo 201 depois de chamar um método específico do bot. O decorator `@RpcHandler` só registra o nome que o SDK chama.
+
+Neste exemplo, receba um ID do Discord e devolva `{ id, name }`. Quando o servidor não existe, a rota já devolve 404. Se a sua resposta real tem outros campos, mantenha o que seus clientes leem.
+
+~~~ts
+import { BotBridge, HttpController, HttpGet, HttpParam, NotFoundError } from '@spraxium/http';
+
+@HttpController('/guilds')
+export class GuildController {
+  constructor(private readonly bot: BotBridge) {}
+
+  @HttpGet('/:guildId')
+  async get(@HttpParam('guildId') guildId: string) {
+    const guild = await this.bot.getGuild(guildId);
+
+    if (!guild) throw new NotFoundError('Guild not found');
+
+    return { id: guild.id, name: guild.name };
+  }
+}
+~~~
+
+## Registre o trabalho do bot
+
+Instale `@spraxium/rpc` e confira a versão compatível dos pacotes do framework. Adicione `defineRpc` à configuração do bot e importe `RpcModule` no módulo raiz. Registre o provider abaixo no módulo que deve cuidar da leitura. Dê `guild:read` à credencial do backend. [Configuração da primeira chamada](./rpc-quickstart)
+
+O método recebe um `guildId` como texto. Com `routing: 'guild'`, o gateway encaminha o trabalho para o shard que tem aquele servidor. A leitura do cache mantém o comportamento do exemplo antigo. Se seu controller já chama um service que aplica regras do projeto, chame esse service no handler. Assim, os comandos Discord e o RPC continuam usando o mesmo código.
+
+~~~ts
+import { Inject, Injectable } from '@spraxium/common';
+import { Code, RpcError, RpcHandler } from '@spraxium/rpc';
+import { Client } from 'discord.js';
+
+@Injectable()
+export class GuildRpcService {
+  constructor(@Inject(Client) private readonly discord: Client) {}
+
+  @RpcHandler('guild.get', { routing: 'guild', permissions: ['guild:read'] })
+  get({ guildId }: { guildId: string }) {
+    const guild = this.discord.guilds.cache.get(guildId);
+
+    if (!guild) throw new RpcError('Guild not found.', Code.NotFound);
+
+    return { id: guild.id, name: guild.name };
+  }
+}
+~~~
+
+## Ponha a rota HTTP no backend
+
+Crie um cliente `@spraxium/rpc-client` ao iniciar a aplicação. Declare o tipo do método para o editor conhecer a entrada e a resposta. Use a mesma URL e as mesmas verificações de usuário da rota existente. Neste exemplo de Hono, passe a função de autorização que sua aplicação já usa para confirmar sessão e acesso ao servidor. O código mostra 403 para acesso recusado. Mantenha 401 para sessão ausente se isso já fizer parte da sua API.
+
+~~~ts
+import { Code, type RpcClient, RpcClientError } from '@spraxium/rpc-client';
+import { Hono } from 'hono';
+
+export type GuildRpc = {
+  'guild.get': { input: { guildId: string }; output: { id: string; name: string } };
+};
+
+export function guildRoutes(
+  rpc: RpcClient<GuildRpc>,
+  canReadGuild: (request: Request, guildId: string) => Promise<boolean>,
+) {
+  const routes = new Hono();
+
+  routes.get('/guilds/:guildId', async (context) => {
+    const guildId = context.req.param('guildId');
+
+    if (!(await canReadGuild(context.req.raw, guildId))) {
+      return context.json({ error: 'Forbidden' }, 403);
+    }
+
+    try {
+      const guild = await rpc.call('guild.get', { guildId }, {
+        timeoutMs: 3_000,
+        signal: context.req.raw.signal,
+      });
+      return context.json(guild);
+    } catch (error) {
+      if (!(error instanceof RpcClientError)) throw error;
+      if (error.code === Code.InvalidArgument) return context.json({ error: 'Invalid guild ID' }, 400);
+      if (error.code === Code.NotFound) return context.json({ error: 'Guild not found' }, 404);
+
+      return context.json({ error: 'Bot unavailable' }, 503);
+    }
+  });
+
+  return routes;
+}
+~~~
+
+Na inicialização, passe a aplicação e a checagem de acesso do projeto para a função abaixo. Guarde o cliente devolvido e feche-o quando o servidor HTTP terminar as requisições em andamento. Use a URL HTTPS do gateway quando os processos estiverem em máquinas distintas. [Credenciais e TLS](./rpc-authentication)
+
+~~~ts
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { Hono } from 'hono';
+import { type GuildRpc, guildRoutes } from './guild.routes.ts';
+
+export function mountGuildRoutes(
+  app: Hono,
+  canReadGuild: (request: Request, guildId: string) => Promise<boolean>,
+) {
+  const rpc = createRpcClient<GuildRpc>({
+    url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+    token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+  });
+  app.route('/', guildRoutes(rpc, canReadGuild));
+
+  return rpc;
+}
+~~~
+
+Em NestJS, mantenha o controller e seus guards e injete um service que chama o bot. Em Express ou Koa, use o router que já recebe essa URL. Em Fastify, mantenha o schema e ligue a mesma chamada dentro do plugin de rotas. Os exemplos completos mostram a inicialização, o tratamento de erros e onde fechar o cliente. [Escolha o exemplo do seu framework](./rpc-backends)
+
+## Teste a troca antes de apagar o HTTP
+
+Rode um pedido normal e compare a resposta com a rota antiga. Teste ID inválido, sessão ausente, usuário sem acesso, servidor que o bot desconhece e bot desligado. Se usa sharding, confira a chamada a um servidor em outro shard. Para uma rota de escrita, confirme como identificar uma operação já aplicada. Um timeout só diz que quem chamou deixou de esperar.
+
+Se as duas rotas convivem durante o deploy, escolha a implementação no backend ou no proxy e mantenha o URL público. Comece com uma rota de leitura, observe o comportamento e só depois passe as escritas. Para voltar, aponte a rota web para a implementação anterior enquanto ela ainda está disponível. Evite disparar a mesma escrita nos dois caminhos.
+
+Quando a última rota passar nos testes pelo caminho novo, retire os controllers que ficaram sem uso, seus guards antigos, `HttpModule`, a entrada `defineHttp` e a dependência `@spraxium/http`. Atualize o ambiente e o deploy para servir o endereço antigo pelo backend. Faça uma busca no repositório e no lockfile por referências ao pacote para achar o que ficou. Se você usa um agente para fazer a mudança, a skill lista a checagem por framework e os arquivos que vale inspecionar antes de editar. [Skill de migração HTTP para RPC](https://github.com/spraxium/rpc/blob/main/SKILL.md)
+
+## Preserve o contrato público até trocar a última rota
+
+Pegue uma resposta real da rota antiga em teste e anote os campos, o status, quem tem acesso e o que acontece quando o bot cai. Rode exatamente o mesmo caso pela rota nova antes de alterar o frontend. Se a resposta anterior tem `{ data: stats }` e o handler devolve só as estatísticas, mantenha o envelope no controller web.
+
+Num bot de tickets, comece por uma leitura, como listar tickets abertos ou mostrar estatísticas de um canal. Deixe um ambiente com os dois caminhos durante os testes. Confira um acesso negado pelo painel, uma guild ausente e o bot temporariamente fora do ar. Para fechar um ticket, adicione um ID de operação que você possa consultar antes de tentar de novo. Uma chamada pode mudar o Discord e a ligação cair antes de a resposta chegar. Mova as rotas em etapas e preserve a opção de voltar ao caminho antigo até a equipe confirmar que o novo consegue atender o tráfego. Só depois retire a porta do servidor legado e o pacote HTTP.

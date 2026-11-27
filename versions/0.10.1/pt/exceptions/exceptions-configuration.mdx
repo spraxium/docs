@@ -1,0 +1,136 @@
+---
+title: Configuração e fallback
+description: |
+  Configure as exceções no arquivo central de configuração para centralizar a política de erros de runtime em todo o bot.
+  Entenda o mapeamento de classe para layout, o comportamento padrão de fallback e a estratégia de logging de erros não tratados.
+order: 2
+category: Exceptions
+keywords:
+  - spraxium exceptions configuration
+  - configuração e fallback no spraxium
+  - exceções exceptions configuration guia
+  - exceptions configuration bot discord
+  - exceptions configuration typescript
+  - documentacao spraxium exceções
+  - configuração e fallback exceções
+  - spraxium configuração e fallback
+---
+
+## Por que configurar exceções no core
+
+A configuração central de exceções evita que equipes tratem a mesma categoria de falha de formas diferentes entre módulos. Ao definir a política em _spraxium.config.ts_, o comportamento em runtime permanece coerente mesmo quando várias features e equipes evoluem em paralelo, porque toda exceção segue as mesmas regras de resolução, independentemente de onde se originou. Isso também reduz bastante o risco em refactors, já que mudar a estratégia de fallback ou atualizar um mapeamento de layout exige tocar em um único ponto de política, em vez de sair procurando por dezenas de arquivos de comandos e listeners espalhados pelo projeto.
+
+Esta página trata de *política*, não de implementação. O objetivo é decidir como a aplicação deve responder quando uma exceção escapa de um handler, qual layout deve renderizá-la e quanto disso deve ser registrado para operadores.
+
+## Configuração mínima
+
+Uma base pequena já dá controle real sobre como o seu bot lida com erros em produção. Definir um layout padrão de fallback e uma política de logging para erros não tratados garante que toda exceção no sistema produza uma resposta voltada ao usuário e um sinal operacional, mesmo quando você ainda não mapeou aquela classe específica para um layout dedicado. Isso evita respostas vazias ou quebradas, que confundem usuários em cenários de falha inesperada.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+    },
+  },
+});
+```
+
+## Onde os layouts entram
+
+Layouts fazem parte da política de apresentação de erros, e esta página foca em configuração central, comportamento de fallback e governança por meio de mapas de configuração, não nos detalhes de implementação dos layouts. Para ver a estratégia completa de layouts, incluindo o que são layouts, como criá-los, a precedência entre decorators e mapeamentos em config e quando usar overrides por instância, consulte [Estratégia de layout](/guide/exception-layout-strategy).
+
+## Configuração com mapeamento por classe
+
+Quando a aplicação tem vários domínios, como moderação, cobrança e onboarding, mapear layouts por classe de exceção preserva o contexto e o tom de cada tipo de falha. Cada família de falhas pode retornar linguagem e orientação apropriadas para a ação da pessoa usuária, o que melhora bastante a experiência de erro em comparação com uma única mensagem genérica para todo cenário do bot.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import {
+  DefaultFriendlyLayout,
+  CooldownLayout,
+  PermissionDeniedLayout,
+  ArgumentLayout,
+} from './layouts/exceptions.layouts';
+
+export default defineConfig({
+  exceptions: {
+    logUnhandled: true,
+    layouts: {
+      default: DefaultFriendlyLayout,
+      CooldownException: CooldownLayout,
+      PermissionDeniedException: PermissionDeniedLayout,
+      ArgumentException: ArgumentLayout,
+    },
+  },
+});
+```
+
+## Referência das chaves de configuração
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Chave</TableCell>
+      <TableCell header>Type</TableCell>
+      <TableCell header>Uso</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*exceptions.layouts*</TableCell>
+      <TableCell>ExceptionLayoutMap</TableCell>
+      <TableCell>Mapeia nomes de classes de exceção para classes de layout</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exceptions.layouts.default*</TableCell>
+      <TableCell>ExceptionLayoutClass</TableCell>
+      <TableCell>Fallback global quando não existe mapeamento específico</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*exceptions.logUnhandled*</TableCell>
+      <TableCell>boolean</TableCell>
+      <TableCell>Controla o logging de erros desconhecidos lançados</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Quando mapear um layout dedicado
+
+Adicione um mapeamento de layout dedicado quando uma categoria de falha precisar do seu próprio tom, orientação ou estrutura. Negativas de permissão, cooldowns, argumentos inválidos e exceções ligadas a regras de negócio são exemplos comuns, porque a resposta deve explicar o que aconteceu e o que a pessoa usuária precisa fazer em seguida.
+
+Não crie um layout personalizado para toda classe de exceção por padrão. Um bom layout padrão, somado a um pequeno número de mapeamentos deliberados, costuma ser mais fácil de manter do que um mapa enorme de respostas com diferenças mínimas.
+
+## Ordem de resolução de layouts
+
+A seleção de layout segue uma ordem estável que determina qual layout renderiza a resposta quando várias opções de personalização coexistem. Entender essa ordem evita ambiguidades quando overrides locais e configurações globais de fallback estão ativos ao mesmo tempo, além de permitir que você componha políticas de maneira previsível, do mais específico ao mais geral.
+
+1. Override por instância diretamente no objeto da exceção
+2. Entrada no mapa de layouts da configuração que corresponde ao nome da classe de exceção
+3. Layout definido no decorator da classe com `@WithLayout()`
+4. O layout padrão definido na configuração
+5. O layout padrão embutido no framework, como fallback final
+
+<Callout tone="warning" title="Nomes de classe são as chaves">
+  O mapa de layouts usa os nomes das classes de exceção como chaves. Se uma
+  classe for renomeada durante um refactor, atualize o mapeamento para evitar
+  um comportamento acidental de fallback que mude silenciosamente a experiência
+  do usuário.
+</Callout>
+
+## Estratégia por ambiente
+
+Uma base comum em equipes é manter a opção de logging para erros não tratados como true em staging e produção, preservando layouts amigáveis em todos os ambientes. Isso fortalece o diagnóstico para operações sem vazar detalhes internos para usuários, porque o layout se comunica com a pessoa usuária enquanto o logging se comunica com a equipe responsável por monitoramento e resposta a incidentes.
+
+Uma divisão prática de política fica assim:
+
+1. Desenvolvimento local: layouts amigáveis, logging de não tratados ativado, iteração rápida.
+2. Staging: layouts amigáveis, logging de não tratados ativado, paridade com o comportamento de produção.
+3. Produção: layouts amigáveis, logging de não tratados ativado, mapeamentos por classe apenas para famílias de falha importantes do ponto de vista do usuário.
+
+## Próxima página
+
+Continue com [Estratégia de layout](/guide/exception-layout-strategy).

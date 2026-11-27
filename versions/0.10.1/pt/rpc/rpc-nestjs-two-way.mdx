@@ -1,0 +1,201 @@
+---
+title: "Use RPC nos dois sentidos com NestJS"
+description: "Faça o painel em NestJS chamar o bot e deixe o bot chamar o NestJS por um segundo servidor RPC."
+order: 8
+category: "@spraxium/rpc"
+---
+
+Imagine um painel que precisa mostrar quantas pessoas há num servidor do Discord. A rota do painel fica no NestJS, que pede os dados ao bot chamando `guild.stats`. A situação se inverte quando alguém usa `/ticket` no Discord. O backend cuida dos chamados, então o bot chama `tickets.create` no NestJS, espera o ID e responde no Discord. Os dois processos podem iniciar uma chamada quando precisarem. Cada chamada retorna uma resposta e cada processo que recebe chamadas tem seu próprio servidor RPC.
+
+Comece pelo [guia do cliente no NestJS](./rpc-nestjs) até fazer o painel chamar `guild.stats`. O cliente do painel continua apontando para `http://127.0.0.1:4300`. Adicione `@spraxium/rpc-server` e `zod` ao Nest e use `@spraxium/rpc-client` também no bot. Neste guia, use a versão `0.10.1` dos pacotes do Spraxium. Coloque `NEST_RPC_TOKEN` nos dois processos para a chamada de volta. Gere esse token separadamente de `SPRAXIUM_RPC_TOKEN`, que já autentica o caminho do painel para o bot. Cada token precisa ter pelo menos 32 caracteres ASCII imprimíveis.
+
+## Mantenha o cliente do Nest ligado ao bot
+
+O painel usa este provider dentro do `GuildModule` que você já montou. O controller passa o ID do servidor para `BotRpcService`. Esse serviço injeta `BOT_RPC_CLIENT` e espera `rpc.call('guild.stats', { guildId })`. O pedido vai ao servidor do bot na porta 4300. Mantenha o controller, o serviço e o fechamento do cliente do primeiro guia.
+
+~~~ts filename="src/guilds/guild.module.ts"
+import { Module } from '@nestjs/common';
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { BotRpcContract } from '../../shared/bot-rpc-contract.ts';
+import { BotRpcService } from './bot-rpc.service.ts';
+import { BOT_RPC_CLIENT } from './bot-rpc-client.token.ts';
+import { GuildController } from './guild.controller.ts';
+
+@Module({
+  controllers: [GuildController],
+  providers: [
+    BotRpcService,
+    {
+      provide: BOT_RPC_CLIENT,
+      useFactory: () => createRpcClient<BotRpcContract>({
+        url: process.env.SPRAXIUM_RPC_URL ?? 'http://127.0.0.1:4300',
+        token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+        timeoutMs: 3000,
+      }),
+    },
+  ],
+})
+export class GuildModule {}
+~~~
+
+## Dê ao Nest um método que o bot possa chamar
+
+Coloque este tipo num pacote compartilhado ou mantenha cópias iguais nos dois projetos. O backend também precisa validar os dados quando recebe uma chamada. O TypeScript só verifica o que o seu código espera durante a compilação.
+
+~~~ts filename="shared/nest-rpc-contract.ts"
+export type NestRpcContract = {
+  'tickets.create': {
+    input: { guildId: string; userId: string };
+    output: { ticketId: string };
+  };
+};
+~~~
+
+O serviço abaixo roda junto com as rotas HTTP do Nest. Ele registra o método antes de abrir a porta 4400 e delega o trabalho ao `TicketsService`. Assim, uma rota ou um worker do Nest também pode reaproveitar a lógica de tickets. Importe `TicketsModule` no `AppModule` e chame `app.enableShutdownHooks()` no `main.ts` para o Nest fechar o servidor RPC ao desligar.
+
+~~~ts filename="src/tickets/tickets-rpc.service.ts"
+import { Inject, Injectable, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
+import type { NestRpcContract } from '../../shared/nest-rpc-contract.ts';
+import { createRpcServer, type RpcGateway } from '@spraxium/rpc-server';
+import { z } from 'zod';
+import { TicketsService } from './tickets.service.ts';
+
+const discordId = z.string().regex(/^\d{17,20}$/);
+const ticketInput = z.object({ guildId: discordId, userId: discordId }).strict();
+const ticketOutput = z.object({ ticketId: z.uuid() }).strict();
+
+@Injectable()
+export class TicketsRpcService implements OnApplicationBootstrap, OnApplicationShutdown {
+  private gateway?: RpcGateway<NestRpcContract>;
+
+  constructor(@Inject(TicketsService) private readonly tickets: TicketsService) {}
+
+  /** Starts the inbound gateway when the bot-to-Nest credential is configured. */
+  async onApplicationBootstrap(): Promise<void> {
+    const token = process.env.NEST_RPC_TOKEN;
+    if (!token) return;
+
+    const gateway = createRpcServer<NestRpcContract>({
+      host: process.env.NEST_RPC_HOST ?? '127.0.0.1',
+      port: Number(process.env.NEST_RPC_PORT ?? 4400),
+      token,
+      permissions: ['tickets:write'],
+      tlsTerminationProxy: process.env.NEST_RPC_TLS_PROXY === 'true',
+    });
+    gateway.register('tickets.create', {
+      permissions: ['tickets:write'],
+      schema: ticketInput,
+      responseSchema: ticketOutput,
+      handle: this.tickets.create.bind(this.tickets),
+    });
+
+    this.gateway = gateway;
+    await gateway.start();
+  }
+
+  /** Closes the RPC listener when Nest stops. */
+  async onApplicationShutdown(): Promise<void> {
+    await this.gateway?.close();
+  }
+}
+~~~
+
+## Registre o servidor no módulo do Nest
+
+~~~ts filename="src/tickets/tickets.module.ts"
+import { Module } from '@nestjs/common';
+import { TicketsService } from './tickets.service.ts';
+import { TicketsRpcService } from './tickets-rpc.service.ts';
+
+@Module({ providers: [TicketsService, TicketsRpcService] })
+export class TicketsModule {}
+~~~
+
+~~~ts filename="src/tickets/tickets.service.ts"
+import { randomUUID } from 'node:crypto';
+import { Injectable } from '@nestjs/common';
+import type { NestRpcContract } from '../../shared/nest-rpc-contract.ts';
+
+@Injectable()
+export class TicketsService {
+  private readonly tickets = new Map<string, NestRpcContract['tickets.create']['input']>();
+
+  /** Creates an in-memory ticket and returns its ID to the caller. */
+  create(input: NestRpcContract['tickets.create']['input']): NestRpcContract['tickets.create']['output'] {
+    const ticketId = randomUUID();
+    this.tickets.set(ticketId, input);
+    return { ticketId };
+  }
+}
+~~~
+
+## Chame o NestJS a partir de um serviço do bot
+
+Adicione `TicketsBackendService` aos `providers` do módulo do Spraxium onde fica `/ticket`. Injete o serviço no handler, passe `interaction.guildId` e `interaction.user.id` e edite a resposta adiada com o `ticketId` que voltou. Restrinja o comando a servidores, onde o ID da guild está disponível. Num bot real, verifique se a pessoa pode abrir um chamado antes de consultar o backend.
+
+~~~ts filename="src/tickets/tickets-backend.service.ts"
+import { Injectable, type SpraxiumOnShutdown } from '@spraxium/common';
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { NestRpcContract } from '../../shared/nest-rpc-contract.ts';
+
+@Injectable()
+export class TicketsBackendService implements SpraxiumOnShutdown {
+  private readonly rpc = createRpcClient<NestRpcContract>({
+    url: process.env.NEST_RPC_URL ?? 'http://127.0.0.1:4400',
+    token: process.env.NEST_RPC_TOKEN ?? '',
+    timeoutMs: 3000,
+  });
+
+  /** Asks NestJS to create a ticket and returns its ID. */
+  openTicket(guildId: string, userId: string): Promise<NestRpcContract['tickets.create']['output']> {
+    return this.rpc.call('tickets.create', { guildId, userId });
+  }
+
+  /** Releases the client when the bot stops. */
+  async onShutdown(): Promise<void> {
+    this.rpc.close();
+  }
+}
+~~~
+
+~~~ts filename="src/tickets/ticket.handler.ts"
+import { Ctx, Defer, Inject, SlashCommandHandler } from '@spraxium/common';
+import { RpcClientError } from '@spraxium/rpc-client';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { TicketCommand } from './ticket.command.ts';
+import { TicketsBackendService } from './tickets-backend.service.ts';
+
+@SlashCommandHandler(TicketCommand)
+@Defer({ ephemeral: true })
+export class TicketHandler {
+  constructor(@Inject(TicketsBackendService) private readonly tickets: TicketsBackendService) {}
+
+  /** Calls the backend and returns the ticket ID to the Discord user. */
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    if (!interaction.guildId) {
+      await interaction.editReply('Use this command inside a server.');
+      return;
+    }
+
+    try {
+      const { ticketId } = await this.tickets.openTicket(interaction.guildId, interaction.user.id);
+      await interaction.editReply(`Ticket opened: ${ticketId}`);
+    } catch (error) {
+      if (!(error instanceof RpcClientError)) throw error;
+      await interaction.editReply('Could not open the ticket. Please try again later.');
+    }
+  }
+}
+~~~
+
+## Rode e acompanhe as duas chamadas
+
+Com o repositório de exemplos clonado, rode `pnpm install` e `pnpm build`. Preencha as variáveis indicadas no `.env.example` e rode `pnpm example:bot` e `pnpm example:nestjs` em terminais separados. Abra `http://127.0.0.1:3000/guilds/<guildId>/stats` e depois use `/ticket` naquele servidor. A primeira chamada devolve os dados que o bot tem sobre o servidor. A segunda devolve um ID que o Nest criou. O exemplo guarda os chamados em memória, então eles desaparecem se você reiniciar o Nest.
+
+Se a chamada para a porta 4400 falhar, confira se o Nest iniciou o provider, se o bot consegue chegar ao endereço e se ambos usam o mesmo `NEST_RPC_TOKEN`. Se a autenticação passou e mesmo assim você recebeu um erro de permissão, confira `tickets:write`. Use credenciais diferentes para os dois sentidos e mantenha os servidores numa rede privada. Entre máquinas, use TLS ou um proxy confiável que termine TLS e encaminhe HTTP/2 ao servidor RPC. Se você repetir a criação de um chamado após um timeout, guarde uma chave estável no banco para a primeira chamada não acabar criando um chamado duplicado mais tarde.
+
+[Código dos exemplos de NestJS e do bot](https://github.com/spraxium/rpc/tree/main/examples)
+
+## Próxima página
+
+[Receba chamadas RPC em um backend Node.js](./rpc-node-server)

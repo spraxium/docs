@@ -1,0 +1,32 @@
+---
+title: "Spraxium RPC"
+description: "Conecta un panel, un script o un worker con tu bot de Discord."
+order: 1
+category: "@spraxium/rpc"
+---
+
+Tu panel quiere mostrar cuántos miembros tiene un servidor de Discord. El bot ya tiene ese dato. El backend del panel sabe quién inició sesión y cuáles son los servidores que puede consultar. Con Spraxium RPC, el backend pide `guild.stats` al bot y recibe los datos que necesita la página.
+
+~~~text
+Panel -> backend HTTP -> gateway RPC -> método del bot -> Discord.js
+~~~
+
+## Qué ocurre al abrir la página
+
+El navegador hace su petición HTTP. La ruta del backend revisa la sesión y el acceso al servidor. Si la persona tiene acceso, el SDK envía al gateway el nombre del método, el ID y una credencial del servicio. El gateway comprueba la credencial y los permisos, busca dónde ejecutar el método y devuelve el resultado. El backend prepara la respuesta que espera el panel.
+
+Discord.js sigue dentro del bot. Un handler puede usar los mismos servicios que usan los comandos. Si el bot tiene varios shards iniciados por el mismo proceso principal, el gateway envía el trabajo al shard que conoce ese servidor. El backend sigue usando una sola dirección. [Cómo funciona el sharding](./rpc-sharding)
+
+## Qué instalas en cada proyecto
+
+Usa `@spraxium/rpc` en el bot para registrar los métodos. Usa `@spraxium/rpc-client` en un backend Node.js, un worker o un script que los llama. El paquete `@spraxium/rpc-protocol` incluye el esquema Protobuf para otras integraciones. Si un comando ya se ejecuta en el bot, normalmente puede pedir su servicio por inyección y llamarlo ahí mismo.
+
+Antes, `@spraxium/http` mantenía el puente con el bot y también un servidor web con rutas y middleware. NestJS, Express, Hono y otros frameworks ya mantienen las piezas web. Con RPC, el backend sigue a cargo de las sesiones, CORS, URLs y respuestas públicas. Spraxium se ocupa de las llamadas al bot, el envío al shard y el cierre de la conexión al apagarlo.
+
+Empieza con una llamada que solo compruebe que el bot está listo. Te sirve para probar la conexión y la credencial antes de cambiar una ruta que ya usa el panel. [Haz tu primera llamada](./rpc-quickstart) · [Migra desde HTTP](./rpc-http-migration)
+
+## Decide cuándo tiene sentido hacer una llamada
+
+Imagina un panel de tickets que quiere mostrar el nombre actual de un canal de Discord y quién tiene acceso. El bot ya está conectado y puede leer esos datos, así que aquí encaja un método como `ticket.channelSummary`. El panel puede guardar por su cuenta el título del ticket y la sesión del usuario. Si el dato ya vive en el backend, consúltalo allí. Un comando dentro del bot puede inyectar el servicio directamente.
+
+RPC encaja cuando el backend necesita la respuesta mientras atiende la solicitud. Si el trabajo tarda minutos o tiene que sobrevivir al reinicio, suele convenir guardarlo como un trabajo pendiente y devolver un ID al panel. Para el envío de eventos con otro ciclo de entrega, revisa [la guía de Signal](./signal-overview). En tu primera integración, prueba una lectura y comprueba qué ve el panel con el bot apagado antes de añadir operaciones de moderación.

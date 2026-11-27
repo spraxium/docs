@@ -1,0 +1,189 @@
+---
+title: Cache de Modal
+description: |
+  Persista valores de campos enviados entre reaberturas do modal com @ModalCache e ModalService.buildFor.
+  Aprenda o formato da chave de cache, a configuração de TTL, a API manual de cache e como combinar cache com modais dinâmicos.
+order: 6
+category: Modals
+keywords:
+  - spraxium modals cache
+  - cache de modal no spraxium
+  - modals modals cache guia
+  - modals cache bot discord
+  - modals cache typescript
+  - documentacao spraxium modals
+  - cache de modal modals
+  - spraxium cache de modal
+---
+
+## Por que usar cache nas submissões de modal
+
+Quando a submissão de um modal falha na validação, o Discord fecha o formulário e o seu handler envia uma resposta de erro. Se o usuário quiser corrigir a entrada e tentar de novo, ele precisa abrir o modal do zero. Sem cache, todos os valores digitados anteriormente se perdem, obrigando a pessoa a preencher o formulário inteiro pela segunda vez.
+
+O decorator de classe _@ModalCache_ resolve isso persistindo em memória todos os valores enviados dos campos, indexados pelo ID do usuário e pelo _customId_ do modal. Quando o mesmo usuário abre o modal novamente por meio de _ModalService.buildFor_, os valores em cache são pré-preenchidos em cada campo. Assim, a pessoa só precisa corrigir o campo que falhou na validação.
+
+As entradas de cache são limpas automaticamente após uma submissão bem-sucedida, então não há limpeza manual no fluxo normal. A opção _ttl_ garante que entradas antigas sejam descartadas se o usuário nunca voltar para concluir o formulário.
+
+## Ativando cache com @ModalCache
+
+Aplique _@ModalCache_ no nível da classe em qualquer _@ModalComponent_. O decorator aceita um objeto com uma propriedade _ttl_ obrigatória, medida em segundos. O TTL começa a contar no momento em que a submissão falha. Formulários de curta duração, como prompts de confirmação, funcionam bem com TTL entre 60 e 120 segundos, enquanto formulários com vários campos podem usar 300 a 600 segundos.
+
+```typescript filename="src/components/application.modal.ts"
+import {
+  ModalComponent,
+  ModalInput,
+  ModalValidate,
+  ModalCache,
+  minWords,
+  emailFormat,
+} from '@spraxium/components';
+
+@ModalComponent({ id: 'apply-modal', title: 'Staff Application' })
+@ModalCache({ ttl: 300 })
+export class ApplicationModal {
+  @ModalInput({
+    label: 'Email Address',
+    style: 'short',
+    required: true,
+  })
+  @ModalValidate([emailFormat()])
+  email!: string;
+
+  @ModalInput({
+    label: 'Why do you want to join?',
+    style: 'paragraph',
+    required: true,
+    minLength: 50,
+  })
+  @ModalValidate([minWords(20)])
+  motivation!: string;
+
+  @ModalInput({
+    label: 'Relevant Experience',
+    style: 'paragraph',
+    required: true,
+  })
+  @ModalValidate([minWords(10)])
+  experience!: string;
+}
+```
+
+## Exibindo um modal com valores em cache
+
+Para carregar valores em cache ao reabrir o modal, use _ModalService.buildFor_ em vez de _build_. Esse método aceita a interação que disparou o fluxo como segundo argumento. Ele extrai o ID do usuário a partir da interação, verifica se há uma entrada correspondente no cache e, se encontrar, pré-preenche o valor de cada campo. Se não houver entrada de cache, o modal é aberto com os valores padrão.
+
+<CodeTabs>
+<Tab label="Com cache, recomendado">
+```typescript filename="src/components/open-apply.handler.ts"
+import { ButtonHandler } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { OpenApplyButton } from './open-apply.button';
+import { ApplicationModal } from './application.modal';
+
+@ButtonHandler(OpenApplyButton)
+export class OpenApplyHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.buildFor(ApplicationModal, interaction);
+    await interaction.showModal(modal);
+  }
+}
+
+````
+</Tab>
+<Tab label="Sem cache">
+```typescript filename="src/components/open-apply-nocache.handler.ts"
+import { ButtonHandler } from '@spraxium/components';
+import { Ctx } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ButtonInteraction } from 'discord.js';
+import { OpenApplyButton } from './open-apply.button';
+import { ApplicationModal } from './application.modal';
+
+@ButtonHandler(OpenApplyButton)
+export class OpenApplyNoCacheHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ButtonInteraction): Promise<void> {
+    const modal = this.modals.build(ApplicationModal);
+    await interaction.showModal(modal);
+  }
+}
+````
+
+</Tab>
+</CodeTabs>
+
+## Formato da chave de cache e TTL
+
+A chave de cache é a string `customId:userId`, montada a partir do valor _id_ do componente de modal e do snowflake ID do usuário no Discord. Isso significa que cada usuário tem sua própria entrada de cache independente por modal. Duas pessoas preenchendo o mesmo formulário não interferem nos valores em cache uma da outra.
+
+O TTL é medido a partir do momento em que a entrada de cache é escrita na falha de validação. Se o usuário não reabrir o modal dentro da janela de TTL, a entrada expira e a próxima abertura mostra um formulário vazio. Não existe janela deslizante: o TTL não é reiniciado a cada reabertura. Para formulários mais longos, em que a pessoa pode demorar mais, use um TTL de 600 segundos ou mais.
+
+Depois que o usuário envia com sucesso, o dispatcher chama _ModalService.clearCacheFor_ automaticamente. Isso significa que o cache se gerencia sozinho tanto no caminho de sucesso quanto no de expiração, sem exigir limpeza manual no código do seu handler.
+
+## Referência da API de cache
+
+_ModalService_ expõe três métodos para gerenciamento direto de cache. Eles são usados internamente pelo dispatcher e pelo fluxo de _buildFor_, mas continuam públicos caso você precise limpar ou inspecionar entradas de cache no código do seu próprio handler.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Assinatura</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*storeCache*</TableCell>
+      <TableCell>*storeCache(modal, interaction, values)*</TableCell>
+      <TableCell>Grava os valores dos campos no cache para a combinação informada de modal e usuário.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getCacheFor*</TableCell>
+      <TableCell>*getCacheFor(modal, interaction)*</TableCell>
+      <TableCell>Lê os valores em cache dos campos. Retorna *null* se não houver entrada ou se o TTL tiver expirado.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearCacheFor*</TableCell>
+      <TableCell>*clearCacheFor(modal, interaction)*</TableCell>
+      <TableCell>Remove a entrada de cache do modal e usuário informados. É chamado automaticamente em uma submissão bem-sucedida.</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Combinando cache com modais dinâmicos
+
+_@ModalCache_ se combina naturalmente com _@ModalDynamic_ e _@ModalWhen_. Você pode adicionar cache a qualquer modal dinâmico sem configuração extra. O cache armazena valores de campo como um mapa plano de chave e valor, independentemente de como eles foram gerados, então mesmo campos incluídos condicionalmente no momento da submissão ficam em cache. Na próxima abertura, _buildFor_ restaura os valores em cache para os campos que estiverem presentes no novo schema resolvido.
+
+```typescript filename="src/commands/configure.command-handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { ModalService } from '@spraxium/components';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ConfigModal } from '../components/config-modal.modal';
+import { ConfigureCommand } from './configure.command';
+
+@SlashCommandHandler(ConfigureCommand)
+export class ConfigureCommandHandler {
+  constructor(private readonly modals: ModalService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const featureFlags = await this.getFlags(interaction.guildId);
+
+    const modal = this.modals.buildFor(ConfigModal, interaction);
+    await interaction.showModal(modal);
+  }
+
+  private async getFlags(guildId: string): Promise<string[]> {
+    return ['moderation', 'logging'];
+  }
+}
+```
+
+## Próxima página
+
+Continue com [Fundamentos de erros](/guide/exceptions-overview).

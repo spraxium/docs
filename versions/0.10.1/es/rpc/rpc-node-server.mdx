@@ -1,0 +1,61 @@
+---
+title: "Recibe llamadas RPC en un backend Node.js"
+description: "Añade un servidor RPC junto a Express, Fastify, Hono con Node.js o un servicio Node sin framework."
+order: 9
+category: "@spraxium/rpc"
+---
+
+Si tu API en Express o Fastify ya se encarga de los tickets, el bot puede llamar a un método en ese proyecto igual que lo haría con Nest. `@spraxium/rpc-server` funciona sobre Node.js. El framework web puede seguir atendiendo sus rutas mientras el RPC escucha en otro puerto. Inicia ambos al arrancar y ciérralos cuando termine el proceso.
+
+Instala `@spraxium/rpc-server@0.10.1` en el proceso que recibe y `@spraxium/rpc-client@0.10.1` en el que llama. Configura `BACKEND_RPC_TOKEN` en los dos. Con Express o Node puedes usar `start()` y `close()` desde la función que administra el servidor HTTP. Fastify ofrece hooks de ciclo de vida. Para Hono usa el adaptador de Node, donde el proceso puede abrir un puerto TCP. Si tu entorno serverless no permite usar un puerto aparte, aloja el RPC en un servicio Node separado.
+
+~~~ts filename="backend-rpc.ts"
+import { createRpcServer } from '@spraxium/rpc-server';
+
+export type BackendRpc = {
+  'backend.status': { input: null; output: { ready: boolean } };
+};
+
+const server = createRpcServer<BackendRpc>({
+  host: '127.0.0.1',
+  port: 4400,
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+  permissions: ['status:read'],
+});
+
+server.register('backend.status', {
+  permissions: ['status:read'],
+  schema: {
+    parse(input) {
+      if (input !== null) throw new Error('Expected null.');
+      return input;
+    },
+  },
+  handle: () => ({ ready: true }),
+});
+
+await server.start();
+~~~
+
+~~~ts filename="call-backend.ts"
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { BackendRpc } from './backend-rpc.ts';
+
+const rpc = createRpcClient<BackendRpc>({
+  url: 'http://127.0.0.1:4400',
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+});
+
+try {
+  const status = await rpc.call('backend.status', null);
+  console.log(status.ready);
+} finally {
+  rpc.close();
+}
+~~~
+
+Para crear un método de verdad, sustituye el esquema del ejemplo por uno que valide los datos recibidos y llama al mismo servicio que usan tus rutas HTTP. Configura los permisos de cada método. El token del RPC identifica al servicio, y el bot o la API que recibió la petición original debe comprobar los permisos de la persona. Usa redes privadas y TLS si los procesos están en máquinas distintas.
+
+## Siguiente
+
+[Usa RPC en ambos sentidos con NestJS](./rpc-nestjs-two-way)

@@ -3,7 +3,8 @@
 The [Spraxium site](https://spraxium.com/en/guide) builds its guides, release notes, roadmap and coding-agent skills from this repository.
 
 - `versions.json` selects the current version and lists the archived versions.
-- `versions/0.10.0/{en,pt,es}/` contains the active guides.
+- `versions/0.10.1/{en,pt,es}/` contains the active guides.
+- `versions/0.10.0/{en,pt,es}/` preserves the previous RPC release.
 - `versions/0.9.0/{en,pt,es}/` preserves the older docs.
 - `changelogs/` contains release notes. Place translations with the same filename under `changelogs/pt/` or `changelogs/es/`.
 - `roadmap/data.json` contains the project status.

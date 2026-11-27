@@ -1,0 +1,182 @@
+---
+title: Patrones avanzados
+description: |
+  Patrones avanzados de variables de entorno, incluyendo validadores personalizados, herencia de esquemas y manejo de errores.
+  Aprende a componer validadores, construir pipelines de validación e integrar el esquema de entorno en tu bot.
+order: 3
+category: Environment
+---
+
+## Componer múltiples validadores
+
+Spraxium ejecuta todas las transformaciones de un campo antes de validar el resultado. `@IsPort()` puede convertir el texto `3000` en un número. Una regla `@Validate()` puede comprobar después si está en el rango permitido por tu proyecto. También puedes quitar espacios de una variable antes de comprobar su formato.
+
+El orden importa si apilas transformaciones que dependen unas de otras. Los decoradores de propiedades de TypeScript se aplican de abajo arriba y Spraxium registra las reglas en ese orden. Reúne los pasos relacionados en un único `@Transform()` para que se lean en el orden en que ocurren. Usa `@Secret()` para credenciales y evita poner el valor original en los mensajes de validación.
+
+También puedes combinar validadores de tipo incorporados con comprobaciones personalizadas. Por ejemplo, _IsPort_ ya valida que el valor sea un entero entre 1 y 65535. Agregar un _Validate_ encima te permite restringir aún más el rango, como rechazar puertos por debajo de 1024 para forzar un binding no privilegiado.
+
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsPort, Validate } from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv {
+  @Env('HTTP_PORT', { secret: false })
+  @IsPort()
+  @Validate((value) =>
+    (value as number) >= 1024 ? true : 'Port must be 1024 or higher',
+  )
+  HTTP_PORT!: number;
+}
+```
+
+## Herencia de esquemas
+
+Los esquemas de entorno soportan herencia de clases. Una clase hija extiende una clase padre y agrega sus propios campos. El pipeline de validación recorre toda la cadena de prototipos, recopilando campos de cada ancestro. Esto permite construir esquemas por capas, donde una clase base define campos compartidos y clases específicas de una feature agregan los suyos.
+
+El patrón más común es extender _SpraxiumBaseEnv_, que proporciona `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` y `NODE_ENV`. Aplicas _@EnvSchema_ solo a la clase hija. La clase padre ya tiene su propio _@EnvSchema_, y ambas entradas de metadatos se reconocen durante la validación.
+
+Cuando dos clases en la cadena declaran un campo con la misma property key, gana la clase hija. Esto te permite sobrescribir un default del padre, por ejemplo cambiando el default de `NODE_ENV` de `"development"` a `"production"` en un esquema específico de despliegue. Los campos con property keys diferentes se fusionan normalmente sin importar qué clase los declare.
+
+<CodeTabs>
+  <Tab label="Base" language="typescript">
+```typescript filename="src/base.env.ts"
+import { EnvSchema, Env, IsString, IsOptional } from '@spraxium/env';
+import { SpraxiumBaseEnv } from '@spraxium/env';
+
+@EnvSchema()
+export class BaseEnv extends SpraxiumBaseEnv {
+  @Env('LOG_LEVEL', { default: 'info', secret: false })
+  @IsString()
+  LOG_LEVEL!: string;
+
+  @Env('SENTRY_DSN')
+  @IsString()
+  @IsOptional()
+  SENTRY_DSN?: string;
+}
+
+````
+  </Tab>
+  <Tab label="Child" language="typescript">
+```typescript filename="src/app.env.ts"
+import { EnvSchema, Env, IsMongoUri, IsRedisUri } from '@spraxium/env';
+import { BaseEnv } from './base.env';
+
+@EnvSchema()
+export class AppEnv extends BaseEnv {
+  @Env('MONGO_URI')
+  @IsMongoUri()
+  MONGO_URI!: string;
+
+  @Env('REDIS_URI')
+  @IsRedisUri()
+  REDIS_URI!: string;
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+## Flujo de errores de validación
+
+La validación indica `missing` si un campo obligatorio carece de valor y de valor por defecto. Indica `invalid_value` si falla una transformación o un validador rechaza el resultado. Un enum inválido y el rechazo de `@Validate()` usan `invalid_value`. El error incluye la clave de la variable y puede incluir el mensaje del validador. Se omite el valor recibido para los campos secretos.
+
+Fuera de `NODE_ENV=development`, Spraxium indica los errores en stderr y termina con el código 1. En desarrollo, vuelve a leer el primer archivo disponible entre `.env.local` y `.env` cada 500 milisegundos durante un máximo de cinco minutos. Guarda los cambios para continuar con el arranque cuando pase la validación. La decisión usa `process.env.NODE_ENV`. Un valor por defecto del esquema solo rellena esa propiedad.
+
+## Validación silenciosa
+
+Usa el modo silencioso para omitir la tabla de éxito. Los validadores siguen ejecutándose. Un valor inválido detiene el arranque fuera de desarrollo o inicia el ciclo de recuperación cuando NODE_ENV es development.
+
+```typescript filename="src/test/setup.ts"
+import { EnvValidator } from '@spraxium/env';
+import { AppEnv } from '../app.env';
+
+const env = EnvValidator.validate(AppEnv, { silent: true });
+```
+
+El método _validate_ devuelve una instancia totalmente poblada de tu clase de esquema. Cada propiedad contiene su valor validado y transformado. Puedes usar esta instancia directamente en tests o pasarla a servicios que necesiten configuración sin pasar por el contenedor de inyección de dependencias.
+
+## Carga de archivos DotEnv
+
+En la primera lectura, Spraxium carga .env.local si existe o .env si es el único disponible. Las variables del proceso tienen prioridad en esa lectura. En desarrollo, el ciclo de recuperación puede sustituir valores al volver a leer el archivo.
+
+El parser maneja comentarios (líneas que comienzan con `#`), valores entre comillas (simples o dobles, que se eliminan) y comentarios inline después de valores sin comillas. No soporta valores multilínea ni interpolación de variables. Para valores complejos como objetos JSON, envuélvelos entre comillas y usa _IsJson_ para parsearlos.
+
+<DropdownGroup>
+<Dropdown title="1. System environment and CI variables">
+  Define las credenciales de producción en el entorno de despliegue. El validador las toma antes de leer el archivo local al arrancar.
+</Dropdown>
+
+<Dropdown title="2. .env.local">
+  Se carga primero entre las fuentes de archivo cuando existe en la raíz del
+  proyecto. Usa este archivo para overrides locales de desarrollo que no deben
+  versionarse. Agrega `.env.local` a tu `.gitignore` para mantener
+  fuera del repositorio los valores específicos de cada desarrollador.
+</Dropdown>
+
+<Dropdown title="3. .env">
+  Usa .env para valores locales cuando no haya .env.local. Ignora los dos archivos en Git y guarda .env.example con los nombres y valores ficticios.
+</Dropdown>
+</DropdownGroup>
+
+## Ejemplo completo
+
+Este ejemplo muestra un esquema completo que combina herencia, múltiples tipos de validadores, transformaciones personalizadas y enmascarado de secretos. El esquema extiende _SpraxiumBaseEnv_ para el token y el entorno de Node, agrega campos de base de datos y API, e incluye una transformación personalizada que divide una lista separada por comas en un array.
+
+```typescript filename="src/app.env.ts"
+import {
+  EnvSchema,
+  Env,
+  SpraxiumBaseEnv,
+  IsMongoUri,
+  IsRedisUri,
+  IsPort,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  Secret,
+  Default,
+  Transform,
+  Validate,
+} from '@spraxium/env';
+
+@EnvSchema()
+export class AppEnv extends SpraxiumBaseEnv {
+  @Env('MONGO_URI')
+  @IsMongoUri()
+  MONGO_URI!: string;
+
+  @Env('REDIS_URI')
+  @IsRedisUri()
+  @IsOptional()
+  REDIS_URI?: string;
+
+  @Env('API_PORT', { default: '3000', secret: false })
+  @IsPort()
+  API_PORT!: number;
+
+  @Env('ENABLE_METRICS', { default: 'false', secret: false })
+  @IsBoolean()
+  ENABLE_METRICS!: boolean;
+
+  @Env('LOG_LEVEL', { default: 'info', secret: false })
+  @IsEnum(['debug', 'info', 'warn', 'error'])
+  LOG_LEVEL!: string;
+
+  @Env('WEBHOOK_SECRET')
+  @IsOptional()
+  @Secret()
+  WEBHOOK_SECRET?: string;
+
+  @Env('CORS_ORIGINS', { default: 'http://localhost:3000', secret: false })
+  @Transform((raw) => raw.split(',').map((s) => s.trim()))
+  @Validate((value) =>
+    Array.isArray(value) && value.length > 0 ? true : 'Need at least one origin',
+  )
+  CORS_ORIGINS!: string[];
+}
+```
+
+## Siguiente página
+
+Continúa con [Visión general de la configuración](/guide/configuration-layers).

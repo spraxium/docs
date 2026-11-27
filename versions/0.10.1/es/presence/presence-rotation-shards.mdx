@@ -1,0 +1,239 @@
+---
+title: Rotación y shards
+description: |
+  Rota actividades con un temporizador y personaliza la presencia por shard con placeholders personalizados.
+  Aprende startRotation, stopRotation, setShardActivity, configuración inicial por shard y variables de interpolación personalizadas.
+order: 2
+category: Presence
+---
+
+## Rotación de actividades
+
+Cuando tu bot tiene varias cosas que comunicar, puedes rotar actividades en un intervalo fijo. El método _startRotation_ acepta un arreglo de actividades y un intervalo en milisegundos. Establece la primera actividad de inmediato y luego avanza a la siguiente cada vez que se dispara el intervalo. La rotación vuelve al inicio cuando llega al final del arreglo.
+
+```typescript filename="src/listeners/ready.listener.ts"
+import { Events, Listener, Once } from '@spraxium/common';
+import { PresenceManager } from '@spraxium/core';
+
+@Listener(Events.ClientReady)
+export class ReadyListener {
+  @Once()
+  onReady(): void {
+    PresenceManager.startRotation(
+      [
+        { name: '{{totalServers}} servers', type: 'Watching' },
+        { name: '/help for commands', type: 'Playing' },
+        { name: 'feedback from users', type: 'Listening' },
+      ],
+      30_000,
+    );
+  }
+}
+```
+
+Llamar a _startRotation_ detiene cualquier rotación existente antes de iniciar la nueva. El temporizador está unref'd, lo que significa que no impide que el proceso de Node.js termine limpiamente durante el apagado. Los placeholders en nombres de actividad se vuelven a resolver en cada tick, por lo que valores como `{{totalServers}}` se mantienen actualizados.
+
+También puedes configurar la rotación al iniciar definiendo _rotateInterval_ en tu configuración de presencia y proporcionando más de una actividad. Define la configuración en la carpeta `config/` y pásala a _initPresence_ en `main.ts`. El framework inicia la rotación automáticamente después de que el cliente se conecta, sin código adicional en listeners.
+
+<CodeTabs>
+  <Tab label="config/presence.config.ts">
+```typescript filename="config/presence.config.ts"
+import type { PresenceOptions } from '@spraxium/core';
+
+export const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: '{{totalServers}} servers', type: 'Watching' },
+    { name: '/help', type: 'Playing' },
+    { name: '{{ping}}ms latency', type: 'Competing' },
+  ],
+  rotateInterval: 20_000,
+};
+```
+  </Tab>
+  <Tab label="src/main.ts">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { presenceConfig } from '../config/presence.config';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
+  app.useModule(AppModule);
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+
+````
+  </Tab>
+</CodeTabs>
+
+## Detener la rotación
+
+El método *stopRotation* limpia el temporizador de intervalo. La última actividad activa permanece visible hasta que definas una nueva o llames a *reset*. Esto es útil para congelar temporalmente la presencia durante una ventana de mantenimiento o cuando el bot entra en un estado especial.
+
+```typescript filename="src/commands/freeze.command.ts"
+import { PresenceManager } from '@spraxium/core';
+
+PresenceManager.stopRotation();
+PresenceManager.setActivity({
+  name: 'maintenance in progress',
+  type: 'Playing',
+});
+````
+
+## Presencia por shard al iniciar
+
+Cuando tu bot se ejecuta en múltiples shards, cada proceso de shard resuelve los placeholders integrados de forma independiente. Un único placeholder `{{totalServers}}` muestra números distintos en diferentes shards porque cada shard solo conoce sus propias guilds. Esto ocurre automáticamente sin configuración especial.
+
+Para una personalización más profunda, el objeto _PresenceOptions_ admite un registro _perShard_. Cada clave es un ID de shard, y el valor sobrescribe la presencia global para ese shard específico. Las sobrescrituras se combinan con la configuración global, así que solo necesitas especificar los campos que quieres cambiar.
+
+<CodeTabs>
+  <Tab label="config/presence.config.ts">
+```typescript filename="config/presence.config.ts"
+import type { PresenceOptions } from '@spraxium/core';
+
+export const presenceConfig: PresenceOptions = {
+  status: 'online',
+  activities: [
+    { name: 'Shard {{shardNumber}}/{{totalShards}}', type: 'Playing' },
+  ],
+  perShard: {
+    0: {
+      status: 'dnd',
+      activities: [
+        { name: 'Primary shard · {{totalServers}} guilds', type: 'Watching' },
+      ],
+    },
+  },
+};
+```
+  </Tab>
+  <Tab label="src/main.ts">
+```typescript filename="src/main.ts"
+import { SpraxiumFactory } from '@spraxium/core';
+import { presenceConfig } from '../config/presence.config';
+import { AppModule } from './app.module';
+
+async function main() {
+  const app = await SpraxiumFactory.create({
+    token: process.env.DISCORD_TOKEN,
+  });
+  app.useModule(AppModule);
+  app.initPresence(presenceConfig);
+  await app.listen();
+}
+
+main();
+
+````
+  </Tab>
+</CodeTabs>
+
+## Sobrescrituras de shard en tiempo de ejecución
+
+Los métodos estáticos *setShardPresence*, *setShardActivity*, *clearShardPresence* y *clearShardActivity* te permiten cambiar la presencia por shard en tiempo de ejecución. Estas sobrescrituras tienen prioridad sobre la presencia global para el shard correspondiente en cada llamada posterior a *applyPresence*.
+
+*setShardPresence* acepta un ID de shard y un objeto de presencia parcial con *status* y *activities* opcionales. Se combina con cualquier sobrescritura existente para ese shard. *setShardActivity* es un atajo que solo cambia la actividad de un shard, con opción de inyectar variables de placeholder personalizadas.
+
+```typescript filename="src/services/shard-status.service.ts"
+import { Injectable } from '@spraxium/common';
+import { PresenceManager } from '@spraxium/core';
+
+@Injectable()
+export class ShardStatusService {
+  updateShardActivity(shardId: number, version: string) {
+    PresenceManager.setShardActivity(
+      shardId,
+      {
+        name: 'v{{version}} · {{totalServers}} guilds on shard {{shardNumber}}',
+        type: 'Playing',
+      },
+      { version },
+    );
+  }
+
+  resetShard(shardId: number) {
+    PresenceManager.clearShardPresence(shardId);
+  }
+}
+````
+
+El tercer argumento de _setShardActivity_ es un registro de variables de placeholder personalizadas. Se combinan por encima de las integradas, así que `{{version}}` en el ejemplo anterior se resuelve al string que pases. Placeholders integrados como `{{totalServers}}` y `{{shardNumber}}` siempre están disponibles y no hace falta pasarlos manualmente.
+
+## Referencia de API
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Descripción</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*setActivity(activity)*</TableCell>
+      <TableCell>
+        Reemplaza la actividad actual sin tocar el estado.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setStatus(status)*</TableCell>
+      <TableCell>
+        Actualiza solo el indicador de estado (online, idle, dnd, invisible).
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setPresence(options)*</TableCell>
+      <TableCell>Define estado y actividades en una sola llamada.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*startRotation(activities, intervalMs)*</TableCell>
+      <TableCell>
+        Inicia el ciclo automático de actividades. Detiene cualquier rotación existente.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*stopRotation()*</TableCell>
+      <TableCell>
+        Limpia el intervalo de rotación. Se conserva la última actividad.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*reset()*</TableCell>
+      <TableCell>
+        Restaura la presencia configurada al inicio. No limpia sobrescrituras de shard.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setShardPresence(shardId, options)*</TableCell>
+      <TableCell>Sobrescribe la presencia de un shard específico en tiempo de ejecución.</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setShardActivity(shardId, activity, customProps?)*</TableCell>
+      <TableCell>
+        Define la actividad de un shard con placeholders personalizados opcionales.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearShardPresence(shardId)*</TableCell>
+      <TableCell>
+        Elimina todas las sobrescrituras de un shard y vuelve a la global.
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*clearShardActivity(shardId)*</TableCell>
+      <TableCell>
+        Elimina solo la sobrescritura de actividad y conserva cualquier sobrescritura de estado.
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## Página siguiente
+
+Continúa con [Referencia de CLI](/cli-overview).

@@ -1,0 +1,291 @@
+---
+title: Fundamentos de i18n
+description: |
+  O módulo de i18n transforma um bot de idioma único em um bot que responde no idioma de cada usuário.
+  Aprenda a configurar arquivos de locale, injetar o serviço de tradução e persistir preferências de usuário.
+order: 1
+category: i18n
+keywords:
+  - spraxium i18n overview
+  - fundamentos de i18n no spraxium
+  - i18n i18n overview guia
+  - i18n overview bot discord
+  - i18n overview typescript
+  - documentacao spraxium i18n
+  - fundamentos de i18n i18n
+  - spraxium fundamentos de i18n
+---
+
+## Por que um sistema estruturado de i18n importa
+
+A maioria dos bots começa com strings em inglês hardcoded, espalhadas pelos arquivos de handler, e isso funciona bem nos primeiros centenas de usuários. O problema aparece quando a comunidade cresce e passa a incluir guilds do Brasil, da Espanha, do Japão ou da Coreia: o único caminho para dar suporte a essas pessoas passa a ser rastrear manualmente cada string no codebase e envolver tudo em lógica condicional. Essa abordagem não escala, quebra em refactors e mistura preocupações de apresentação diretamente na lógica dos comandos.
+
+O módulo de i18n do Spraxium resolve isso com um registro centralizado de strings traduzidas, carregado uma vez no boot, um pipeline de resolução que escolhe automaticamente o locale certo para cada interação e helpers que conectam localizações de slash commands diretamente pelo decorator do comando. Escrever um bot internacionalizado fica quase igual a escrever um bot monolíngue, porque a complexidade é absorvida pelo framework, em vez de ficar espalhada pelos handlers.
+
+Localização não é só substituição de texto. Também envolve respeitar o fato de que usuários têm um idioma preferido, que o próprio Discord tem um sistema de locale que afeta como os comandos aparecem na UI e que regras de pluralização variam bastante entre idiomas. O módulo cuida dessas três preocupações em um sistema coeso, então você quase nunca precisa pensar na mecânica enquanto escreve handlers.
+
+## Como a resolução de locale funciona
+
+Quando um handler chama _tUser_, o serviço resolve o locale daquele usuário por meio de uma cadeia de prioridade em três níveis: uma preferência salva do usuário vence uma preferência salva da guild, e uma preferência salva da guild vence o locale padrão configurado. Essa ordem é o modelo correto para bots do Discord porque respeita primeiro a escolha individual, depois a configuração em nível de comunidade e só cai no padrão global do bot quando nenhuma preferência foi definida.
+
+As preferências de usuário e guild ficam armazenadas no backend ativo de _I18nStore_ e sobrevivem a reinicializações do bot, desde que o backend seja persistente. O _MemoryStore_ embutido funciona bem para desenvolvimento local e para bots que não precisam persistir preferências, enquanto bots de produção devem usar uma store baseada em banco, como as mostradas na página da API da Store.
+
+As localizações de slash commands seguem um caminho diferente: quando o bot registra comandos pela REST API do Discord, nomes e descrições podem ter variantes por locale, que o Discord renderiza nativamente no seletor de comandos. O módulo de i18n conecta essas localizações automaticamente durante a sequência de boot, então basta declarar um campo _i18n_ em um decorator de slash para produzir uma entrada de comando totalmente localizada na UI do Discord.
+
+## Configurando o módulo
+
+```typescript filename="config/i18n.config.ts"
+import { defineI18n } from '@spraxium/i18n';
+
+export const i18nConfig = defineI18n({
+  defaultLocale: 'en-US',
+  references: [
+    { name: 'commands', path: './locales/commands' },
+    { name: 'messages', path: './locales/messages' },
+    { name: 'errors', path: './locales/errors' },
+  ],
+});
+```
+
+Adicione o objeto de configuração ao array `plugins` na sua configuração do Spraxium. O módulo é autocontido e registra seu próprio _I18nLifecycle_, que roda automaticamente no boot antes que qualquer slash command seja registrado.
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Campo</TableCell>
+      <TableCell header>Tipo</TableCell>
+      <TableCell header>Finalidade</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*defaultLocale*</TableCell>
+      <TableCell>string</TableCell>
+      <TableCell>
+        Locale de fallback usado quando nenhuma preferência de usuário ou guild foi definida
+      </TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*references*</TableCell>
+      <TableCell>Array</TableCell>
+      <TableCell>Ponteiros nomeados para diretórios de locale no disco</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*pluralRules*</TableCell>
+      <TableCell>Record</TableCell>
+      <TableCell>
+        Funções de plural opcionais por locale, sobrescrevendo Intl.PluralRules
+      </TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+## A API do I18nService
+
+Injete _I18nService_ em qualquer handler ou provider. Ele expõe métodos síncronos e assíncronos de tradução para cobrir todos os padrões de uso de que seu bot precisa.
+
+<CodeTabs>
+  <Tab label="Síncrono" language="typescript">
+```typescript filename="ping.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
+
+@SlashCommandHandler(PingCommand)
+export class PingHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const locale = interaction.locale;
+    const message = this.i18n.t('commands.ping.response', locale);
+    await interaction.reply(message);
+  }
+}
+
+````
+  </Tab>
+  <Tab label="Resolvido por usuário" language="typescript">
+```typescript filename="greet.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { GreetCommand } from '../commands/greet.command';
+
+@SlashCommandHandler(GreetCommand)
+export class GreetHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId  = interaction.user.id;
+    const guildId = interaction.guildId ?? undefined;
+
+    // Resolves locale priority: user pref > guild pref > default
+    const message = await this.i18n.tUser(
+      userId,
+      'commands.greet.welcome',
+      { name: interaction.user.username },
+      guildId,
+    );
+
+    await interaction.reply(message);
+  }
+}
+````
+
+  </Tab>
+  <Tab label="Pluralização" language="typescript">
+```typescript filename="items.handler.ts"
+import { Ctx, SlashCommandHandler } from '@spraxium/common';
+import { I18nService } from '@spraxium/i18n';
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { ItemsCommand } from '../commands/items.command';
+
+@SlashCommandHandler(ItemsCommand)
+export class ItemsHandler {
+  constructor(private readonly i18n: I18nService) {}
+
+  async handle(@Ctx() interaction: ChatInputCommandInteraction): Promise<void> {
+    const userId = interaction.user.id;
+    const count = 5;
+
+    const message = await this.i18n.tpUser(userId, 'commands.items', count, { count });
+    await interaction.reply(message);
+
+  }
+}
+
+````
+  </Tab>
+</CodeTabs>
+
+<Table>
+  <TableHead>
+    <TableRow>
+      <TableCell header>Método</TableCell>
+      <TableCell header>Async</TableCell>
+      <TableCell header>O que faz</TableCell>
+    </TableRow>
+  </TableHead>
+  <TableBody>
+    <TableRow>
+      <TableCell>*t(key, locale, vars?)*</TableCell>
+      <TableCell>Não</TableCell>
+      <TableCell>Traduz uma chave para um locale explícito com substituição opcional de variáveis</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*tp(key, locale, count, vars?)*</TableCell>
+      <TableCell>Não</TableCell>
+      <TableCell>Traduz com pluralização para um locale explícito</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*tUser(userId, key, vars?, guildId?)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Traduz depois de resolver o locale pela cadeia de preferência de usuário e guild</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*tpUser(userId, key, count, vars?, guildId?)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Traduz com pluralização depois de resolver o locale pela cadeia de preferências</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setUserLocale(userId, locale)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Persiste uma preferência de locale para um usuário</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*setGuildLocale(guildId, locale)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Persiste uma preferência de locale para uma guild</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getUserLocale(userId)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Recupera o locale salvo do usuário ou o locale padrão</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*getGuildLocale(guildId)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Recupera o locale salvo da guild ou o locale padrão</TableCell>
+    </TableRow>
+    <TableRow>
+      <TableCell>*resolveLocale(userId, guildId?)*</TableCell>
+      <TableCell>Sim</TableCell>
+      <TableCell>Executa a cadeia completa de resolução e retorna o locale vencedor</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+
+<DropdownGroup>
+<Dropdown title="tUser, resolvendo o locale pelas preferências de usuário e guild">
+  *tUser* é o método principal para enviar respostas localizadas em handlers de slash command. Ele lê primeiro a preferência de locale salva para o usuário, cai na preferência da guild se não encontrar nada e depois recorre ao locale padrão configurado. Isso significa que usuários que definem o próprio idioma sempre veem sua preferência, enquanto guilds podem definir um idioma padrão da comunidade para quem ainda não escolheu uma preferência pessoal.
+
+  O parâmetro *guildId* é opcional. Passá-lo habilita o nível de preferência da guild, o que é útil em qualquer comando executado dentro de um servidor. Quando o comando também pode rodar em DM, passe `guildId` como undefined e a cadeia de resolução pula esse nível automaticamente.
+
+  ```typescript filename="welcome.handler.ts"
+  const message = await this.i18n.tUser(
+    interaction.user.id,
+    'commands.welcome.text',
+    { username: interaction.user.username },
+    interaction.guildId ?? undefined,
+  );
+````
+
+</Dropdown>
+
+<Dropdown title="tpUser, combinando pluralização com resolução de preferência">
+  *tpUser* funciona exatamente como *tUser*, mas também aplica as regras de pluralização depois de resolver o locale. A contagem é passada como terceiro argumento e fica disponível automaticamente como `{{count}}` na string traduzida, então você não precisa incluí-la no objeto vars. O mecanismo seleciona a categoria plural correta para o locale resolvido e procura a variante correspondente.
+
+Use _tpUser_ sempre que o texto da resposta mudar com base em um valor numérico e a cadeia de preferência de locale ainda precisar ser respeitada. Exemplos comuns incluem contagem de itens, posição em filas, ranking em leaderboards e qualquer mensagem de feedback dependente de quantidade.
+
+```typescript filename="inventory.handler.ts"
+const count = await getItemCount(interaction.user.id);
+const message = await this.i18n.tpUser(
+  interaction.user.id,
+  'commands.inventory.items',
+  count,
+  {},
+  interaction.guildId ?? undefined,
+);
+```
+
+</Dropdown>
+
+<Dropdown title="setUserLocale e setGuildLocale, salvando preferências">
+  *setUserLocale* e *setGuildLocale* gravam uma preferência de locale no backend de store ativo. Eles são chamados a partir de comandos de mudança de idioma, normalmente um slash command em que o usuário escolhe um idioma por meio de uma opção string ou de um select menu. Depois que a preferência é salva, toda chamada seguinte a *tUser* para aquele usuário ou guild já reflete a nova configuração, sem etapa extra de invalidação de cache.
+
+_setGuildLocale_ deve ser restrito a membros com a permissão _Manage Guild_, porque afeta o idioma padrão de todos os usuários do servidor que não definiram uma preferência pessoal. O padrão recomendado é usar um guard para impor essa restrição, em vez de verificar permissões manualmente dentro do handler.
+
+```typescript filename="language.handler.ts"
+const locale = interaction.options.getString('language', true);
+await this.i18n.setUserLocale(interaction.user.id, locale);
+const confirmation = await this.i18n.tUser(
+  interaction.user.id,
+  'system.locale_saved',
+  { locale },
+);
+await interaction.reply({ content: confirmation, flags: 'Ephemeral' });
+```
+
+</Dropdown>
+
+<Dropdown title="resolveLocale, lendo o locale resolvido sem traduzir">
+  *resolveLocale* executa a mesma cadeia de prioridade de *tUser*, mas retorna apenas a string do locale vencedor em vez de um valor traduzido. Chame esse método quando você precisar saber qual locale será usado antes de decidir o que procurar, ao montar campos de embed que dependem de um formatador de datas sensível ao locale ou ao repassar a string de locale para um serviço externo que cuida da própria localização.
+
+Como _resolveLocale_ apenas lê da store e nunca escreve, ele é seguro para ser chamado quantas vezes forem necessárias. O resultado só muda quando a preferência do usuário ou da guild é atualizada por _setUserLocale_ ou _setGuildLocale_, então o comportamento é previsível e sem efeitos colaterais.
+
+```typescript filename="profile.handler.ts"
+const locale = await this.i18n.resolveLocale(
+  interaction.user.id,
+  interaction.guildId ?? undefined,
+);
+const formatted = new Intl.DateTimeFormat(locale).format(new Date());
+await interaction.reply(`Your account was created on ${formatted}.`);
+```
+
+</Dropdown>
+</DropdownGroup>
+
+## Próxima página
+
+Continue com [Referências e Arquivos de Locale](/guide/i18n-references).

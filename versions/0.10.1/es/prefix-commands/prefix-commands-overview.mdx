@@ -1,0 +1,136 @@
+---
+title: Descripción General de Comandos con Prefijo
+description: |
+  Los comandos con prefijo permiten a los usuarios activar acciones del bot mediante mensajes de texto con un prefijo configurable.
+  Aprende el modelo de comandos, cómo se conectan los comandos con los handlers y cómo se registran en módulos.
+order: 1
+category: Prefix Commands
+---
+
+## Qué es un comando con prefijo
+
+Un comando con prefijo es un par de clases que reacciona a un mensaje de texto que comienza con un carácter configurable como `!` o `?`. Cuando un usuario envía `!roll 20`, el framework detecta el prefijo, extrae el nombre del comando, analiza los argumentos, ejecuta guards y despacha el mensaje al handler correcto. Este es el modelo tradicional de comandos para bots de Discord anterior a los slash commands, y sigue siendo útil para flujos de trabajo rápidos de operadores, herramientas internas de moderación y bots donde los usuarios ya conocen atajos de comandos.
+
+La diferencia clave entre los comandos con prefijo y los slash commands es qué los activa. Los slash commands se activan mediante el sistema de interacciones integrado de Discord, con autocompletado y validación. Los comandos con prefijo se activan por mensajes de texto sin procesar, lo que significa que el framework debe encargarse por sí mismo del parsing, la coerción de argumentos y el reporte de errores. Algunos bots necesitan ambos, y Spraxium permite registrar comandos con prefijo y slash commands en el mismo módulo sin conflictos.
+
+Los comandos con prefijo en Spraxium no son una característica heredada añadida al final. Son clases completas gestionadas por el contenedor de inyección de dependencias, registradas en módulos y conectadas automáticamente al cliente de Discord durante el bootstrap. Esto significa que tus handlers de comandos pueden recibir servicios inyectados, participar en el pipeline de guards, beneficiarse del seguimiento de cooldown y usar el mismo manejo de excepciones que usan los slash commands.
+
+Para ejecutar el ejemplo, importa su módulo y define `prefix: { prefix: '!' }` en `spraxium.config.ts`. Activa el intent Message Content en el bot y en el portal de desarrolladores de Discord. Consulta [Ejecución y prefijos por servidor](/guide/prefix-commands-execution-guild-prefixes) para ver una configuración completa.
+
+## Cuándo siguen teniendo sentido los comandos con prefijo
+
+Los comandos con prefijo siguen encajando muy bien en bots usados por equipos de staff, herramientas internas, comunidades heredadas con mucha migración, o flujos donde los atajos escritos importan más que la interfaz de selector de comandos de Discord. También son útiles cuando ya existen hábitos basados en mensajes y mover todo a slash commands añadiría fricción sin mucho beneficio.
+
+Son menos adecuados cuando necesitas alta descubribilidad para usuarios casuales, validación rica de opciones en el cliente de Discord o entradas con mucho uso de autocompletado. En esos casos, los slash commands suelen ser la mejor opción por defecto.
+
+## Un ejemplo básico de comando
+
+Aquí tienes dos clases que muestran el patrón de dos clases. La primera es una definición de comando que declara el nombre, los alias y el esquema de argumentos mediante decoradores _@PrefixArg_. La segunda es un handler que recibe los argumentos parseados y el _Message_ sin procesar mediante _@Ctx_. Juntas, cubren la estructura mínima que necesitas para crear un comando con prefijo funcional.
+
+<CodeTabs>
+  <Tab label="Command" language="typescript">
+```typescript filename="src/modules/fun/commands/ping.command.ts"
+import { PrefixCommand } from '@spraxium/common';
+
+@PrefixCommand({
+  name: 'ping',
+  aliases: ['p'],
+  description: 'Check bot latency.',
+  category: 'Fun',
+  usage: '!ping',
+  cooldown: 3,
+})
+export class PingCommand {
+  build() {}
+}
+
+````
+  </Tab>
+  <Tab label="Handler" language="typescript">
+```typescript filename="src/modules/fun/handlers/ping-command.handler.ts"
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { PingCommand } from '../commands/ping.command';
+
+@PrefixCommandHandler(PingCommand)
+export class PingHandler {
+  async handle(@Ctx() message: Message): Promise<void> {
+    const latency = Date.now() - message.createdTimestamp;
+    await message.reply(`Pong! Latency: ${latency}ms`);
+  }
+}
+````
+
+  </Tab>
+</CodeTabs>
+
+Observa que la clase de comando es puramente declarativa: describe cómo se llama el comando, qué alias acepta y qué cooldown aplica. La clase handler contiene la lógica de ejecución y recibe dependencias mediante decoradores. Para comandos con argumentos, agregas decoradores _@PrefixArg_ en el método _build_ del comando y decoradores de parámetro _@PrefixArg_ equivalentes en el método _handle_ del handler. La siguiente página cubre en detalle los esquemas de argumentos.
+
+## Flujo en tiempo de ejecución
+
+En runtime, el flujo es directo:
+
+1. El framework detecta el prefijo configurado.
+2. Extrae el nombre del comando y tokeniza el texto restante.
+3. Resuelve la definición del comando y parsea los argumentos.
+4. Ejecuta guards y comprobaciones de cooldown.
+5. Invoca el handler registrado.
+
+Ese pipeline es la razón por la que la definición del comando y la ejecución del comando se separan en dos clases. Una clase describe el esquema; la otra ejecuta la lógica sobre los valores parseados.
+
+## Registrar comandos en un módulo
+
+Los comandos con prefijo no se activan solo por existir en tu código fuente. Debes registrar la clase de comando en el arreglo _commands_ del módulo y la clase handler en el arreglo _handlers_ para que el framework las conozca y las conecte durante el bootstrap. Sin ambos registros, tu comando será invisible para el parser o no tendrá un handler al que despachar.
+
+```typescript filename="src/modules/fun/fun.module.ts"
+import { Module } from '@spraxium/common';
+import { PingCommand } from './commands/ping.command';
+import { PingHandler } from './handlers/ping-command.handler';
+
+@Module({
+  commands: [PingCommand],
+  handlers: [PingHandler],
+})
+export class FunModule {}
+```
+
+El módulo debe importarse desde tu módulo raíz o desde otro módulo en la cadena de imports. Si un handler depende de un servicio, ese servicio debe estar disponible en el scope de providers del módulo o exportarse desde un módulo importado, como cualquier otra clase inyectable. Un módulo típico de prefijos organiza comandos, handlers y guards en carpetas propias dentro del directorio del dominio.
+
+<FolderStructure title="Estructura típica de un módulo con prefijos">
+  <Folder name="src" open>
+    <Folder name="modules" open>
+      <Folder name="fun" open>
+        <Folder name="commands" open>
+          <File name="ping.command.ts" />
+          <File name="roll.command.ts" />
+        </Folder>
+        <Folder name="handlers" open>
+          <File name="ping-command.handler.ts" />
+          <File name="roll-command.handler.ts" />
+        </Folder>
+        <Folder name="guards" open>
+          <File name="cooldown.guard.ts" />
+        </Folder>
+        <File name="fun.module.ts" />
+      </Folder>
+    </Folder>
+  </Folder>
+</FolderStructure>
+
+Esta estructura mantiene las definiciones de comandos y los handlers en carpetas dedicadas, y el archivo del módulo en la raíz del dominio. A medida que tu bot crece, puedes añadir más archivos de comandos y handlers sin cambiar la estructura de carpetas. El archivo del módulo es el único lugar que declara qué comandos y handlers están activos.
+
+Los comandos con prefijo también se benefician de mantenerse orientados por dominio. Un módulo de moderación debería ser dueño de sus comandos con prefijo de moderación, y un módulo de economía debería ser dueño de sus comandos de economía. Eso mantiene alias, guards, handlers y servicios de soporte cerca del mismo contexto de negocio.
+
+<Callout tone="info" title="Dos clases por comando">
+  Cada comando con prefijo requiere tanto una clase de comando como una clase
+  handler registradas en el mismo módulo. La clase de comando declara la
+  estructura y los metadatos. La clase handler contiene la lógica de ejecución y
+  las dependencias inyectables. Si olvidas registrar cualquiera de las dos, el
+  comando no funcionará en runtime.
+</Callout>
+
+Si planeas soportar comandos con prefijo y slash commands, mantén la lógica de negocio en servicios compartidos y deja que cada superficie de comando actúe como un punto de entrada delgado. Eso evita duplicar el comportamiento real solo porque existan dos estilos de comando.
+
+## Siguiente página
+
+[Comandos y Handlers](/prefix-commands-definition)

@@ -1,0 +1,149 @@
+---
+title: Runtime Behavior
+description: |
+  The prefix subsystem provides exception layouts, dispatcher introspection, and guard integration.
+  Learn how to handle failures gracefully, inspect registered commands, and protect handlers with guards.
+order: 6
+category: Prefix Commands
+keywords:
+  - spraxium prefix commands runtime testing
+  - runtime behavior in spraxium
+  - prefix commands prefix commands runtime testing guide
+  - prefix commands runtime testing discord bot
+  - prefix commands runtime testing typescript
+  - spraxium prefix commands documentation
+  - runtime behavior prefix commands
+  - spraxium runtime behavior
+---
+
+## Failure paths
+
+When a prefix command fails at any stage, the framework produces a specific exception that you can intercept and format. Understanding the failure taxonomy helps you design user-friendly error responses instead of letting raw errors leak into chat. Each failure type maps to a distinct exception class with its own layout hook.
+
+<DropdownGroup>
+  <Dropdown title="CommandNotFoundException (unknown command)">
+    When `replyOnNotFound` is enabled, an unknown command reaches the exception handler with its attempted `command` and matched `prefix` in `exception.props`.
+  </Dropdown>
+  <Dropdown title="ArgumentException (missing or invalid argument)">
+    Thrown when a required argument is absent or when type coercion or
+    validation fails for a provided value. The exception exposes the argument
+    *argument*, the *expected* constraint, the *received* raw input, and the *usage*
+    string from the command definition. Register a layout for
+    *ArgumentException* to display consistent error messages across all
+    commands.
+  </Dropdown>
+  <Dropdown title="GuardDeniedException">
+    A guard that returns `false` produces a `GuardDeniedException`. A guard can also throw its own exception and let the configured layout handle the reply.
+  </Dropdown>
+  <Dropdown title="CooldownException">
+    If someone repeats a command before the cooldown expires, the handler is skipped and a `CooldownException` carries the remaining time. Customize its layout to change the reply.
+  </Dropdown>
+</DropdownGroup>
+
+## Exception layouts
+
+An exception layout defines the reply for a type of error. If someone calls a prefix command without a required argument, the parser creates an `ArgumentException` with details in `exception.props`. The layout can read `argument` and `usage` from those props. It returns the reply payload, and Spraxium sends it to Discord.
+
+```typescript filename="spraxium.config.ts"
+import { defineConfig, defineExceptionLayout } from '@spraxium/core';
+
+const InvalidArgumentLayout = defineExceptionLayout((exception) => {
+  const usage = exception.props.usage;
+  return {
+    content: typeof usage === 'string' ? usage : "Check the command arguments and try again.",
+  };
+});
+
+const UnknownPrefixCommandLayout = defineExceptionLayout(() => ({
+  content: "Unknown command. Use !help to see the available commands.",
+}));
+
+export default defineConfig({
+  prefix: { prefix: '!', replyOnNotFound: true },
+  exceptions: {
+    layouts: {
+      ArgumentException: InvalidArgumentLayout,
+      CommandNotFoundException: UnknownPrefixCommandLayout,
+    },
+  },
+});
+```
+
+The `exceptions.layouts` keys match the exception class names. `replyOnNotFound: true` sends unknown commands through the same pipeline. With that flag off, a typo in the command name goes unanswered. If you already have a `spraxium.config.ts`, add the layouts to its `exceptions` block and keep the other bot settings.
+
+
+## Dispatcher introspection
+
+The _PrefixDispatcher_ exposes methods for inspecting the registered command tree at runtime. The _getCommandInfo_ method returns an array of _PrefixCommandInfo_ objects with command names, descriptions, subcommand lists, and argument schemas. This is the foundation for building dynamic help commands.
+
+The dispatcher also exposes _getResolved_ for the fully resolved command-handler bindings, _size_ for the total number of registered entries, _commandCount_ for distinct top-level commands, and _guildPrefixes_ for the guild prefix manager. These introspection methods are useful for admin dashboards, health checks, and debugging tools.
+
+```typescript filename="src/modules/prefix/handlers/help-command.handler.ts"
+import { Ctx, PrefixCommandHandler } from '@spraxium/common';
+import { PrefixDispatcher } from '@spraxium/core';
+import type { Message } from 'discord.js';
+import { HelpCommand } from '../commands/help.command';
+
+@PrefixCommandHandler(HelpCommand)
+export class HelpHandler {
+  constructor(private readonly dispatcher: PrefixDispatcher) {}
+
+  async handle(@Ctx() message: Message): Promise<void> {
+    const commands = this.dispatcher.getCommandInfo();
+    const lines = commands.map((cmd) => {
+      const subs = cmd.subcommands?.map((s) => s.name).join(', ');
+      return subs
+        ? `**${cmd.name}** - subcommands: ${subs}`
+        : `**${cmd.name}**`;
+    });
+    await message.reply(lines.join('\n') || 'No commands registered.');
+  }
+}
+```
+
+## Guards with prefix commands
+
+Prefix commands support the same guard system used by slash commands and listeners. Decorate a handler class with _@UseGuards_ to attach one or more guards that run before the handler executes. If any guard returns `false` or throws, the handler is skipped. Guards are useful for permission checks, role restrictions, and channel-type filtering.
+
+Spraxium creates guards with a zero-argument constructor when it runs them. A guard can read the request from `ExecutionContext` and take fixed options through `withOptions`. If a decision needs a database or another injected dependency, call a provider from the handler before doing the work.
+
+<CodeTabs>
+  <Tab label="Guard" language="typescript">
+```typescript filename="src/modules/moderation/guards/moderator.guard.ts"
+import { Guard, type ExecutionContext, type SpraxiumGuard } from '@spraxium/common';
+
+@Guard()
+export class ModeratorGuard implements SpraxiumGuard {
+  canActivate(context: ExecutionContext): boolean {
+    return context.getMemberPermissions()?.has('ModerateMembers') ?? false;
+  }
+}
+```
+  </Tab>
+  <Tab label="Handler with guard" language="typescript">
+```typescript filename="src/modules/moderation/handlers/ban-command.handler.ts"
+import { Ctx, PrefixArg, PrefixCommandHandler, UseGuards } from '@spraxium/common';
+import type { Message } from 'discord.js';
+import { ModeratorGuard } from '../guards/moderator.guard';
+import { ModCommand } from '../commands/mod.command';
+
+@UseGuards(ModeratorGuard)
+@PrefixCommandHandler(ModCommand, { subcommand: 'ban' })
+export class BanHandler {
+  async handle(
+    @Ctx() message: Message,
+    @PrefixArg('target') targetId: string,
+    @PrefixArg('reason') reason: string | undefined,
+  ): Promise<void> {
+    await message.guild?.members.ban(targetId, { reason: reason ?? 'No reason provided' });
+    await message.reply(`Banned <@${targetId}>.`);
+  }
+}
+
+```
+  </Tab>
+</CodeTabs>
+
+## Next page
+
+[Slash Commands Overview](/slash-commands-overview)

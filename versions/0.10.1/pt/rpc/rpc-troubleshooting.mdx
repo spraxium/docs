@@ -1,0 +1,32 @@
+---
+title: "Encontre o ponto em que uma chamada falha"
+description: "Isole a conexão, a rota web, o acesso ou o trabalho no bot."
+order: 11
+category: "@spraxium/rpc"
+---
+
+Quando uma rota começa a falhar, faça uma chamada pequena do mesmo host que o gateway. A checagem `bot.health` serve porque não precisa carregar um servidor do Discord. Se ela falhar, olhe a mensagem de inicialização do bot e confira a URL, a porta e a credencial. Se ela funcionar, chame o mesmo método e o mesmo ID que a rota web usa.
+
+## Descubra se o pedido passou pelo gateway
+
+Uma conexão recusada geralmente aponta para a porta, o host ou o processo do bot. Entre máquinas, verifique se o proxy encaminha o transporte do cliente e se o certificado é aceito pelo Node. Os dois processos precisam carregar o ambiente. Se o gateway emitir um ID de requisição, use esse ID e a hora aproximada para procurar o pedido nos logs. Ao compartilhar um erro, remova o token, o cabeçalho de autorização e dados do usuário.
+
+Quando o cliente recebe `Unauthenticated`, confira qual credencial ele enviou e qual o bot carregou. `PermissionDenied` indica que a credencial não tem algum dos nomes exigidos pelo método ou que o método continua fechado. Um 403 da rota web pode vir da sessão ou do acesso ao servidor antes de qualquer chamada ao bot. Veja em que camada você obteve o erro.
+
+## Confira o método e o servidor
+
+`InvalidArgument` costuma apontar para um dado fora do schema ou um `guildId` enviado como número ou no nível errado. `NotFound` pede duas checagens. Confirme se o provider e o nome do método foram registrados e se o bot encontra o servidor procurado. Se só falha para alguns servidores num bot sharded, compare logs do processo principal e do shard que deveria receber a chamada.
+
+Se a mensagem pede uma versão de framework compatível, atualize `@spraxium/common`, `@spraxium/core` e `@spraxium/logger` juntos e confira o lockfile da aplicação que inicia o bot. Os pacotes de runtime precisam trazer os hooks usados por `RpcModule`.
+
+## Quando o bot demora a responder
+
+Ao receber `DeadlineExceeded`, meça quanto tempo o handler passa no banco, no Discord e em outras chamadas. Dê ao RPC um prazo dentro do que a rota HTTP aceita. `ResourceExhausted` aponta para tamanho de mensagem, concorrência ou taxa da credencial. Num erro `Unavailable`, veja se o bot ou o shard acabou de reiniciar e se o gateway está pronto.
+
+Para uma leitura, a aplicação pode decidir quando mostrar a indisponibilidade e quando buscar o dado de novo. Para uma escrita, consulte a chave da operação antes de repetir. Assim um timeout seguido de uma tentativa nova não vira duas alterações no Discord. [Handlers e cancelamento](./rpc-handlers)
+
+## Compare o teste de saúde com a rota real
+
+Se `bot.health` responde, tente a rota com o mesmo serviço que o painel usa e um ID de servidor que você controla. Procure o horário ou o ID da requisição nos logs da rota, do gateway e do bot. A rota pode ter rejeitado a sessão antes de falar com o bot. Também acontece de a credencial poder ler o status sem permissão de ler uma guild, ou de o serviço interno falhar ao consultar outra dependência. Confirme onde parou antes de trocar o token ou o código da rota.
+
+Se o erro aparece só com resposta grande, confira os campos que você está devolvendo e os limites nas duas pontas. Se aparece com operação lenta, confira quanto tempo a rota, o cliente e o gateway esperam. Um proxy pode fechar a requisição HTTP antes do fim da chamada do bot. Se era uma escrita, verifique o resultado pelo ID da operação em vez de assumir que nada aconteceu. [Limites e prazos do gateway](./rpc-configuration)

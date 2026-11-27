@@ -1,0 +1,63 @@
+---
+title: "Handlers, datos y respuestas"
+description: "Ponle nombre a una operación del bot y define qué datos espera y devuelve."
+order: 4
+category: "@spraxium/rpc"
+---
+
+Busca el servicio del bot que ya sabe hacer el trabajo. Si necesitas una cifra para el panel, el handler puede consultar ese servicio y devolverla. Los comandos de Discord pueden usar el mismo servicio. Marca el método con `@RpcHandler` y usa un nombre único en esa aplicación. El backend pasará ese nombre a `rpc.call`.
+
+Para trabajo asociado a un servidor de Discord, configura `routing: 'guild'` y pasa `guildId` como texto en la raíz del objeto. Un número de JavaScript puede perder dígitos de un ID de Discord. El gateway usa el ID original para elegir el shard, así que el esquema debe conservarlo. Para trabajo que pertenece a un solo proceso, como el chequeo de salud, puedes usar `singleton`.
+
+## Comprueba lo que entra y lo que sale
+
+El siguiente provider usa Zod. Cualquier esquema con un método síncrono `parse` sirve para revisar la entrada. Con `responseSchema` puedes comprobar también el resultado antes de enviarlo. El ejemplo pide al servicio un objeto con los campos que muestra el panel. El tipo del cliente ayuda a usar el contrato, y la validación del gateway revisa los datos que llegan.
+
+~~~ts
+import { Inject, Injectable } from '@spraxium/common';
+import { Code, RpcError, RpcHandler } from '@spraxium/rpc';
+import { z } from 'zod';
+import { GuildService } from './guild.service.ts';
+
+const input = z.object({ guildId: z.string() }).strict();
+const output = z.object({
+  members: z.number().int().nonnegative(),
+  premium: z.boolean(),
+  shardId: z.number().int().nonnegative(),
+}).strict();
+
+@Injectable()
+export class GuildRpcService {
+  constructor(@Inject(GuildService) private readonly guilds: GuildService) {}
+
+  @RpcHandler('guild.stats', {
+    routing: 'guild',
+    permissions: ['guild:read'],
+    schema: input,
+    responseSchema: output,
+  })
+  stats({ guildId }: z.infer<typeof input>) {
+    const stats = this.guilds.findStats(guildId);
+
+    if (!stats) throw new RpcError('Guild not found.', Code.NotFound);
+
+    return stats;
+  }
+}
+~~~
+
+Registra el provider en el módulo de guilds e importa ese módulo junto a `RpcModule` en el bot. Si hay sharding, el proceso que conoce ese servidor ejecuta el método. [Módulo y servicio del bot de ejemplo](https://github.com/spraxium/rpc/tree/main/examples/bot/src)
+
+## Qué hacer si falla una llamada
+
+Si el bot busca un servidor y no lo encuentra, puede lanzar `RpcError` con `Code.NotFound`. El cliente puede ver el mensaje de ese error. Guarda los detalles privados en el bot. Cuando aparece una excepción imprevista, el gateway devuelve un mensaje genérico y el backend decide qué respuesta HTTP tiene sentido.
+
+El segundo parámetro del handler puede recibir `RpcContext`. Úsalo si necesitas el ID de la llamada, el plazo o una señal para cancelar trabajo. Una operación que Discord ya aceptó puede completarse aunque el cliente deje de esperar. Si el backend puede repetir una escritura, usa una clave para consultar si ese pedido ya se aplicó. [Busca la causa de un fallo](./rpc-troubleshooting)
+
+## Reutiliza el servicio que ya usa el bot
+
+Si un comando ya cierra tickets, deja esa regla en un servicio e inyéctalo en el comando y en el handler de RPC. Asigna un permiso propio a la operación de escritura y conserva el control de acceso del usuario en el backend. Usa un ID de ticket u operación que puedas volver a consultar si se pierde la respuesta. Si el resultado debe conservarse tras un reinicio, guárdalo en la base de datos. El transporte RPC no almacena las operaciones ejecutadas.
+
+Devuelve solo los campos que necesita el backend. Una instancia de Discord.js puede incluir muchos detalles y costar más de serializar que un objeto con las estadísticas. Agrega un esquema de respuesta si otros servicios dependen de esos campos. Si el bot y el backend se despliegan por separado, permite durante un tiempo el formato anterior o crea otro método para los cambios incompatibles.
+
+El segundo parámetro del handler puede tener el tipo `RpcContext` de `@spraxium/rpc`. `identity` describe el servicio verificado, `requestId` enlaza los registros y `deadline` indica el plazo. Pasa `signal` a una consulta que pueda cancelarse. Si Discord ya aceptó un cambio, dejar de esperar la respuesta no deshace el cambio.

@@ -1,0 +1,61 @@
+---
+title: "Receive RPC calls in any Node.js backend"
+description: "Add a standalone RPC listener alongside Express, Fastify, Hono on Node.js or a plain Node service."
+order: 9
+category: "@spraxium/rpc"
+---
+
+If an Express or Fastify API already owns your ticket data, the bot can call a method in that project the same way it calls NestJS. `@spraxium/rpc-server` depends on Node.js, so the HTTP framework can keep serving its existing routes while the RPC gateway uses a separate listener. Start both at boot and close both when the process shuts down.
+
+Install `@spraxium/rpc-server@0.10.1` in the receiving process and `@spraxium/rpc-client@0.10.1` in the caller. Set `BACKEND_RPC_TOKEN` in both environments and use your framework's startup and shutdown hooks to call `start()` and `close()`. Express and plain Node can call them in the function that owns their HTTP server. Fastify can use its lifecycle hooks. Hono can use this gateway with its Node adapter, where the process can own a TCP listener. A serverless deployment that cannot listen on a separate port needs a separate Node service to host the gateway.
+
+~~~ts filename="backend-rpc.ts"
+import { createRpcServer } from '@spraxium/rpc-server';
+
+export type BackendRpc = {
+  'backend.status': { input: null; output: { ready: boolean } };
+};
+
+const server = createRpcServer<BackendRpc>({
+  host: '127.0.0.1',
+  port: 4400,
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+  permissions: ['status:read'],
+});
+
+server.register('backend.status', {
+  permissions: ['status:read'],
+  schema: {
+    parse(input) {
+      if (input !== null) throw new Error('Expected null.');
+      return input;
+    },
+  },
+  handle: () => ({ ready: true }),
+});
+
+await server.start();
+~~~
+
+~~~ts filename="call-backend.ts"
+import { createRpcClient } from '@spraxium/rpc-client';
+import type { BackendRpc } from './backend-rpc.ts';
+
+const rpc = createRpcClient<BackendRpc>({
+  url: 'http://127.0.0.1:4400',
+  token: process.env.BACKEND_RPC_TOKEN ?? '',
+});
+
+try {
+  const status = await rpc.call('backend.status', null);
+  console.log(status.ready);
+} finally {
+  rpc.close();
+}
+~~~
+
+For a real method, replace the sample `null` schema with one that validates your input, then call the same application service your HTTP routes use. Check permissions on every registered method. Keep user authentication in the bot or API handling the original user request, because the RPC token identifies a service. Private networking and TLS protect the token when it has to cross hosts.
+
+## Next
+
+[Call in both directions with NestJS](./rpc-nestjs-two-way)

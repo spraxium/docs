@@ -1,0 +1,230 @@
+---
+title: Generar archivos
+description: |
+  El comando spraxium generate hace scaffolding de archivos alineados con el framework desde 19 schematics.
+  Aprende cómo funcionan la normalización de nombres, la selección de módulo objetivo y el registro automático.
+order: 3
+category: CLI
+---
+
+## Qué hace
+
+_spraxium generate_ crea un archivo fuente nuevo desde un schematic con nombre y lo conecta en el módulo correcto. El comando acepta el nombre del schematic y el nombre del archivo como argumentos; si falta alguno, aparece un selector interactivo. Todos los nombres de clase generados se normalizan a PascalCase y los nombres de archivo a kebab-case, así que no tienes que preocuparte por convenciones de nombres a mano.
+
+```bash filename="terminal"
+spraxium generate [schematic] [name]
+# alias:
+spraxium g [schematic] [name]
+```
+
+Este comando aporta más valor cuando quieres velocidad sin perder consistencia del proyecto. En vez de crear un archivo manualmente, elegir carpeta, añadir decorators y luego recordar registrarlo en un módulo, dejas que el CLI produzca un punto de partida alineado con el framework en un solo paso.
+
+## Cuándo usar generate en lugar de escribir archivos a mano
+
+Usa _spraxium generate_ cuando el archivo que necesitas ya coincide con un patrón conocido del framework: servicios, listeners, handlers, guards, tareas, comandos y scaffolds de módulo. Es especialmente útil al inicio de un proyecto, cuando son frecuentes la deriva de nombres y los registros olvidados.
+
+Seguir escribiendo archivos de forma manual tiene sentido cuando estás construyendo algo intencionalmente personalizado, refactorizando a fondo un módulo existente o creando un tipo de archivo que no encaja con un schematic soportado. El CLI está para eliminar configuración repetitiva, no para reemplazar criterio técnico.
+
+## Cómo funciona la generación
+
+<Steps>
+  <Step title="Resolver schematic">
+    El CLI lee el argumento del schematic o, si falta, muestra una lista
+    interactiva de los 19 schematics disponibles. Se aceptan aliases en
+    cualquier lugar donde se acepte el nombre completo, así que `g sc ping`
+    equivale a `g slash-command ping`.
+  </Step>
+  <Step title="Normalizar el nombre">
+    El nombre proporcionado se divide por guiones y guiones bajos, se normaliza
+    a PascalCase para el nombre de clase y a kebab-case para el nombre de
+    archivo. Un nombre como `auction-bid` se convierte en `AuctionBidService` en
+    la clase y en `auction-bid.service.ts` como archivo.
+  </Step>
+  <Step title="Seleccionar módulo objetivo">
+    Para todos los schematics que viven dentro de un módulo, el CLI escanea
+    `src/modules/` y muestra un prompt con los módulos detectados. Selecciona el
+    que debe contener el archivo nuevo. Solo el schematic *module* omite este
+    paso.
+  </Step>
+  <Step title="Escribir el archivo">
+    El CLI escribe el archivo generado en la subcarpeta correcta dentro del
+    módulo elegido, siguiendo la estructura estándar (`services/`, `tasks/`,
+    `listeners/`, etc.).
+  </Step>
+  <Step title="Registro automático en el módulo">
+    Cuando el schematic lo soporta, el CLI inserta el import y el nombre de la
+    clase en el array correcto dentro del decorator `@Module` del módulo
+    objetivo: `providers`, `listeners`, `controllers` o `imports`.
+  </Step>
+</Steps>
+
+## Todos los schematics
+
+### Estructura core
+
+<DropdownGroup>
+<Dropdown title="module (alias m)">
+  Crea un módulo nuevo en `src/modules/<name>/<name>.module.ts` con un decorator *@Module* básico. No se registra automáticamente dentro de otro módulo. Úsalo como primer paso al añadir un nuevo dominio a la aplicación.
+</Dropdown>
+
+<Dropdown title="service (alias s)">
+  Crea una clase *@Injectable* en `services/<name>.service.ts` dentro del módulo elegido y la agrega a `providers[]`. Úsalo para lógica de negocio, acceso a datos o utilidades reutilizables que necesiten inyección de dependencias.
+</Dropdown>
+
+<Dropdown title="boot-service (alias bs)">
+  Crea un servicio que implementa *OnApplicationBoot* en `services/<name>.service.ts` y lo registra en `providers[]`. El método *onBoot* se ejecuta después de que el contenedor está completamente inicializado. Úsalo para tareas de inicialización que dependen de otros servicios inyectados ya listos.
+</Dropdown>
+</DropdownGroup>
+
+### Manejo de eventos
+
+<DropdownGroup>
+<Dropdown title="listener (alias l)">
+  Crea una clase listener de eventos de Discord en `listeners/<name>.listener.ts` y la agrega a `listeners[]`. La clase generada usa el decorator *@Listener* para vincularse a un evento de cliente de Discord.js. Úsalo para cualquier evento crudo de Discord como `messageCreate` o `guildMemberAdd`.
+</Dropdown>
+
+<Dropdown title="signal-listener (alias sl)">
+  Crea un listener que se suscribe a eventos del servidor Signal en `listeners/<name>.listener.ts` y lo agrega a `listeners[]`. Requiere tener instalado *@spraxium/signal* o *@spraxium/signal-client*. Úsalo cuando el bot deba reaccionar a eventos internos tipados de un bus Signal.
+</Dropdown>
+</DropdownGroup>
+
+### Slash commands
+
+<DropdownGroup>
+<Dropdown title="slash-command (alias sc)">
+  Crea una clase de definición de slash command de nivel superior en `src/modules/<module>/` decorada con *@SlashCommand*. El archivo generado declara nombre del comando, descripción y metadatos de opciones. Combínalo con el schematic *slash-handler* para manejar la interacción.
+</Dropdown>
+
+<Dropdown title="slash-handler (alias sh)">
+  Crea el handler de interacción para un slash command. La clase generada está decorada con *@SlashHandler* y expone un método *execute* que recibe el contexto de la interacción. Combínalo con un archivo *slash-command* que defina la forma del comando.
+</Dropdown>
+</DropdownGroup>
+
+### Prefix commands
+
+<DropdownGroup>
+<Dropdown title="prefix-command (alias pc)">
+  Crea una clase de definición de prefix command decorada con *@PrefixCommand*. Requiere *@spraxium/components* y un prefijo de comando configurado. El archivo generado define trigger del comando, aliases y expectativas de argumentos.
+</Dropdown>
+
+<Dropdown title="prefix-handler (alias ph)">
+  Crea el handler de mensajes para un prefix command decorado con *@PrefixHandler*. El método *execute* recibe el mensaje parseado y los argumentos. Combínalo con el archivo de definición *prefix-command* correspondiente.
+</Dropdown>
+</DropdownGroup>
+
+### HTTP
+
+<DropdownGroup>
+  <Dropdown title="http-controller (alias hc)">
+    Crea una clase de controlador REST decorada con *@Controller* y la agrega al
+    array `controllers[]` del módulo. Requiere tener *@spraxium/http* (en desuso)
+    instalado. La clase generada incluye un método de ruta *@Get* de ejemplo.
+    Úsalo para cualquier endpoint expuesto por el servidor HTTP embebido.
+  </Dropdown>
+</DropdownGroup>
+
+### Componentes
+
+<DropdownGroup>
+<Dropdown title="button (alias btn)">
+  Crea una clase handler de interacción de botón decorada con *@Button* y la agrega a `providers[]`. La clase generada hace match de interacciones por prefijo de custom ID. Úsalo al implementar flujos de UI basados en botones, como confirmaciones o respuestas paginadas.
+</Dropdown>
+
+<Dropdown title="select (alias sel)">
+  Crea un handler de interacción de menú de selección decorado con *@Select* y
+  lo agrega a `providers[]`. Funciona igual que *button* pero hace match de
+  interacciones de select menu. Úsalo para flujos de entrada basados en dropdown.
+</Dropdown>
+
+<Dropdown title="modal (alias md)">
+  Crea un handler de envío de modal decorado con *@Modal* y lo agrega a
+  `providers[]`. La clase generada maneja envíos de formularios modal
+  identificados por custom ID. Úsalo cuando necesites recopilar texto
+  estructurado de usuarios.
+</Dropdown>
+
+<Dropdown title="embed (alias em)">
+  Crea una clase reutilizable de construcción de embeds como servicio inyectable
+  simple en `providers[]`. La clase generada expone un método `build()` que
+  devuelve un `EmbedBuilder`. Úsalo para centralizar la construcción de embeds y
+  mantener los handlers de interacción livianos.
+</Dropdown>
+
+<Dropdown title="v2-component (alias v2)">
+  Crea un handler de componentes Discord V2 para el nuevo modelo de interacción Components V2. La clase generada está decorada con *@V2Component* y se añade a `providers[]`. Úsalo cuando apuntes a la API actualizada de componentes de Discord para mensajes interactivos avanzados.
+</Dropdown>
+</DropdownGroup>
+
+### Seguridad
+
+<DropdownGroup>
+  <Dropdown title="guard (alias gu)">
+    Crea una clase con *@Guard()* que implementa *SpraxiumGuard* y la agrega
+    a `providers[]`. Los guards se ejecutan antes de los handlers de comando o
+    interacción y devuelven un booleano o una promesa resuelta. Úsalo para
+    checks de permisos, validación de roles o enforcement de cooldowns.
+  </Dropdown>
+</DropdownGroup>
+
+### Scheduling
+
+<DropdownGroup>
+<Dropdown title="task (alias t)">
+  Crea una tarea programada genérica decorada con *@Task* y la agrega a `providers[]`. La clase generada es adecuada para encapsular cualquier trabajo de estilo cron. Requiere tener instalado *@spraxium/schedule*.
+</Dropdown>
+
+<Dropdown title="timeout-task (alias tt)">
+  Crea una tarea de una sola ejecución que corre tras un delay configurado,
+  decorada con *@TimeoutTask*, y la agrega a `providers[]`. Úsala para
+  operaciones diferidas que deben ejecutarse una vez, como recordatorios o
+  anuncios programados.
+</Dropdown>
+
+<Dropdown title="interval-task (alias it)">
+  Crea una tarea repetitiva que corre en un intervalo fijo, decorada con *@IntervalTask*, y la agrega a `providers[]`. Úsala para polling, heartbeats o cualquier trabajo periódico en background que deba repetirse durante la vida del proceso.
+</Dropdown>
+</DropdownGroup>
+
+## Validación de nombres
+
+El CLI bloquea patrones de sufijo repetidos para evitar nombres de archivo redundantes. Pasar `invoice-service` al schematic _service_ se rechaza porque ese sufijo ya está implícito por el tipo de schematic. Usa solo `invoice` y el CLI añade automáticamente el sufijo correcto.
+
+Es un detalle pequeño, pero mantiene más limpios los proyectos grandes. Evitas nombres de archivo como _invoice-service.service.ts_ y nombres de clase como _InvoiceServiceService_, que es fácil crear por accidente cuando la generación es totalmente manual.
+
+## Consejos prácticos de selección
+
+Si no estás seguro de qué schematic elegir, céntrate en el rol en runtime del archivo:
+
+1. Lógica de negocio reutilizada por muchos entrypoints: elige *service*.
+2. Un límite de eventos de Discord: elige *listener*.
+3. Definición de slash o prefix command: elige el schematic *command* correspondiente.
+4. Lógica de runtime para una interacción o comando: elige el schematic *handler* correspondiente.
+5. Checks de control de acceso o políticas: elige *guard*.
+6. Ejecución en background con temporizador: elige un schematic de scheduling.
+
+Esta regla práctica suele bastar para elegir el scaffold correcto sin memorizar cada alias.
+
+## Ejemplos prácticos
+
+```bash filename="terminal"
+# create a new domain module
+spraxium g module billing
+
+# create a service inside a module (prompted)
+spraxium g service invoice
+
+# create a slash command and its handler
+spraxium g slash-command ping
+spraxium g slash-handler ping
+
+# create an interval task
+spraxium g interval-task presence-cycle
+```
+
+## Qué no hace generate
+
+La generación te da el archivo, la forma del decorator y el registro en módulo cuando está soportado. No termina la funcionalidad por ti. Aún debes añadir lógica de negocio, completar configuración, conectar dependencias y decidir si la estructura generada encaja con el diseño final del módulo.
+
+## Siguiente página
+
+Continúa con [Ciclo de desarrollo](/guide/cli-dev).

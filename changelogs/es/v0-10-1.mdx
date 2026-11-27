@@ -1,0 +1,19 @@
+---
+title: "Spraxium 0.10.1: RPC en ambos sentidos"
+summary: "El bot puede llamar al backend por RPC. Redis comparte la comprobación de nonces y renueva los bloqueos de las tareas."
+version: "0.10.1"
+date: "2026-11-27"
+tags:
+  - release
+  - rpc
+  - core
+published: false
+---
+
+Desde la 0.10.0 el panel puede pedirle datos de Discord al bot. Ahora el bot también puede pedirle trabajo al backend y usar la respuesta dentro de un comando. Por ejemplo, `/ticket` puede enviar los IDs del servidor y de la persona al backend, esperar a que guarde el ticket y devolver su ID en Discord. El servidor del bot sigue funcionando como antes. Con `@spraxium/rpc-server` puedes recibir esas llamadas en el backend junto a tus rutas HTTP.
+
+El ejemplo de NestJS trae las dos direcciones en el mismo proyecto, con una dirección y una credencial por servidor. El paquete también funciona con otros backends de Node.js. Si tu panel solo necesita llamar al bot, puede seguir con la configuración actual. [Sigue el ejemplo de NestJS](/es/guide/rpc-nestjs-two-way) o [configura un servidor RPC en Node](/es/guide/rpc-node-server).
+
+Signal ahora puede compartir la comprobación de nonces a través de Redis. Varias réplicas del bot pueden consultar el mismo almacén para saber si ya recibieron un webhook. Schedule renueva el bloqueo de Redis mientras una tarea sigue activa y comprueba quién tiene el bloqueo antes de liberarlo. Esto ayuda cuando varias réplicas pueden ejecutar el mismo trabajo largo. Protege las operaciones que no se deben repetir en el propio servicio. [Configuración de Signal](/es/guide/signal-bot-runtime) · [Drivers de Schedule](/es/guide/schedule-drivers-ops).
+
+La CLI trae plantillas de bases de datos actualizadas. Las pruebas crean un proyecto, preparan el esquema y escriben y leen un registro tanto en desarrollo como en el build de producción. Cubren Prisma, Drizzle, TypeORM, MikroORM y Mongoose en las bases de datos que ofrece la CLI.

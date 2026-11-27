@@ -1,0 +1,38 @@
+---
+title: "Configure the RPC gateway"
+description: "Pick an address, set limits and give each caller a credential before exposing the gateway."
+order: 10
+category: "@spraxium/rpc"
+---
+
+## Start with the local defaults
+
+On your machine the gateway listens on 127.0.0.1:4300. The browser keeps calling the dashboard backend. Only a server-side client needs this address. If you need a different host or port, set them with `defineRpc`. A non-loopback listener requires TLS or an explicit trusted TLS-terminating proxy.
+
+## Set a budget for calls
+
+The client and gateway allow 1 MiB per payload and use 10 seconds by default. The gateway allows 100 concurrent calls and 120 requests per credential per 60-second window. If the dashboard promises an answer within five seconds, give the client less than five so the web route still has time to form its response. For bigger results, return pages first. If you increase the byte limit, check the gateway, client and proxy together.
+
+~~~ts filename="spraxium.config.ts"
+import { defineConfig } from '@spraxium/core';
+import { defineRpc } from '@spraxium/rpc';
+
+export default defineConfig({
+  plugins: [defineRpc({
+    token: process.env.SPRAXIUM_RPC_TOKEN ?? '',
+    permissions: ['guild:read'],
+    timeoutMs: 4000,
+    maxConcurrentCalls: 40,
+    rateLimit: { maxRequests: 75, windowMs: 60000 },
+    shutdownGraceMs: 7000,
+  })],
+});
+~~~
+
+## Give the process time to stop
+
+The gateway waits up to five seconds for active work on shutdown by default. Use `shutdownGraceMs` alongside your deployment's shutdown window. Set `enabled: false` if the gateway must stay disabled for a particular environment. `singletonShard` chooses the local child for singleton methods and defaults to zero. Guild calls still go to their owning shard.
+
+## Use an adapter on the caller side
+
+Create one `createRpcClient` instance per service or credential. Pick `protocol: 'grpc'` for gRPC over HTTP/2, or keep Connect and use `httpVersion: '1.1'` if your deployment needs it. Deadlines and cancellation can be set on individual calls. `allowInsecure` belongs only to an explicitly trusted private network. [Credentials and TLS](./rpc-authentication) · [Backend wiring](./rpc-backends)
