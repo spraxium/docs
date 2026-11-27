@@ -1,0 +1,75 @@
+---
+title: "Spraxium 0.2.0 añade componentes dinámicos y guards compartidos"
+summary: "Esta versión incorpora paquetes de logs y webhooks, amplía las interacciones con componentes y corrige problemas de la primera versión pública."
+version: "0.2.0"
+date: "2026-05-05"
+banner: "/code-wallpapers/photo-1577083862054-7324cd025fa6.webp"
+tags:
+  - release
+  - core
+  - components
+  - cli
+  - logger
+  - webhook
+published: true
+---
+
+La primera versión pública nos permitió conocer más casos de gente que estaba creando sus propios bots. En la 0.2.0, buena parte del trabajo se centró en cómo se conectan los comandos, los componentes y los servicios. Los botones y selects dinámicos pueden llevar datos entre interacciones, los guards cubren más tipos de handler y los logs y webhooks tienen sus propios paquetes.
+
+También corregimos problemas al detener el bot, ejecutar tareas programadas y recuperar datos de componentes. Las aplicaciones de ejemplo se actualizaron junto con los paquetes para mostrar cómo usar los cambios en un proyecto.
+
+## Los datos de componentes se conservan al reiniciar
+
+El adaptador `memory` se eliminó de `context.storage` y `payload.storage` en `defineComponents`. Los datos de esos almacenes pasan a usar `filesystem`, `redis` o `sqlite`. El adaptador de archivos escribe en `.spraxium/contexts.json` y `.spraxium/payloads.json`, por lo que es una opción para un bot de un solo proceso que necesita recuperar datos al reiniciar.
+
+El adaptador anterior perdía todo el estado al detenerse el proceso. Un flujo de botones podía funcionar durante las pruebas y perder su contexto después de un despliegue. Usar almacenamiento persistente desde el principio ayuda a tener en cuenta ese comportamiento, junto con la caducidad y la revocación de los datos.
+
+## Paquetes propios para logs y webhooks
+
+`@spraxium/logger` saca los logs del Core. Admite niveles propios, formatos de fecha y hora, ocultación de tokens y transports que puedes añadir al proyecto. También puede enviar los registros a un webhook de Discord. La salida de consola dejó de depender de chalk, y la validación del entorno pasó a usar el constructor de tablas del logger al iniciar.
+
+`@spraxium/webhook` ofrece dos formas de enviar mensajes. Una clase con `@WebhookSender` puede usar `@Send` para enviar el valor que devuelve un método. Cuando el código necesita elegir el destino o mandar varios mensajes, `WebhookService` ofrece métodos como `send`, `sendEmbed`, `sendMany` y `sendAll`. Los webhooks reciben nombres y se configuran una vez con `defineWebhook`, junto con un nombre de usuario opcional y el manejo de errores.
+
+## Más formas de atender interacciones
+
+Los comandos de menú contextual ahora admiten usuarios y mensajes como destino. Se definen con `@ContextMenuCommand`, se conectan al handler con `@ContextMenuCommandHandler` y usan guards y `@Ctx` como los slash commands. Se registran junto con los comandos de barra al iniciar. Durante el desarrollo, una definición que no ha cambiado puede evitar una nueva petición de registro.
+
+`@Defer` y `@AutoDefer` ayudan con el plazo de tres segundos de Discord. El primero aplaza la respuesta después de que pasen los guards. El segundo espera un intervalo, de dos segundos por defecto, y la aplaza si el handler todavía no respondió. Cuando tenga el resultado, el handler puede seguir llamando a `interaction.reply()`.
+
+Los handlers también tienen decoradores para cada tipo de entrada. Para las opciones de slash commands están `@SlashStringOption`, `@SlashIntegerOption`, `@SlashBooleanOption`, `@SlashUserOption`, `@SlashChannelOption`, `@SlashRoleOption`, `@SlashMentionableOption`, `@SlashAttachmentOption` y `@SlashNumberOption`. `@SlashOpt` sigue funcionando y queda marcado como obsoleto.
+
+Los modales tienen decoradores para texto, selects, grupos de opciones, grupos de casillas, casillas individuales y archivos adjuntos. Además, corregimos un problema que hacía que los valores de radio y checkbox se perdieran antes de llegar al handler. Los ejemplos de comandos y modales ya usan los nuevos decoradores.
+
+## Datos entre botones, selects y pasos de un flujo
+
+Un componente dinámico puede crear su texto y apariencia a partir de los datos que recibe al renderizarse. Con los payloads guardados por el bot, `@ButtonPayload()` y `@SelectPayload()` devuelven esos datos al handler. La duración por defecto es de diez minutos y se puede configurar en el componente. `@PayloadRef()` permite consumir el payload en su primer uso, y `ButtonPayloadService.revokeMany()` invalida varios botones cuando el flujo termina por otro camino.
+
+Los valores pequeños también pueden viajar en el custom ID con `encoding: 'inline'`. El handler los recibe con `@ButtonParams()` o `@SelectParams()`. Sirve para un ID de registro o una marca que puede quedarse en el mensaje. Sigue vigente el límite de 100 caracteres de Discord, y el framework comprueba el tamaño al renderizar el componente.
+
+En un flujo con varios pasos, `ContextService.create()` crea datos compartidos que puedes adjuntar con `rowWithContext()`. El handler los recibe mediante `@FlowContext()` y guarda los cambios con `flow.save()`. El componente puede llevar el contexto junto con un payload o con parámetros inline.
+
+`ButtonService.buildMixedRow()` reúne distintos tipos de botones dinámicos en una fila y devuelve las referencias de los payloads para revocarlos después. Dentro de un contenedor de Components V2, `@V2DynamicRow` divide una lista de elementos en filas automáticamente.
+
+Los guards ahora se ejecutan en botones, selects y modales por el mismo flujo que usa el Core. Esto incluye los guards globales registrados al iniciar. Una comprobación de permisos de un slash command también puede proteger las interacciones que vienen después.
+
+## Inicio y desarrollo
+
+Un archivo en `.spraxium/spraxium.lock` ayuda a evitar que el bot se inicie dos veces desde la misma carpeta. Guarda el ID del proceso, comprueba si un proceso anterior sigue en marcha y elimina los bloqueos que quedaron tras un fallo. Las opciones `--force-unlock` y `--no-lock`, también disponibles como `SPRAXIUM_FORCE_UNLOCK` y `SPRAXIUM_NO_LOCK`, permiten ajustar ese comportamiento cuando hace falta.
+
+<img width="606" height="367" alt="Aviso de Spraxium cuando el proyecto ya tiene un proceso en ejecución" src="https://github.com/user-attachments/assets/510f6e3d-9a9d-4090-b153-f0ed3e1e7669" />
+
+El inicio también consulta en segundo plano si hay actualizaciones de los paquetes Spraxium instalados. El resultado se guarda durante 24 horas y se comparte entre los proyectos de la misma máquina. La variable `SPRAXIUM_NO_UPGRADE_NOTIFIER=1` desactiva esa consulta.
+
+<img width="764" height="407" alt="Aviso de inicio con actualizaciones disponibles para los paquetes Spraxium" src="https://github.com/user-attachments/assets/8abe915a-5fc2-4361-9f69-7ec780a2bf78" />
+
+## Traducciones, tareas programadas y ejemplos
+
+El paquete de i18n incorpora `buildLocalizedButton`, `buildLocalizedSelect`, `buildLocalizedModal`, `buildLocalizedEmbed` y `buildLocalizedV2` para resolver traducciones desde la definición de los componentes. En Schedule, `@RunOnce(date)` programa una tarea para una fecha concreta y la elimina tras ejecutarla. Si la fecha ya pasó cuando arranca el bot, el framework lo avisa en el log.
+
+Hay ejemplos de guards compartidos, componentes traducidos, webhooks y menús contextuales. El ejemplo de slash commands también muestra cómo aplazar respuestas. Revisamos las palabras clave de los paquetes para ayudar a encontrarlos en npm, y Codespaces ahora ejecuta el build al preparar el entorno.
+
+## Correcciones en los paquetes
+
+Al detenerse, el bot espera a que terminen los handlers que siguen en ejecución. Ajustamos el comportamiento de guards y excepciones entre los tipos de handler, incluidos los errores después de aplazar una respuesta. Signal recibió opciones de almacenamiento de nonces y correcciones en la verificación de los mensajes recibidos.
+
+También corregimos la recuperación de entradas de payload dañadas, el comportamiento de respaldo de los almacenes en Redis y archivos, y los cambios de estado de `@RunOnce` durante los reinicios. En el paquete HTTP, el límite de peticiones y el registro de accesos pasaron a formar parte del flujo de peticiones. Las opciones existían en la 0.1.0, pero no se estaban aplicando.

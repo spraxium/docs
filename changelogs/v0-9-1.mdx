@@ -1,6 +1,6 @@
 ---
-title: "Spraxium 0.9.1, The 1.0 Preview Channel"
-summary: "Switch between stable releases, the 1.0 preview, and exact Spraxium versions from your bot's directory."
+title: "Spraxium 0.9.1 adds a preview channel"
+summary: "Try the 1.0 preview, return to a stable release, or install an exact version with the new spraxium use command."
 version: "0.9.1"
 date: "2026-11-24"
 banner: "/next-update-installer.png"
@@ -8,56 +8,27 @@ tags:
   - release
   - cli
   - core
-keywords:
-  - spraxium 0.9.1
-  - spraxium use
-  - spraxium next channel
-  - spraxium 1.0 preview
 published: true
-faq:
-  - question: "Which version does the next channel install?"
-    answer: "The next tag points to the current development build on npm. It launched with 1.0.0-dev.1."
-  - question: "How can I return to a stable Spraxium release?"
-    answer: "Run spraxium use stable from your bot directory to install the release tagged latest on npm."
 ---
 
-Spraxium 0.9.1 adds `spraxium use`, a CLI command for switching framework versions in an existing bot. The `next` channel opens with `1.0.0-dev.1`, the first build from the 1.0 development branch. On npm, `latest` points to the stable 0.9.1 release.
+Spraxium 0.9.1 adds `spraxium use` to change the framework version in an existing bot. Alongside this release, we opened the `next` channel with `1.0.0-dev.1`, the first preview from the 1.0 development branch. You can try that work in a project and return to the stable version afterward.
 
-## Switch versions with the CLI
+## Changing versions from your project
 
-From your bot's directory, check which packages will move and then apply the switch.
+Run the command from the bot's directory. The dry run shows which packages would change, so you can review the switch before installing anything.
 
-```bash filename="terminal"
-pnpm dlx @spraxium/cli@next use next --dry-run
-pnpm dlx @spraxium/cli@next use next
+```sh
+spraxium use next --dry-run
+spraxium use next
+spraxium use stable
 ```
 
-The CLI checks that the target version is on npm for each Spraxium package your bot declares. It pins those packages to the same exact version in `package.json` and updates the lockfile through your project's package manager. If the install fails or resolves to a different version, the CLI restores both files and tries to reinstall the previous dependencies.
+The CLI checks whether npm has the requested version for every Spraxium package declared by the bot. It then pins those packages to the same version and updates the lockfile using your project's package manager. If installation fails or resolves a different version, it restores the previous files and tries to reinstall those dependencies.
 
-Run `use next` again to pick up a newer preview when it ships. For a bug report or a deployment you want to reproduce, pass the exact version, such as `spraxium use 1.0.0-dev.1`. When you're done testing, run `spraxium use stable` to install the release currently tagged `latest`.
+You can also pass an exact version, such as `spraxium use 1.0.0-dev.1`, when you need to reproduce a bug. Running `use next` again installs the preview available at that time, while `use stable` follows npm's `latest` tag. [Version switching guide](/en/guide/cli-use).
 
-## Version notices at startup
+## Knowing which build is running
 
-A bot running the preview prints the installed Core version when it starts.
+The startup output now identifies development builds, including when the bot starts offline. Update notices follow the installed channel, so a stable bot gets stable updates and a preview can report a newer build in the same series. A newer stable release takes priority when one becomes available. The check runs in the background and caches its result for 24 hours.
 
-```text
-Spraxium 1.0.0-dev.1 is a development build (next).
-```
-
-Stable bots get notices for newer stable releases. A bot on the preview can also get a notice for a newer build in the same release series. Once a newer stable release is available, that notice takes priority. The registry check runs in the background and caches results for 24 hours. The installed-build line also appears offline.
-
-## What to try in the first preview
-
-**Signal Client in CommonJS.** If your project already uses `@spraxium/signal-client`, this checks the CommonJS entry point after the switch.
-
-```bash filename="terminal"
-node -e "require('@spraxium/signal-client'); console.log('CommonJS OK')"
-```
-
-**Redis-backed nonces for Signal.** Bots running multiple instances can configure a shared Redis store through `persistNonces` so each instance checks the same set of nonces.
-
-**Schedule after a restart.** The preview includes changes to job discovery and Redis job leases. If your bot relies on scheduled jobs, try its usual startup and restart sequence and include the installed version if you report a problem.
-
-## Next
-
-[Switching Spraxium Versions](/guide/cli-use)
+The first preview includes a CommonJS entry point for Signal Client, shared Redis nonce storage for bots with multiple instances, and changes to scheduled job discovery and Redis leases. If you use those features, try your normal startup and restart routine with the preview and include the installed version in any bug report.

@@ -1,6 +1,6 @@
 ---
-title: "Spraxium 0.10.0 brings RPC to your bot"
-summary: "Call bot methods from your backend, browse versioned docs, and use Spraxium skills with coding agents."
+title: "Spraxium 0.10.0 introduces RPC"
+summary: "RPC changes how backends talk to bots. This release also brings versioned docs, skills for coding agents, and a clearer website."
 version: "0.10.0"
 date: "2026-11-25"
 banner: "/0.10.0.png"
@@ -12,30 +12,30 @@ tags:
 published: true
 ---
 
-A dashboard often needs information that only the bot has, like the server where a ticket was opened or the member count Discord reported. In 0.10.0 a backend can ask a Spraxium bot for that information through a named RPC method. The backend still takes care of its URLs, sessions, and user permissions. The bot keeps its Discord connection and the code that reads or changes something in a guild. Each RPC call carries a service credential and a deadline, and a bot with native sharding can route a guild call through its parent to the child that owns that guild.
+The main addition in 0.10.0 is Spraxium RPC. You can now call a method in your bot from a backend and use the response in a dashboard, script, or another service. This gives projects that run a bot alongside a web app a way to share the bot's features while keeping the Discord connection in one place.
 
-Install `@spraxium/rpc` in the bot and `@spraxium/rpc-client` in the backend. The guides walk through a first call, then build a guild-stats route you can try in NestJS, Express, Hono, Fastify, Koa, or Node. The examples are written in TypeScript, including the CommonJS client. [Make your first RPC call](/en/guide/rpc-quickstart) · [Wire the NestJS module and service](/en/guide/rpc-nestjs)
+The bot uses `@spraxium/rpc` to handle calls, and the backend uses `@spraxium/rpc-client` to make them. Calls have types, authentication, and a time limit. When a bot uses native sharding, Spraxium sends a guild request to the shard responsible for that server. The setup guides cover a first call and integrations with backends such as NestJS and Express. [Get started with RPC](/en/guide/rpc-quickstart).
 
-## Why the framework is moving on from HTTP
+## Why we're moving away from HTTP
 
-The legacy `@spraxium/http` package let a bot provide web routes as well as Discord features. Maintaining the web runtime meant keeping a second copy of routing, middleware, CORS, validation and HTTP error handling up to date. Many projects were already running NestJS, Express or another server for those jobs. Changes in the web layer took time away from the part unique to Spraxium: making a backend request reach the right bot code, including when the bot runs across shards.
+With `@spraxium/http`, we were maintaining a web server inside the bot, including routes, middleware, CORS, validation, and HTTP errors. Many projects already had a backend doing that work. Supporting both meant maintaining similar features in two places and spending time on problems that web frameworks already handle.
 
-`@spraxium/http` is deprecated in 0.10.0. Existing bots can migrate one route at a time. Start with a read, keep its public URL and use the migration checklist to compare the old response with the new path. After the last route moves, remove the old runtime and its configuration. [Migration walkthrough](/en/guide/rpc-http-migration) · [Agent skill for the migration on GitHub](https://github.com/spraxium/rpc/blob/main/SKILL.md)
+RPC lets us focus on the connection between the backend and the bot. Your web framework manages the public API, login, and user permissions, while Spraxium handles calls to bot methods and routes them between shards. It also means you can keep the backend framework your project already uses.
 
-The release also updates discord.js to 14.28.1 and refreshes Hono used by the legacy HTTP package.
+As part of this change, `@spraxium/http` is deprecated. Existing projects can migrate one route at a time and keep the URLs their dashboards already call. We wrote a guide that follows the move from an HTTP route to an RPC call, including the changes on both sides. [Read the migration guide](/en/guide/rpc-http-migration).
 
-## Documentation for the version you run
+## Docs that follow your framework version
 
-The current guides are generated from the latest docs release and the sidebar keeps a copy of 0.9.0 available for bots that haven't upgraded. Switching versions keeps the same topic when it exists in both. Search follows the selected version. The 0.10.0 docs explain how to configure the RPC gateway, how a request reaches a handler, and what to test while moving a real API route. There are also examples of splitting environment validators by feature and a guide to testing a Spraxium preview without losing a known-good install. [Environment structure](/en/guide/env-project-structure) · [Switch versions](/en/guide/cli-use)
+The documentation now has separate guides for each supported version. You can read the instructions for the version installed in your bot, then switch when you're ready to upgrade. The latest docs open by default, and the sidebar keeps the 0.9.0 archive available.
 
-The review also corrected the Node.js prerequisites, the examples for configuring text commands and replying to errors, and the reference for environment validation. The examples for select menus now use the same decorators your bot imports from the current packages.
+We also reviewed the existing guides, updated examples, and removed instructions that no longer matched the framework. Some features needed more explanation, so the RPC tutorials now follow a call from the backend to the bot, and the environment guides show how to organize validators as a project grows. You can follow the setup through the guides even if you're using the feature for the first time.
 
 ## Skills for coding agents
 
-If your agent is adding a slash command, configuring scheduling, or working on a bot feature, you can give it the corresponding `SKILL.md`. The general skill points agents to the official examples and tells them how to match the repo structure and version before changing code. Every card opens its full guide in the catalog and links to a named file. Agents can use a JSON index or the topic resolver to get to the right file. The catalog is built from the docs repository, so a content update reaches the site on the next deploy. [Browse skills](/en/skills) · [Machine-readable index](/skills/index.json)
+There's a new skills catalog for working with Spraxium through coding agents. Each skill gives the agent instructions for a particular task, with examples and links to the relevant docs. The catalog covers project setup, commands, components, guards, scheduling, logging, and other parts of the framework.
+
+You can read a guide on the site and download its file for your agent. The general skill helps it find the right topic, check the installed version, and follow the structure of the official examples. There's also a skill for migrating from HTTP to RPC, so the agent has the steps and context for that change. [Browse the skills](/en/skills).
 
 ## Changes on the website
 
-The homepage has a redesigned package list with install commands and a description for each package, a FAQ, a framework comparison and a chart using a ticket and moderation bot as the scenario. ScrollTrigger handles the homepage entrances and chart reveal, with reduced-motion support. The articles and release notes use simpler reading layouts. Docs keep the navigation and contents at the edges on desktop. On mobile the main menu opens at the top and scrolling the docs sidebar stays inside it. Localized pages also guard against an issue where a page could show raw React data instead of HTML.
-
-On the homepage, the skills demo appears above the package list and cards enter one at a time as you scroll. Switching languages preserves the theme, and you can keep scrolling while the pointer is over the chat. The skills reader wraps long lines and uses one background for the guide and its header. Documentation callouts use dashed borders, with blue for informational notes.
+We redesigned several parts of the site and improved how you move between guides, packages, articles, and release notes. The layout is more consistent, the menus are easier to use, and the docs keep your place in the sidebar when you open another page. Together, these changes make the site feel more organized and help you get back to what you were reading with less interruption.

@@ -1,6 +1,6 @@
 ---
-title: "Spraxium 0.10.0 incorpora RPC al bot"
-summary: "Llama a métodos del bot desde el backend, consulta las guías por versión y usa skills con agentes de código."
+title: "Spraxium 0.10.0 incorpora RPC"
+summary: "RPC cambia la comunicación entre el backend y el bot. También llegan las guías por versión, las skills para agentes de código y mejoras en el sitio."
 version: "0.10.0"
 date: "2026-11-25"
 banner: "/0.10.0.png"
@@ -12,30 +12,30 @@ tags:
 published: true
 ---
 
-Un panel de tickets puede necesitar datos que solo conoce el bot, como el canal donde se abrió un ticket o el número de miembros de un servidor. En la 0.10.0, el backend puede pedirlos con una llamada RPC a un método de Spraxium. El backend gestiona sus rutas, las sesiones y el acceso de cada persona. El bot conserva la conexión con Discord y ejecuta las operaciones que dependen de ella. Cada llamada tiene una credencial de servicio y un plazo. Con el sharding nativo, el proceso principal la envía al hijo que atiende ese servidor.
+La principal novedad de la 0.10.0 es Spraxium RPC. Ahora puedes llamar a un método del bot desde el backend y usar la respuesta en un panel, un script u otro servicio. Esto facilita la integración de los proyectos que tienen un bot y una aplicación web, aprovechando las funciones del bot y manteniendo en él la conexión con Discord.
 
-Instala `@spraxium/rpc` en el bot y `@spraxium/rpc-client` en el backend. Las guías empiezan con una llamada sencilla y después montan una ruta de estadísticas para probar con NestJS, Express, Hono, Fastify, Koa o Node. Los ejemplos están escritos en TypeScript, incluido el cliente CommonJS. [Haz la primera llamada](/es/guide/rpc-quickstart) · [Conecta el módulo y servicio en NestJS](/es/guide/rpc-nestjs)
+El bot recibe las llamadas con `@spraxium/rpc`, y el backend las envía con `@spraxium/rpc-client`. Las llamadas tienen tipos, autenticación y un tiempo límite. Si el bot usa sharding nativo, Spraxium envía la operación al shard que atiende ese servidor. Los tutoriales van desde la primera llamada hasta la integración con backends como NestJS y Express. [Empieza con RPC](/es/guide/rpc-quickstart).
 
-## Por qué dejamos atrás el paquete HTTP
+## Por qué dejamos atrás HTTP
 
-`@spraxium/http` permitía abrir rutas web dentro del bot. Mantener ese servidor implicaba actualizar el enrutamiento, el middleware, CORS, la validación y los errores HTTP. Muchos proyectos ya tenían NestJS, Express u otro framework para esas funciones. Cada ajuste en la capa web era otro cambio que el equipo tenía que revisar. Con RPC, Spraxium puede centrarse en hacer llegar las llamadas al bot, elegir el shard que debe atenderlas y dar a cada operación un plazo claro.
+Con `@spraxium/http` manteníamos un servidor web dentro del bot, con rutas, middleware, CORS, validación y manejo de errores HTTP. Muchos proyectos ya tenían un backend que hacía ese trabajo. Eso nos llevaba a mantener funciones parecidas en dos sitios y a dedicar tiempo a problemas que los frameworks web ya resuelven.
 
-`@spraxium/http` está en desuso desde la 0.10.0. Puedes migrar una ruta a la vez empezando por una lectura y conservar la URL que ya usa el panel. El tutorial muestra cómo comparar las respuestas y probar el camino nuevo antes de quitar el anterior. [Tutorial de migración](/es/guide/rpc-http-migration) · [Skill de migración en GitHub](https://github.com/spraxium/rpc/blob/main/SKILL.md)
+RPC nos permite centrarnos en la comunicación entre el backend y el bot. Tu framework web se ocupa de la API pública, del inicio de sesión y de los permisos de cada usuario, mientras Spraxium recibe las llamadas a los métodos del bot y las envía al shard correspondiente. Además, puedes seguir usando el framework que ya conoces en el backend.
 
-Esta versión también actualiza discord.js a 14.28.1 y renueva Hono en el paquete HTTP anterior.
+Por eso, `@spraxium/http` queda en desuso. Si ya lo tienes en un proyecto, puedes migrar una ruta a la vez y conservar las URL que usa tu panel. Preparamos una guía que recorre ese cambio y muestra lo que hay que ajustar tanto en el bot como en el backend. [Consulta la migración](/es/guide/rpc-http-migration).
 
-## Guías para la versión que tienes instalada
+## Documentación para la versión de tu bot
 
-Las páginas actuales se generan con la versión más reciente de la documentación. Si tu bot sigue en 0.9.0, puedes elegir su copia desde la barra lateral. El selector conserva el tema cuando existe en ambas versiones y la búsqueda consulta el contenido seleccionado. Los tutoriales de la 0.10.0 recorren la llamada RPC desde el backend hasta el bot, muestran el registro del cliente en NestJS y explican cómo separar los validadores de entorno por función. La guía de CLI también pasa por la prueba de una versión preliminar y el regreso a una instalación conocida. [Organización del entorno](/es/guide/env-project-structure) · [Cambiar de versión](/es/guide/cli-use)
+La documentación pasa a tener textos separados para cada versión compatible del framework. Puedes consultar las instrucciones de la versión instalada en tu bot y cambiar de guía cuando decidas actualizar. Las guías más recientes se abren por defecto, y la versión 0.9.0 sigue disponible en la barra lateral.
 
-La revisión también actualizó los requisitos de Node.js, los ejemplos de configuración y respuestas de error para comandos de texto y la referencia de validación del entorno. Los ejemplos de menús de selección ya usan los mismos decoradores que tu bot importa de los paquetes actuales.
+También revisamos las guías, actualizamos los ejemplos y quitamos instrucciones que ya no correspondían al funcionamiento del framework. Algunas partes necesitaban más contexto. Los tutoriales de RPC ahora siguen la llamada desde el backend hasta el bot, y los de entorno muestran cómo organizar los validadores a medida que crece el proyecto. Puedes seguir la implementación a través de la guía, incluso si es la primera vez que usas esa función.
 
 ## Skills para agentes de código
 
-Si un agente va a trabajar en un comando, un modal, un plugin o una integración, puedes darle la skill de ese tema. La skill general le indica cómo comprobar la versión y seguir la estructura de los ejemplos oficiales. Cada tarjeta abre la guía completa dentro del catálogo y ofrece un archivo con el nombre de la skill. Los agentes tienen un índice JSON y una ruta que resuelve el tema al archivo correspondiente. El catálogo se construye con el repositorio de documentación y se actualiza en cada despliegue. [Explora las skills](/es/skills) · [Índice para agentes](/skills/index.json)
+El sitio tiene un nuevo catálogo de skills para trabajar con Spraxium mediante agentes de código. Cada skill reúne instrucciones para una tarea, ejemplos y enlaces a la documentación. Hay guías para crear un proyecto, añadir comandos y componentes, usar guards, configurar tareas programadas, trabajar con logs y otras partes del framework.
+
+Puedes leer la guía en el sitio y descargar el archivo para tu agente. La skill general le ayuda a encontrar el tema adecuado, comprobar la versión instalada y seguir la estructura de los ejemplos oficiales. También hay una skill para migrar de HTTP a RPC, con los pasos y el contexto de ese cambio. [Explora las skills](/es/skills).
 
 ## Cambios en el sitio
 
-La portada tiene una sección de skills, una lista de paquetes con descripciones y comandos de instalación, una FAQ, una tabla de frameworks y un gráfico que sigue el crecimiento de un bot de tickets y moderación. GSAP ScrollTrigger mueve las entradas de la portada y dibuja el gráfico, respetando la preferencia de movimiento reducido. Los artículos y las notas tienen un diseño de lectura más sencillo. En móvil, el menú principal abre arriba y el desplazamiento de la barra lateral queda dentro de la barra. Se corrigió la entrega de las páginas localizadas que podían mostrar datos internos de React en lugar de HTML.
-
-En la portada, la demostración de skills aparece encima de la lista de paquetes y las tarjetas se muestran una por una al desplazarte. Al cambiar de idioma se mantiene el tema, y la página sigue desplazándose cuando el cursor está sobre el chat. El lector lateral ajusta las líneas largas y comparte el fondo con su encabezado. Los avisos de la documentación tienen bordes discontinuos, con fondo azul para los informativos.
+Rediseñamos varias partes del sitio y mejoramos la navegación entre guías, paquetes, artículos y notas de versión. El diseño es más consistente, los menús son más fáciles de usar y la documentación mantiene tu posición en la barra lateral al abrir otra página. Así puedes continuar la lectura con menos interrupciones y moverte por el sitio de forma más fluida y ordenada.
